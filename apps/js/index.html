@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>原生 JS 实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 22px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.8; margin: 0 0 26px; max-width: 760px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-bottom: 22px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card h3 i { font-style: normal; color: #7c9dff; margin-right: 8px; font-family: ui-monospace, monospace; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note code { color: #a8c6ff; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .code {
+    display: block; background: rgba(0,0,0,0.45); border: 1px solid rgba(140,165,255,0.12);
+    border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px; color: #a8c6ff; overflow-x: auto; white-space: pre; margin: 14px 0 0;
+  }
+  .btn {
+    padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(124,157,255,0.14); color: #cfd8ff;
+    border: 1px solid rgba(140,165,255,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(124,157,255,0.26); }
+  .btn.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+  .ctl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  /* 面板 1 · Custom Highlight */
+  .hl-text { font-size: 15px; line-height: 2; color: #cfd8ff; max-width: 720px; }
+  ::highlight(kw) { color: #ffd479; background-color: rgba(255,212,121,0.18); text-decoration: underline wavy rgba(255,212,121,0.55); }
+  ::highlight(pick) { color: #0a1020; background-color: #7c9dff; }
+
+  /* 面板 2 · @property */
+  .pr-row { display: flex; gap: 26px; flex-wrap: wrap; }
+  .pr-card { flex: 1; min-width: 220px; }
+  .pr-box {
+    height: 120px; border-radius: 14px; margin-bottom: 10px;
+    background: conic-gradient(from var(--pa), #4a6bff, #22d3ee, #b98bff, #e879f9, #4a6bff);
+    display: grid; place-content: center; font-size: 12px; color: rgba(255,255,255,0.85);
+  }
+  .pr-card.raw .pr-box { transition: --pa .5s ease; }
+  .pr-card.reg .pr-box { transition: --pa .5s cubic-bezier(.22,1,.36,1); }
+  @property --pa { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  .pr-tag { font-size: 11px; color: #5f6c96; text-align: center; }
+
+  /* 面板 3 · View Transitions */
+  .vt-wrap { position: relative; min-height: 300px; }
+  .vt-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .vt-item {
+    border: 1px solid rgba(140,165,255,0.25); border-radius: 12px; overflow: hidden;
+    cursor: pointer; background: rgba(0,0,0,0.3); transition: transform .2s;
+  }
+  .vt-item:hover { transform: translateY(-3px); }
+  .vt-thumb { height: 90px; }
+  .vt-item p { margin: 8px 10px; font-size: 12px; color: #9fabd4; }
+  .vt-detail {
+    position: absolute; inset: 0; border-radius: 14px; overflow: hidden;
+    background: rgba(14,20,42,0.97); border: 1px solid rgba(140,165,255,0.3);
+    padding: 20px; cursor: pointer;
+  }
+  .vt-detail .vt-thumb { height: 160px; border-radius: 10px; margin-bottom: 14px; }
+  .vt-detail h4 { margin: 0 0 8px; }
+  .vt-detail p { margin: 0; font-size: 12.5px; color: #8b96bd; line-height: 1.8; }
+  .vt-thumb { background: linear-gradient(135deg, var(--tg1), var(--tg2)); view-transition-name: vt-hero; }
+  ::view-transition-old(vt-hero), ::view-transition-new(vt-hero) { animation-duration: .45s; }
+
+  /* 面板 4 · 迷你动画库 */
+  .mini-stage { position: relative; height: 150px; border: 1px dashed rgba(140,165,255,0.3); border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.28); }
+  .mini-box { position: absolute; left: 16px; top: 50px; width: 52px; height: 52px; border-radius: 12px; background: linear-gradient(135deg, #7c9dff, #e879f9); }
+  .mini-log { margin-top: 10px; font-family: ui-monospace, monospace; font-size: 11.5px; color: #22d3ee; min-height: 34px; line-height: 1.6; }
+
+  @media (max-width: 720px) { .wrap { padding: 26px 16px 70px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">VANILLA JS LAB</div>
+    <h1>原生 JS 实验室</h1>
+    <p>四个不需要任何库、但很多人以为要装库的浏览器能力：文本高亮、CSS 变量数值过渡、状态切换动画、60 行的迷你动画库。全部来自《现代CSS》与《Web 动画之旅》里的章节。</p>
+  </header>
+
+  <!-- 1 Custom Highlight -->
+  <div class="card">
+    <h3><i>01</i> CSS Custom Highlight API · 不插一个标签的高亮</h3>
+    <p class="note">传统做法要把关键词包进 <code>&lt;mark&gt;</code>，改一个词就得动 DOM。Highlight API 反过来：用 <code>Range</code> 圈出范围、注册成 <code>Highlight</code>，样式写在 <code>::highlight(name)</code> 里——文字还是原文，DOM 一个节点都不加。点按钮试试圈中不同的范围。</p>
+    <div class="ctl-row">
+      <button class="btn" id="hlA">高亮「渲染管线」</button>
+      <button class="btn" id="hlB">高亮「关键帧」</button>
+      <button class="btn" id="hlC">全部高亮</button>
+      <button class="btn" id="hlClear">清除</button>
+    </div>
+    <p class="hl-text" id="hlText">浏览器的渲染管线把样式计算、布局、绘制分层处理，而 CSS 动画只在合成阶段工作。理解关键帧如何被插入渲染管线，你就明白为什么有些动画流畅、有些会卡：凡是能跳过布局与绘制、只留在合成层的动画，都是浏览器最喜欢的。</p>
+    <span class="code">const range = new Range();
+range.setStart(textEl.firstChild, 5);   // 起点字符
+range.setEnd(textEl.firstChild, 10);   // 终点字符
+
+const hl = new Highlight(range);
+CSS.highlights.set('kw', hl);          // 注册
+
+/* CSS 侧：样式给「命名高亮」，不给元素 */
+::highlight(kw) { background: rgba(255,212,121,.14); }</span>
+  </div>
+
+  <!-- 2 @property -->
+  <div class="card">
+    <h3><i>02</i> @property · 让 CSS 变量从字符串变成数字</h3>
+    <p class="note">点下面任一色块：左边没注册 <code>@property</code>，浏览器把 <code>--pa</code> 当字符串，transition 无法插值，<b>角度瞬跳</b>；右边注册成了 <code>&lt;angle&gt;</code> 类型，同一个 transition 平滑转动。一个声明，决定变量能不能被"动画"。</p>
+    <div class="pr-row">
+      <div class="pr-card raw"><div class="pr-box">未注册 · 瞬跳</div><div class="pr-tag">--pa 只是字符串，transition 摆烂</div></div>
+      <div class="pr-card reg"><div class="pr-box">已注册 · 平滑转</div><div class="pr-tag">syntax: '&lt;angle&gt;'，浏览器会插值</div></div>
+    </div>
+    <span class="code">@property --pa {
+  syntax: '<angle>';      /* 告诉浏览器这是角度 */
+  initial-value: 0deg;
+  inherits: false;
+}
+.box { transition: --pa .5s; }   /* 现在能过渡了 */
+box.style.setProperty('--pa', '180deg');</span>
+  </div>
+
+  <!-- 3 View Transitions -->
+  <div class="card">
+    <h3><i>03</i> View Transitions API · 状态切换自带补间</h3>
+    <p class="note">点任意缩略图进详情，再点详情退回列表——两块区域之间有连续的形变动画，而 JS 只做了一次"换内容"。<code>view-transition-name</code> 相同的两个元素，浏览器自动拍快照、算位差、补间。以前这叫"共享元素动画"，要专门的动画库。</p>
+    <div class="vt-wrap" id="vtWrap">
+      <div class="vt-list" id="vtList">
+        <div class="vt-item" data-n="极光渐变" data-c1="#4a6bff" data-c2="#22d3ee"><div class="vt-thumb" style="--tg1:#4a6bff; --tg2:#22d3ee"></div><p>极光渐变</p></div>
+        <div class="vt-item" data-n="落日橙" data-c1="#ff9a3c" data-c2="#e879f9"><div class="vt-thumb" style="--tg1:#ff9a3c; --tg2:#e879f9"></div><p>落日橙</p></div>
+        <div class="vt-item" data-n="森林青" data-c1="#22d3ee" data-c2="#34d399"><div class="vt-thumb" style="--tg1:#22d3ee; --tg2:#34d399"></div><p>森林青</p></div>
+      </div>
+    </div>
+    <span class="code">function openDetail(item) {
+  document.startViewTransition(() => {
+    // 只管换 DOM，动画浏览器自己补
+    wrap.innerHTML = buildDetail(item);
+  });
+}
+
+/* 新旧两个元素共用同一个名字，就会连续形变 */
+.vt-thumb { view-transition-name: vt-hero; }</span>
+  </div>
+
+  <!-- 4 迷你动画库 -->
+  <div class="card">
+    <h3><i>04</i> 60 行的迷你动画库 · 链式调用</h3>
+    <p class="note">动画库的核心只是一个循环 + 一组缓动函数 + Promise 链。下面这个小库支持 <code>.to(props, opts).to(...).then(...)</code> 链式书写和三种缓动。点按钮看它跑，控制台里能看到序列日志。</p>
+    <div class="ctl-row">
+      <button class="btn" id="miniRun">跑一段序列</button>
+      <button class="btn" id="miniReset">归位</button>
+    </div>
+    <div class="mini-stage"><div class="mini-box" id="miniBox"></div></div>
+    <div class="mini-log" id="miniLog">// 点「跑一段序列」看日志</div>
+    <span class="code">function tween(el, props, { dur = 600, ease = easeOutCubic } = {}) {
+  const from = readStyles(el, props);
+  return new Promise((res) => {
+    const t0 = performance.now();
+    (function frame(now) {
+      const p = Math.min(1, (now - t0) / dur);
+      for (const k in props) {
+        el.style[k] = from[k] + (props[k] - from[k]) * ease(p) + unit(k);
+      }
+      p < 1 ? requestAnimationFrame(frame) : res(el);
+    })(t0);
+  });
+}
+
+/* 用起来就是链 */
+tween(box, { left: 340 })
+  .then(() => tween(box, { top: 10, borderRadius: '50%' }))
+  .then(() => tween(box, { left: 16, top: 50 }));</span>
+  </div>
+
+  <p style="text-align:center; color:#5f6c96; font-size:12px; margin-top:34px; letter-spacing:2px">
+    路小垚 · 原生 JS 实验室 · 独立子应用，通过微前端接入主站
+  </p>
+</div>
+
+<script>
+  /* ---- 回主站 ---- */
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${window.location.origin}/#/portfolio`;
+  });
+
+  /* ---- 1 Custom Highlight ---- */
+  (() => {
+    const textEl = document.getElementById('hlText');
+    const node = textEl.firstChild;
+    let marks = [];
+
+    function find(term) {
+      const i = node.textContent.indexOf(term);
+      if (i < 0) return null;
+      const r = new Range();
+      r.setStart(node, i);
+      r.setEnd(node, i + term.length);
+      return r;
+    }
+
+    function render() {
+      CSS.highlights.delete('kw');
+      CSS.highlights.delete('pick');
+      ['kw', 'pick'].forEach((cls) => {
+        const rs = marks.filter((m) => m.cls === cls).map((m) => m.r);
+        if (rs.length) CSS.highlights.set(cls, new Highlight(...rs));
+      });
+    }
+
+    const add = (term, cls) => {
+      const r = find(term);
+      if (r && !marks.some((m) => m.term === term)) marks.push({ term, cls, r });
+      render();
+    };
+    document.getElementById('hlA').addEventListener('click', () => add('渲染管线', 'kw'));
+    document.getElementById('hlB').addEventListener('click', () => add('关键帧', 'kw'));
+    document.getElementById('hlC').addEventListener('click', () => {
+      ['渲染管线', '关键帧', '合成层'].forEach((t) => add(t, 'pick'));
+    });
+    document.getElementById('hlClear').addEventListener('click', () => { marks = []; render(); });
+  })();
+
+  /* ---- 2 @property ---- */
+  (() => {
+    let deg = 0;
+    document.querySelectorAll('.pr-box').forEach((box) => {
+      box.addEventListener('click', () => {
+        deg += 180;
+        box.style.setProperty('--pa', deg + 'deg');
+      });
+    });
+  })();
+
+  /* ---- 3 View Transitions ---- */
+  (() => {
+    const wrap = document.getElementById('vtWrap');
+    const listHTML = wrap.innerHTML;
+    let showingDetail = false;
+
+    function open(item) {
+      const go = () => {
+        const name = item.dataset.n;
+        wrap.innerHTML = `
+          <div class="vt-detail">
+            <div class="vt-thumb" style="--tg1:${item.dataset.c1}; --tg2:${item.dataset.c2}"></div>
+            <h4>${name}</h4>
+            <p>这块渐变在列表里是 90px 高的缩略图，在详情里变成 160px 的横幅——它们都叫 <code>view-transition-name: vt-hero</code>，所以浏览器自动做了形变。点我退回列表。</p>
+          </div>`;
+        showingDetail = true;
+      };
+      // startViewTransition 返回的 ready promise 在某些环境会 reject，吞掉避免 uncaught
+      if (document.startViewTransition) {
+        try { document.startViewTransition(go).ready.catch(() => {}); } catch { go(); }
+      } else go();
+    }
+    function back() {
+      const go = () => { wrap.innerHTML = listHTML; showingDetail = false; };
+      if (document.startViewTransition) {
+        try { document.startViewTransition(go).ready.catch(() => {}); } catch { go(); }
+      } else go();
+    }
+    wrap.addEventListener('click', (e) => {
+      const item = e.target.closest('.vt-item');
+      if (item) return open(item);
+      if (showingDetail && e.target.closest('.vt-detail')) back();
+    });
+  })();
+
+  /* ---- 4 迷你动画库 ---- */
+  (() => {
+    const box = document.getElementById('miniBox');
+    const log = document.getElementById('miniLog');
+    const lines = [];
+    const say = (s) => {
+      lines.push(s);
+      if (lines.length > 4) lines.shift();
+      log.textContent = lines.join('\n');
+    };
+    const px = (v) => (typeof v === 'number' ? v + 'px' : v);
+    const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
+    const easeInOut = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+    const EASES = { cubic: easeOutCubic, inout: easeInOut, linear: (p) => p };
+
+    function tween(props, { dur = 650, ease = 'cubic' } = {}) {
+      const e = EASES[ease];
+      const from = {};
+      for (const k in props) from[k] = parseFloat(getComputedStyle(box)[k]) || 0;
+      return new Promise((res) => {
+        const t0 = performance.now();
+        (function frame(now) {
+          const p = Math.min(1, (now - t0) / dur);
+          for (const k in props) box.style[k] = px(from[k] + (props[k] - from[k]) * e(p));
+          p < 1 ? requestAnimationFrame(frame) : res();
+        })(t0);
+      });
+    }
+
+    let seq = 0;
+    document.getElementById('miniRun').addEventListener('click', async () => {
+      seq++;
+      say(`▶ 序列 #${seq} 开始`);
+      await tween({ left: 340, borderRadius: 12 }, { ease: 'cubic' });
+      say('① 横移完成 · easeOutCubic');
+      await tween({ top: 12, borderRadius: 26 }, { dur: 500, ease: 'inout' });
+      say('② 上移变圆 · easeInOut');
+      await tween({ left: 16, top: 50, borderRadius: 12 }, { dur: 800, ease: 'cubic' });
+      say('③ 回到起点 · 结束');
+    });
+    document.getElementById('miniReset').addEventListener('click', () => {
+      box.style.cssText = '';
+      say('↩ 手动归位');
+    });
+  })();
+</script>
+</body>
+</html>

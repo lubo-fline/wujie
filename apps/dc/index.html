@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三维机房监控大屏 · 子应用</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden; background: #02040a; color: #cfe3ff;
+    font-family: 'Bahnschrift', 'DIN Alternate', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  #stageWrap {
+    position: fixed; inset: 0; overflow: hidden;
+    background: radial-gradient(1200px 700px at 50% -10%, #0a1830 0%, #03060e 60%, #02040a 100%);
+  }
+  #screen {
+    /* 大屏适配：绝对定位居中 + 等比 scale（1920×1080 设计稿基线） */
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    width: 1920px; height: 1080px; flex: none;
+    display: flex; flex-direction: column;
+    background:
+      radial-gradient(900px 480px at 18% 0%, rgba(42,212,255,.10), transparent 62%),
+      radial-gradient(900px 520px at 86% 6%, rgba(124,157,255,.10), transparent 62%),
+      linear-gradient(180deg, #060c1a 0%, #03060e 100%);
+  }
+  /* 大屏外框细线 + 四角 */
+  #screen::before {
+    content: ''; position: absolute; inset: 10px; pointer-events: none;
+    border: 1px solid rgba(72,140,210,.18);
+  }
+  .corner { position: absolute; width: 18px; height: 18px; border: 2px solid rgba(72,205,255,.75); pointer-events: none; }
+  .corner.tl { left: 10px; top: 10px; border-right: 0; border-bottom: 0; }
+  .corner.tr { right: 10px; top: 10px; border-left: 0; border-bottom: 0; }
+  .corner.bl { left: 10px; bottom: 10px; border-right: 0; border-top: 0; }
+  .corner.br { right: 10px; bottom: 10px; border-left: 0; border-top: 0; }
+
+  /* ---------- 顶栏 ---------- */
+  #top {
+    height: 92px; flex: none; display: flex; align-items: center; gap: 28px;
+    padding: 0 34px; position: relative;
+  }
+  #top::after {
+    content: ''; position: absolute; left: 24px; right: 24px; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(72,205,255,.55) 20%, rgba(72,205,255,.55) 80%, transparent);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 470px; }
+  .brand-mark {
+    width: 38px; height: 38px; flex: none; border: 2px solid #38d6ff; border-radius: 4px;
+    position: relative; box-shadow: 0 0 22px rgba(56,214,255,.45), inset 0 0 18px rgba(56,214,255,.2);
+  }
+  .brand-mark::before, .brand-mark::after {
+    content: ''; position: absolute; background: #38d6ff;
+  }
+  .brand-mark::before { left: 8px; right: 8px; top: 50%; height: 1px; opacity: .7; }
+  .brand-mark::after { top: 8px; bottom: 8px; left: 50%; width: 1px; opacity: .7; }
+  .brand h1 {
+    font-size: 25px; letter-spacing: 3px; color: #eaf7ff; font-weight: 700;
+    text-shadow: 0 0 26px rgba(56,214,255,.35);
+  }
+  .brand p { font-size: 11.5px; letter-spacing: 4px; color: #5d83ad; margin-top: 4px; }
+
+  .kpis { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .kpi {
+    padding: 6px 26px; min-width: 152px; position: relative; text-align: center;
+    border-left: 1px solid rgba(72,140,210,.2);
+  }
+  .kpi:first-child { border-left: 0; }
+  .kpi .k-label { font-size: 11px; letter-spacing: 2px; color: #6a8fb8; }
+  .kpi .k-num {
+    font-size: 27px; font-weight: 700; color: #e6f6ff; line-height: 1.15; margin-top: 2px;
+    text-shadow: 0 0 20px rgba(56,214,255,.4); letter-spacing: 1px;
+  }
+  .kpi .k-num small { font-size: 12px; color: #6a8fb8; margin-left: 3px; font-weight: 400; text-shadow: none; }
+  .kpi.warn .k-num { color: #ffbc5c; text-shadow: 0 0 22px rgba(255,180,84,.55); }
+  .kpi.danger .k-num { color: #ff5f70; text-shadow: 0 0 22px rgba(255,72,92,.6); }
+
+  .clock { text-align: right; min-width: 190px; }
+  #clockTime { font-size: 24px; letter-spacing: 2px; color: #dff2ff; }
+  #clockDate { font-size: 11.5px; letter-spacing: 2px; color: #5d83ad; margin-top: 2px; }
+  .live {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: 2px;
+    color: #58e0a8; margin-top: 4px;
+  }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: #58e0a8; box-shadow: 0 0 10px #58e0a8; animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  /* ---------- 主体三列 ---------- */
+  main {
+    flex: 1; min-height: 0; display: grid; grid-template-columns: 386px 1fr 386px;
+    gap: 14px; padding: 14px 20px 10px;
+  }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .col > .card { flex: 1 1 0; }
+  .col > .card:nth-child(1) { flex-grow: 1.35; }
+  .col > .card:nth-child(2) { flex-grow: 0.9; }
+  .card {
+    position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    padding: 13px 15px 14px; border-radius: 4px;
+    background: linear-gradient(180deg, rgba(14,30,56,.74), rgba(7,15,30,.58));
+    border: 1px solid rgba(76,144,210,.22);
+    box-shadow: inset 0 0 40px rgba(20,70,120,.14);
+  }
+  .card::before, .card::after {
+    content: ''; position: absolute; width: 11px; height: 11px; border: 1px solid rgba(72,205,255,.65);
+  }
+  .card::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+  .card::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+  .card.grow { flex: 1 1 0; }
+  .card-hd {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 10px; margin-bottom: 10px; flex: none;
+    border-bottom: 1px solid rgba(76,144,210,.18);
+  }
+  .card-hd span:first-child {
+    font-size: 14.5px; letter-spacing: 2px; color: #d6ecff; position: relative; padding-left: 11px;
+  }
+  .card-hd span:first-child::before {
+    content: ''; position: absolute; left: 0; top: 3px; bottom: 2px; width: 3px;
+    background: linear-gradient(180deg, #38d6ff, rgba(56,214,255,.1)); border-radius: 2px;
+  }
+  .dim { font-size: 10.5px; letter-spacing: 1.5px; color: #4f7099; }
+
+  /* 区域列表 */
+  .zone {
+    padding: 10px 11px; margin-bottom: 8px; border-radius: 3px; cursor: pointer;
+    border: 1px solid rgba(76,144,210,.16); background: rgba(12,26,48,.4);
+    transition: all .18s;
+  }
+  .zone:hover { border-color: rgba(72,205,255,.45); background: rgba(18,38,68,.6); }
+  .zone.on { border-color: rgba(72,205,255,.8); background: rgba(20,52,86,.72); box-shadow: 0 0 22px rgba(56,214,255,.16) inset; }
+  .zone-hd { display: flex; align-items: center; gap: 8px; }
+  .zone-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .zone-name { font-size: 13px; color: #cbe2fa; letter-spacing: 1px; }
+  .zone-num { font-size: 11px; color: #5d83ad; margin-left: auto; }
+  .zone-alarm { font-size: 11px; color: #ff6a7a; }
+  .bar { height: 4px; margin-top: 9px; border-radius: 2px; background: rgba(90,140,190,.18); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 2px; transition: width .6s ease; }
+  .zone-foot { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #52789f; }
+  .zone-all {
+    text-align: center; font-size: 12px; letter-spacing: 2px; color: #7fa6cd; cursor: pointer;
+    padding: 7px; margin-top: 2px; border: 1px dashed rgba(76,144,210,.3); border-radius: 3px;
+  }
+  .zone-all.on { color: #0a1626; background: linear-gradient(135deg, #38d6ff, #7ca6ff); border-color: transparent; font-weight: 700; }
+
+  /* 环境指标 */
+  .env { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .env-item {
+    border: 1px solid rgba(76,144,210,.16); background: rgba(12,26,48,.4);
+    border-radius: 3px; padding: 9px 10px;
+  }
+  .env-l { font-size: 10.5px; color: #5d83ad; letter-spacing: 1px; }
+  .env-v { font-size: 19px; color: #d8efff; margin-top: 3px; }
+  .env-v small { font-size: 10.5px; color: #6a8fb8; margin-left: 2px; }
+  .env-item.ok .env-v { color: #58e0a8; }
+  .env-item.bad .env-v { color: #ff6a7a; }
+
+  /* 告警分布 */
+  .mix-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 11.5px; }
+  .mix-name { width: 66px; color: #8fb0d4; flex: none; }
+  .mix-bar { flex: 1; height: 7px; background: rgba(90,140,190,.16); border-radius: 2px; overflow: hidden; }
+  .mix-bar i { display: block; height: 100%; }
+  .mix-num { width: 30px; text-align: right; color: #a9c7e6; font-size: 11px; }
+
+  /* ---------- 3D 舞台 ---------- */
+  .stage-col { position: relative; min-height: 0; }
+  #stage {
+    position: absolute; inset: 0; border-radius: 4px; overflow: hidden; cursor: grab;
+    border: 1px solid rgba(76,144,210,.25);
+    background:
+      radial-gradient(70% 60% at 50% 12%, rgba(30,80,140,.35), transparent 70%),
+      linear-gradient(180deg, #071022 0%, #04080f 55%, #02050b 100%);
+    touch-action: none;
+  }
+  #stage:active { cursor: grabbing; }
+  #stage canvas { display: block; }
+  .stage-tip {
+    position: absolute; left: 18px; bottom: 14px; font-size: 11px; letter-spacing: 1px;
+    color: #5d83ad; pointer-events: none;
+  }
+  .hover-card {
+    position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -120%);
+    background: rgba(6,16,32,.94); border: 1px solid rgba(72,205,255,.55); border-radius: 3px;
+    padding: 8px 11px; font-size: 11.5px; line-height: 1.7; color: #cfe6ff; white-space: nowrap;
+    transition: opacity .12s; box-shadow: 0 0 24px rgba(20,120,200,.35); z-index: 5;
+  }
+  .hover-card b { color: #6ee7ff; font-weight: 600; }
+
+  /* ---------- 设备详情 ---------- */
+  #devInfo { display: flex; flex-direction: column; gap: 9px; }
+  .dev-id { font-size: 21px; letter-spacing: 1.5px; color: #eaf8ff; }
+  .dev-sub { font-size: 11px; color: #5d83ad; letter-spacing: 1.5px; margin-top: -4px; }
+  .badge {
+    font-size: 10.5px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 2px;
+    border: 1px solid rgba(110,160,210,.35); color: #7d9dbe;
+  }
+  .badge.ok { color: #58e0a8; border-color: rgba(88,224,168,.5); background: rgba(88,224,168,.08); }
+  .badge.warn { color: #ffbc5c; border-color: rgba(255,188,92,.5); background: rgba(255,188,92,.08); }
+  .badge.danger { color: #ff6a7a; border-color: rgba(255,106,122,.55); background: rgba(255,106,122,.1); }
+  .dev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 2px; }
+  .cell { border: 1px solid rgba(76,144,210,.16); background: rgba(12,26,48,.42); padding: 8px 10px; border-radius: 3px; }
+  .cell .l { font-size: 10px; color: #5d83ad; letter-spacing: 1px; }
+  .cell .v { font-size: 16px; color: #d8efff; margin-top: 2px; }
+  .cell .v small { font-size: 10px; color: #6a8fb8; margin-left: 2px; }
+  .dev-empty { color: #4f7099; font-size: 12px; line-height: 1.9; padding: 26px 2px; text-align: center; }
+  .dev-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; }
+  .btn {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 11.5px; letter-spacing: 1.5px;
+    border-radius: 3px; cursor: pointer; color: #9dc6ea;
+    border: 1px solid rgba(76,144,210,.35); background: rgba(20,44,76,.5); transition: all .18s;
+  }
+  .btn:hover { color: #eaf8ff; border-color: rgba(72,205,255,.7); background: rgba(26,58,96,.7); }
+  .btn.primary { background: linear-gradient(135deg, rgba(56,214,255,.9), rgba(124,166,255,.9)); color: #04101f; border-color: transparent; font-weight: 700; }
+
+  /* 趋势图 */
+  #trend { width: 100%; height: 172px; display: block; }
+  .legend { display: flex; gap: 14px; font-size: 10.5px; color: #5d83ad; margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 2px; margin-right: 5px; vertical-align: middle; }
+
+  /* ---------- 底栏 ---------- */
+  footer {
+    height: 96px; flex: none; display: flex; align-items: stretch; gap: 16px;
+    padding: 0 20px 12px;
+  }
+  .feed-hd {
+    width: 96px; flex: none; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; letter-spacing: 3px; color: #6f9ac2;
+    border: 1px solid rgba(76,144,210,.2); border-radius: 3px; background: rgba(10,22,40,.5);
+  }
+  #feed { flex: 1; display: flex; gap: 10px; overflow: hidden; }
+  .feed-item {
+    flex: 1; min-width: 0; border: 1px solid rgba(76,144,210,.18); border-left: 2px solid #38d6ff;
+    background: rgba(10,22,40,.55); border-radius: 3px; padding: 9px 12px;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    animation: slidein .35s ease;
+  }
+  .feed-item.warn { border-left-color: #ffbc5c; }
+  .feed-item.danger { border-left-color: #ff5f70; }
+  .feed-item.ok { border-left-color: #58e0a8; }
+  .feed-t { font-size: 10px; color: #4f7099; letter-spacing: 1px; display: flex; justify-content: space-between; }
+  .feed-m { font-size: 12px; color: #cfe6ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+  /* 性能/诊断读数 */
+  #perf {
+    position: absolute; left: 34px; bottom: 116px; font-size: 10.5px; letter-spacing: .5px;
+    color: #5f83ab; pointer-events: none; z-index: 6;
+  }
+  #back {
+    position: absolute; right: 30px; bottom: 116px; font-size: 11px; letter-spacing: 1px;
+    color: #6f9ac2; background: rgba(8,18,34,.7); border: 1px solid rgba(76,144,210,.3);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: all .2s;
+  }
+  #back:hover { color: #eaf8ff; border-color: rgba(72,205,255,.7); }
+</style>
+</head>
+<body>
+<div id="stageWrap">
+  <div id="screen">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <header id="top">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div>
+          <h1>杭州 · AIDC 数据中心</h1>
+          <p>动力环境监控 / 三维数字孪生大屏</p>
+        </div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="clock">
+        <div id="clockTime">--:--:--</div>
+        <div id="clockDate">--</div>
+        <div class="live"><i></i>LIVE</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="col">
+        <div class="card">
+          <div class="card-hd"><span>区域视图</span><span class="dim">点击筛选</span></div>
+          <div id="zoneList"></div>
+          <div class="zone-all on" id="zoneAll">全部区域</div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><span>环境监测</span><span class="dim">动环四参</span></div>
+          <div class="env" id="env"></div>
+        </div>
+        <div class="card grow">
+          <div class="card-hd"><span>告警分布</span><span class="dim">按类型</span></div>
+          <div id="alarmMix"></div>
+        </div>
+      </section>
+
+      <section class="stage-col">
+        <div id="stage"></div>
+        <div class="stage-tip">左键拖拽旋转 · 滚轮缩放 · 点击机柜下钻</div>
+        <div class="hover-card" id="hoverCard"></div>
+      </section>
+
+      <section class="col">
+        <div class="card">
+          <div class="card-hd"><span>设备详情</span><span class="badge" id="devState">待选择</span></div>
+          <div id="devInfo" style="flex:1;min-height:0;"></div>
+          <div class="dev-actions">
+            <div class="btn" id="btnReset">全景视角</div>
+            <div class="btn primary" id="btnFocus">定位设备</div>
+          </div>
+        </div>
+        <div class="card grow">
+          <div class="card-hd"><span>近 30 分钟趋势</span><span class="dim" id="trendWho">全屏均值</span></div>
+          <canvas id="trend" width="352" height="172"></canvas>
+          <div class="legend">
+            <span><i style="background:#38d6ff"></i>进风温度 ℃</span>
+            <span><i style="background:#a78bfa"></i>负载 %</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="feed-hd">告警流水</div>
+      <div id="feed"></div>
+    </footer>
+
+    <div id="perf"></div>
+    <button id="back">← 返回主站</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from '../three/vendor/three.module.min.js';
+
+/* ============================================================
+ * 0. 常量与工具
+ * ============================================================ */
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** 确定性随机：刷新后布局与初始状态一致，方便调试 */
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(20261112);
+
+const ZONES = [
+  { id: 'A', name: 'A 区 · 计算', desc: 'GPU 计算集群', color: '#38d6ff', hex: 0x38d6ff, cx: -14.6 },
+  { id: 'B', name: 'B 区 · 存储', desc: '分布式存储', color: '#7ca6ff', hex: 0x7ca6ff, cx: 0 },
+  { id: 'C', name: 'C 区 · 网络动力', desc: '核心网络 / UPS', color: '#ffbc5c', hex: 0xffbc5c, cx: 14.6 },
+];
+
+const COLS = 10;         // 每排机柜数
+const PITCH = 1.2;       // 机柜中心间距
+const ROW_Z = [-3.0, 3.0]; // 两排面对面，中间冷通道
+const CAB_H = 2.2;
+const STATE_COLOR = [0x2fd2ff, 0xffb454, 0xff4d5e]; // 正常 / 警告 / 严重
+
+/* ============================================================
+ * 1. 业务数据表（唯一事实源；三维只是它的渲染层）
+ * ============================================================ */
+const DEVICES = [];
+let seq = 0;
+for (const z of ZONES) {
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const isNet = z.id === 'C' && col >= 6;
+      const isUps = z.id === 'C' && col < 2;
+      const type = isUps ? 'ups' : isNet ? 'network' : z.id === 'B' ? 'storage' : 'server';
+      const load = 35 + rng() * 45;
+      const temp = 21.5 + rng() * 5.5;
+      DEVICES.push({
+        i: seq++,
+        id: `${z.id}-R${row + 1}-${String(col + 1).padStart(2, '0')}`,
+        name: (isUps ? 'UPS-' : isNet ? 'SW-' : type === 'storage' ? 'SAN-' : 'GPU-') +
+              `${z.id}${row + 1}${String(col + 1).padStart(2, '0')}`,
+        zone: z.id, row, col, type,
+        x: z.cx - ((COLS - 1) * PITCH) / 2 + col * PITCH,
+        z: ROW_Z[row],
+        load, temp,
+        power: 2.4 + load * 0.075,
+        ups: 78 + rng() * 20,
+        alarm: 0,
+        hist: [],
+      });
+    }
+  }
+}
+/* 初始埋三处告警，一进页面就有东西看 */
+DEVICES[3].temp = 34.2; DEVICES[3].alarm = 1;
+DEVICES[13].temp = 37.4; DEVICES[13].alarm = 2;
+DEVICES[40].load = 96; DEVICES[40].alarm = 2;
+
+const zoneOf = (id) => ZONES.find((z) => z.id === id);
+
+/* ============================================================
+ * 2. 三维场景
+ * ============================================================ */
+const stageEl = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setSize(stageEl.clientWidth, stageEl.clientHeight, false);
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+stageEl.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x050a16, 62, 150);
+
+const camera = new THREE.PerspectiveCamera(45, stageEl.clientWidth / stageEl.clientHeight, 0.1, 400);
+
+scene.add(new THREE.HemisphereLight(0x9dc4ff, 0x0a1526, 1.15));
+const key = new THREE.DirectionalLight(0xdfefff, 1.35); key.position.set(26, 38, 30); scene.add(key);
+const rim = new THREE.DirectionalLight(0x4f8dff, 0.85); rim.position.set(-32, 18, -26); scene.add(rim);
+
+/* ---------- 相机控制（手写，含缓动） ---------- */
+const cam = {
+  target: new THREE.Vector3(0, 1.1, 0),
+  targetGoal: new THREE.Vector3(0, 1.1, 0),
+  radius: 43, radiusGoal: 43,
+  theta: 0.16, phi: 0.92,
+  dTheta: 0, dPhi: 0,
+  drag: false, lx: 0, ly: 0, moved: 0,
+};
+function applyCamera() {
+  cam.phi = clamp(cam.phi, 0.38, 1.36);
+  camera.position.set(
+    cam.radius * Math.sin(cam.phi) * Math.sin(cam.theta),
+    cam.radius * Math.cos(cam.phi),
+    cam.radius * Math.sin(cam.phi) * Math.cos(cam.theta)
+  );
+  camera.position.add(cam.target);
+  camera.lookAt(cam.target);
+}
+function updateCamera(dt) {
+  cam.theta += cam.dTheta; cam.phi += cam.dPhi;
+  cam.dTheta *= 0.88; cam.dPhi *= 0.88;
+  const k = 1 - Math.pow(0.0025, dt); // 帧率无关的缓动
+  cam.target.lerp(cam.targetGoal, k);
+  cam.radius = lerp(cam.radius, cam.radiusGoal, k);
+  applyCamera();
+}
+applyCamera();
+
+const dom = renderer.domElement;
+dom.addEventListener('pointerdown', (e) => {
+  cam.drag = true; cam.moved = 0; cam.lx = e.clientX; cam.ly = e.clientY;
+  dom.setPointerCapture?.(e.pointerId);
+});
+dom.addEventListener('pointermove', (e) => {
+  if (!cam.drag) { scheduleHover(e).catch(() => {}); return; }
+  const dx = e.clientX - cam.lx, dy = e.clientY - cam.ly;
+  cam.moved += Math.abs(dx) + Math.abs(dy);
+  cam.dTheta -= dx * 0.0045;
+  cam.dPhi -= dy * 0.0045;
+  cam.lx = e.clientX; cam.ly = e.clientY;
+});
+dom.addEventListener('pointerup', (e) => {
+  cam.drag = false;
+  if (cam.moved < 6) pickAt(e);
+});
+dom.addEventListener('pointerleave', () => { cam.drag = false; hideHover(); });
+dom.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.radiusGoal = clamp(cam.radiusGoal * (1 + Math.sign(e.deltaY) * 0.1), 14, 96);
+}, { passive: false });
+
+/* ---------- 地面 / 网格 / 区域地台 ---------- */
+const floorGeo = new THREE.PlaneGeometry(140, 80);
+floorGeo.rotateX(-Math.PI / 2);
+const floor = new THREE.Mesh(
+  floorGeo,
+  new THREE.MeshStandardMaterial({ color: 0x071224, roughness: 0.94, metalness: 0.25 })
+);
+floor.position.y = -0.02;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(120, 60, 0x2c5a8c, 0x132b45);
+grid.material.transparent = true;
+grid.material.opacity = 0.42;
+grid.position.y = 0.005;
+scene.add(grid);
+
+for (const z of ZONES) {
+  const padW = COLS * PITCH + 1.2;
+  const padD = 9.2;
+  const padGeo = new THREE.PlaneGeometry(padW, padD);
+  padGeo.rotateX(-Math.PI / 2);
+  const pad = new THREE.Mesh(
+    padGeo,
+    new THREE.MeshBasicMaterial({ color: z.hex, transparent: true, opacity: 0.055, depthWrite: false })
+  );
+  pad.position.set(z.cx, 0.012, 0);
+  scene.add(pad);
+
+  const edge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(padW, 0.02, padD)),
+    new THREE.LineBasicMaterial({ color: z.hex, transparent: true, opacity: 0.45 })
+  );
+  edge.position.set(z.cx, 0.02, 0);
+  scene.add(edge);
+
+  // 区域立体字（Canvas 贴图 + Sprite，永远朝向相机）
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = z.color;
+  g.font = '600 58px "PingFang SC","Microsoft YaHei",sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = z.color; g.shadowBlur = 26;
+  g.fillText(z.name.replace(' · ', ' '), 256, 62);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.92, depthWrite: false }));
+  sp.scale.set(6.4, 1.6, 1);
+  sp.position.set(z.cx, 3.2, 5.9);
+  scene.add(sp);
+}
+
+/* ---------- 机柜：InstancedMesh + 自定义实例属性 ---------- */
+const COUNT = DEVICES.length;
+const glowArr = new Float32Array(COUNT * 3);
+const alarmArr = new Float32Array(COUNT);
+const phaseArr = new Float32Array(COUNT);
+
+const uTime = { value: 0 };
+
+function buildBodyGeo() {
+  const geo = new THREE.BoxGeometry(1.0, CAB_H, 1.6);
+  geo.setAttribute('aGlow', new THREE.InstancedBufferAttribute(glowArr, 3));
+  geo.setAttribute('aAlarm', new THREE.InstancedBufferAttribute(alarmArr, 1));
+  geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArr, 1));
+  return geo;
+}
+function buildBarGeo(z) {
+  const geo = new THREE.PlaneGeometry(0.8, 1.88);
+  geo.translate(0, 0.02, z);
+  geo.setAttribute('aGlow', new THREE.InstancedBufferAttribute(glowArr, 3));
+  geo.setAttribute('aAlarm', new THREE.InstancedBufferAttribute(alarmArr, 1));
+  geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phaseArr, 1));
+  return geo;
+}
+
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x18273c, metalness: 0.62, roughness: 0.42 });
+/* 注入：每实例的发光色 + 告警脉冲（GPU 算，CPU 每帧零上传） */
+bodyMat.onBeforeCompile = (shader) => {
+  shader.uniforms.uTime = uTime;
+  shader.vertexShader = `
+    attribute vec3 aGlow;
+    attribute float aAlarm;
+    attribute float aPhase;
+    varying vec3 vGlow;
+    varying float vAlarm;
+    varying float vPhase;
+  ` + shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+     vGlow = aGlow; vAlarm = aAlarm; vPhase = aPhase;`
+  );
+  shader.fragmentShader = `
+    uniform float uTime;
+    varying vec3 vGlow;
+    varying float vAlarm;
+    varying float vPhase;
+  ` + shader.fragmentShader.replace(
+    '#include <emissivemap_fragment>',
+    `#include <emissivemap_fragment>
+     float sev = vAlarm > 1.5 ? 1.0 : (vAlarm > 0.5 ? 0.6 : 0.0);
+     float pulse = 0.5 + 0.5 * sin(uTime * (sev > 0.9 ? 9.0 : 5.0) + vPhase);
+     totalEmissiveRadiance += vGlow * (0.035 + sev * pulse * 0.42);`
+  );
+};
+
+const barMat = new THREE.ShaderMaterial({
+  uniforms: { uTime },
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide,
+  vertexShader: /* glsl */`
+    attribute vec3 aGlow;
+    attribute float aAlarm;
+    attribute float aPhase;
+    varying vec3 vGlow;
+    varying float vAlarm;
+    varying float vPhase;
+    varying vec2 vUv;
+    void main() {
+      vUv = uv; vGlow = aGlow; vAlarm = aAlarm; vPhase = aPhase;
+      #ifdef USE_INSTANCING
+        mat4 im = instanceMatrix;
+      #else
+        mat4 im = mat4(1.0);
+      #endif
+      gl_Position = projectionMatrix * modelViewMatrix * im * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform float uTime;
+    varying vec3 vGlow;
+    varying float vAlarm;
+    varying float vPhase;
+    varying vec2 vUv;
+    void main() {
+      float edge = smoothstep(0.0, 0.10, vUv.x) * smoothstep(1.0, 0.90, vUv.x)
+                 * smoothstep(0.0, 0.06, vUv.y) * smoothstep(1.0, 0.94, vUv.y);
+      // 机柜门上的横条灯带 + 缓慢流动
+      float slat = 0.30 + 0.70 * smoothstep(0.35, 0.5, fract(vUv.y * 20.0));
+      float flow = 0.78 + 0.22 * sin(vUv.y * 9.0 - uTime * 1.7);
+      vec3 base = vGlow * slat * flow * 0.85;
+
+      float sev = vAlarm > 1.5 ? 1.0 : (vAlarm > 0.5 ? 0.75 : 0.0);
+      float rate = sev > 0.9 ? 9.0 : 5.0;
+      float pulse = 0.5 + 0.5 * sin(uTime * rate + vPhase);
+      vec3 col = base + vGlow * sev * (0.35 + 1.9 * pulse);
+
+      float a = edge * (0.42 + sev * (0.25 + 0.55 * pulse) + 0.22 * slat);
+      gl_FragColor = vec4(col, a);
+    }
+  `,
+});
+
+const bodies = new THREE.InstancedMesh(buildBodyGeo(), bodyMat, COUNT);
+const barsF = new THREE.InstancedMesh(buildBarGeo(0.803), barMat, COUNT);
+const barsB = new THREE.InstancedMesh(buildBarGeo(-0.803), barMat, COUNT);
+for (const m of [bodies, barsF, barsB]) {
+  m.frustumCulled = false;
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(m);
+}
+
+const mat4 = new THREE.Matrix4();
+const tmpColor = new THREE.Color();
+
+/** 数据表 → 实例矩阵。筛选时把非本区实例缩到 0 并移到地下 */
+function writeMatrices() {
+  for (let i = 0; i < COUNT; i++) {
+    const d = DEVICES[i];
+    const visible = state.zone === 'ALL' || d.zone === state.zone;
+    if (visible) mat4.makeTranslation(d.x, CAB_H / 2, d.z);
+    else mat4.compose(
+      new THREE.Vector3(d.x, -40, d.z),
+      new THREE.Quaternion(),
+      new THREE.Vector3(1e-4, 1e-4, 1e-4)
+    );
+    bodies.setMatrixAt(i, mat4);
+    barsF.setMatrixAt(i, mat4);
+    barsB.setMatrixAt(i, mat4);
+  }
+  bodies.instanceMatrix.needsUpdate = true;
+  barsF.instanceMatrix.needsUpdate = true;
+  barsB.instanceMatrix.needsUpdate = true;
+  bodies.computeBoundingSphere?.();
+}
+
+/** 业务状态 → 实例属性（只改颜色与告警等级，不重建结构） */
+function writeState() {
+  for (let i = 0; i < COUNT; i++) {
+    const d = DEVICES[i];
+    const zc = zoneOf(d.zone).hex;
+    tmpColor.setHex(STATE_COLOR[d.alarm] || zc);
+    if (d.alarm === 0) {
+      // 正常态用区色，但压低亮度，告警才跳出来
+      tmpColor.setHex(zc);
+      glowArr[i * 3] = tmpColor.r * 0.55;
+      glowArr[i * 3 + 1] = tmpColor.g * 0.55;
+      glowArr[i * 3 + 2] = tmpColor.b * 0.55;
+    } else {
+      glowArr[i * 3] = tmpColor.r;
+      glowArr[i * 3 + 1] = tmpColor.g;
+      glowArr[i * 3 + 2] = tmpColor.b;
+    }
+    alarmArr[i] = d.alarm;
+    phaseArr[i] = (i * 0.618) % 1 * Math.PI * 2;
+  }
+  bodies.geometry.attributes.aGlow.needsUpdate = true;
+  bodies.geometry.attributes.aAlarm.needsUpdate = true;
+  bodies.geometry.attributes.aPhase.needsUpdate = true;
+  for (const g of [barsF.geometry, barsB.geometry]) {
+    g.attributes.aGlow.needsUpdate = true;
+    g.attributes.aAlarm.needsUpdate = true;
+    g.attributes.aPhase.needsUpdate = true;
+  }
+}
+
+/* ---------- 选中 / 悬停框 ---------- */
+function makeBox(color, op) {
+  const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.12, CAB_H + 0.16, 1.74));
+  const line = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
+  line.visible = false;
+  scene.add(line);
+  return line;
+}
+const selBox = makeBox(0x8ff4ff, 0.95);
+const hoverBox = makeBox(0xffffff, 0.4);
+
+/* ---------- 冷通道气流粒子（顶点着色器漂移，CPU 零上传） ---------- */
+const PN = 420;
+const pPos = new Float32Array(PN * 3);
+const pSeed = new Float32Array(PN);
+const pSpeed = new Float32Array(PN);
+const spanX = 46, spanZ = 7.6;
+for (let i = 0; i < PN; i++) {
+  pPos[i * 3] = (rng() - 0.5) * spanX;
+  pPos[i * 3 + 1] = rng() * 3.2;
+  pPos[i * 3 + 2] = (rng() - 0.5) * spanZ;
+  pSeed[i] = rng() * 6.283;
+  pSpeed[i] = 0.18 + rng() * 0.28;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('aSeed', new THREE.BufferAttribute(pSeed, 1));
+pGeo.setAttribute('aSpeed', new THREE.BufferAttribute(pSpeed, 1));
+const pMat = new THREE.ShaderMaterial({
+  uniforms: { uTime },
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  vertexShader: /* glsl */`
+    attribute float aSeed;
+    attribute float aSpeed;
+    uniform float uTime;
+    varying float vA;
+    void main() {
+      vec3 p = position;
+      p.y = mod(p.y + uTime * aSpeed, 3.4);
+      p.x += sin(uTime * 0.55 + aSeed) * 0.45;
+      p.z += cos(uTime * 0.42 + aSeed * 1.7) * 0.3;
+      vA = 0.35 + 0.65 * (0.5 + 0.5 * sin(uTime * 1.4 + aSeed));
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_PointSize = (3.0 + 3.2 * fract(aSeed)) * (26.0 / -mv.z);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: /* glsl */`
+    varying float vA;
+    void main() {
+      float d = length(gl_PointCoord - vec2(0.5));
+      if (d > 0.5) discard;
+      float a = smoothstep(0.5, 0.0, d) * vA * 0.85;
+      gl_FragColor = vec4(vec3(0.35, 0.82, 1.0), a);
+    }
+  `,
+});
+scene.add(new THREE.Points(pGeo, pMat));
+
+/* ============================================================
+ * 3. 状态与交互
+ * ============================================================ */
+const state = {
+  zone: 'ALL',
+  selected: null,
+  hover: null,
+  feed: [],
+  alarmHistory: [],
+};
+
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let hoverPending = null;
+
+function toNDC(e) {
+  // 大屏用 transform: scale() 缩放，鼠标坐标必须除以 scale 反算回设计稿坐标
+  const k = scale;
+  const r = stageEl.getBoundingClientRect();
+  const x = (e.clientX - r.left) / k;
+  const y = (e.clientY - r.top) / k;
+  return {
+    x: 1 - (y / stageEl.clientHeight) * 2, // 只用于读数展示
+    nx: (x / stageEl.clientWidth) * 2 - 1,
+    ny: -((y / stageEl.clientHeight) * 2 - 1),
+  };
+}
+
+function hitTest(e) {
+  const p = toNDC(e);
+  ndc.set(p.nx, p.ny);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(bodies, false);
+  for (const h of hits) {
+    if (h.point.y < -1) continue;              // 被筛选隐藏到地下的实例
+    const d = DEVICES[h.instanceId];
+    if (!d) continue;
+    if (state.zone !== 'ALL' && d.zone !== state.zone) continue;
+    return { device: d, point: h.point };
+  }
+  return null;
+}
+
+function scheduleHover(e) {
+  hoverPending = e;
+}
+let hoverThrottle = 0;
+
+function applyHover(e) {
+  const hit = hitTest(e);
+  const card = $('#hoverCard');
+  if (!hit) { hideHover(); return; }
+  state.hover = hit.device;
+  hoverBox.visible = true;
+  hoverBox.position.set(hit.device.x, CAB_H / 2, hit.device.z);
+  const r = stageEl.getBoundingClientRect();
+  card.style.opacity = '1';
+  card.style.left = ((e.clientX - r.left) / scale + 12) + 'px';
+  card.style.top = ((e.clientY - r.top) / scale - 10) + 'px';
+  card.innerHTML =
+    `<b>${hit.device.name}</b> · ${hit.device.zone} 区<br>` +
+    `负载 ${hit.device.load.toFixed(0)}% · 进风 ${hit.device.temp.toFixed(1)}℃ · ${hit.device.power.toFixed(1)} kW`;
+  dom.style.cursor = 'pointer';
+}
+function hideHover() {
+  state.hover = null;
+  hoverBox.visible = false;
+  $('#hoverCard').style.opacity = '0';
+  dom.style.cursor = 'grab';
+}
+
+function pickAt(e) {
+  const hit = hitTest(e);
+  if (!hit) { selectDevice(null); return; }
+  selectDevice(hit.device);
+}
+
+function selectDevice(d) {
+  state.selected = d;
+  if (d) {
+    selBox.visible = true;
+    cam.targetGoal.set(d.x, 1.0, d.z);
+    cam.radiusGoal = Math.min(cam.radiusGoal, 26);
+    pushFeed('info', `${d.name} 已下钻`, `${d.zone} 区 · 第 ${d.row + 1} 排 · 第 ${d.col + 1} 列`);
+  } else {
+    selBox.visible = false;
+  }
+  paintDetail();
+}
+
+$('#btnReset').addEventListener('click', () => {
+  cam.targetGoal.set(0, 1.1, 0);
+  cam.radiusGoal = 43;
+  cam.theta = 0.16; cam.phi = 0.92;
+});
+$('#btnFocus').addEventListener('click', () => {
+  if (!state.selected) { pushFeed('info', '未选择设备', '先在三维场景里点一台机柜'); return; }
+  cam.targetGoal.set(state.selected.x, 1.0, state.selected.z);
+  cam.radiusGoal = 18;
+});
+$('#back').addEventListener('click', () => {
+  if (history.length > 1) history.back();
+  else location.href = '../../index.html';
+});
+
+/* ============================================================
+ * 4. 数据刷新（状态与渲染解耦：这里只改数据，再同步属性/UI）
+ * ============================================================ */
+function tickData() {
+  let changed = false;
+  const now = new Date();
+  for (const d of DEVICES) {
+    d.load = clamp(d.load + (rng() - 0.5) * 5.5, 18, 99);
+    // 温度向「基准 24℃ + 负载偏移」回归，偶发升温才会自己退回去，不会越积越多
+    const base = 24 + (d.load - 55) * 0.05;
+    d.temp = clamp(d.temp + (base - d.temp) * 0.07 + (rng() - 0.5) * 0.5, 18.5, 39);
+    d.power = 2.2 + d.load * 0.078;
+    d.ups = clamp(d.ups + (rng() - 0.5) * 0.5, 35, 100);
+
+    let next = 0;
+    if (d.temp > 36.5) next = 2;
+    else if (d.temp > 32) next = 1;
+    if (d.type === 'ups' && d.load > 92) next = 2;
+
+    if (next !== d.alarm) {
+      const prev = d.alarm;
+      d.alarm = next;
+      changed = true;
+      if (next > prev) {
+        pushFeed(next === 2 ? 'danger' : 'warn',
+          next === 2 ? '严重告警' : '温度预警',
+          `${d.name} · 进风 ${d.temp.toFixed(1)}℃ · 负载 ${d.load.toFixed(0)}%`);
+      } else if (next === 0 && prev > 0) {
+        pushFeed('ok', '告警恢复', `${d.name} 恢复正常`);
+      }
+    }
+
+    // 偶发升温，制造"实时"感
+    if (d.alarm === 0 && rng() < 0.012) d.temp = clamp(d.temp + 5.5 + rng() * 3, 0, 39.5);
+
+    // 采样历史（选中设备 & 全屏均值各一份）
+    d.hist.push({ t: d.temp, l: d.load });
+    if (d.hist.length > 60) d.hist.shift();
+  }
+  if (changed) writeState();
+  paintKPI();
+  paintZones();
+  paintEnv();
+  paintMix();
+  paintDetail();
+  drawTrend();
+}
+
+/* ============================================================
+ * 5. UI 绘制
+ * ============================================================ */
+function paintKPI() {
+  const online = DEVICES.length;
+  const alarms = DEVICES.filter((d) => d.alarm > 0);
+  const critical = alarms.filter((d) => d.alarm === 2).length;
+  const avgT = DEVICES.reduce((s, d) => s + d.temp, 0) / DEVICES.length;
+  const power = DEVICES.reduce((s, d) => s + d.power, 0);
+  const kpi = [
+    { label: '在线设备', num: online, unit: '台', cls: '' },
+    { label: '活动告警', num: alarms.length, unit: critical ? `/ ${critical} 严重` : '条', cls: alarms.length ? (critical ? 'danger' : 'warn') : '' },
+    { label: '平均温度', num: avgT.toFixed(1), unit: '℃', cls: avgT > 30 ? 'warn' : '' },
+    { label: '总功率', num: power.toFixed(0), unit: 'kW', cls: '' },
+    { label: 'PUE', num: (1.28 + power / 4200).toFixed(2), unit: '', cls: '' },
+  ];
+  $('#kpis').innerHTML = kpi.map((k) =>
+    `<div class="kpi ${k.cls}"><div class="k-label">${k.label}</div>
+     <div class="k-num">${k.num}<small>${k.unit}</small></div></div>`
+  ).join('');
+}
+
+function paintZones() {
+  const zl = $('#zoneList');
+  zl.innerHTML = ZONES.map((z) => {
+    const list = DEVICES.filter((d) => d.zone === z.id);
+    const load = list.reduce((s, d) => s + d.load, 0) / list.length;
+    const al = list.filter((d) => d.alarm > 0).length;
+    return `<div class="zone ${state.zone === z.id ? 'on' : ''}" data-zone="${z.id}">
+      <div class="zone-hd">
+        <i class="zone-dot" style="background:${z.color};box-shadow:0 0 10px ${z.color}"></i>
+        <span class="zone-name">${z.name}</span>
+        <span class="zone-num">${list.length} 台</span>
+        ${al ? `<span class="zone-alarm">${al} 告警</span>` : ''}
+      </div>
+      <div class="bar"><i style="width:${load.toFixed(0)}%;background:linear-gradient(90deg,${z.color},${z.color}55)"></i></div>
+      <div class="zone-foot"><span>${z.desc}</span><span>负载 ${load.toFixed(0)}%</span></div>
+    </div>`;
+  }).join('');
+  $('#zoneAll').classList.toggle('on', state.zone === 'ALL');
+}
+
+function setZone(id) {
+  state.zone = id;
+  if (id !== 'ALL' && state.selected && state.selected.zone !== id) selectDevice(null);
+  writeMatrices();
+  writeState();
+  paintZones();
+  pushFeed('info', id === 'ALL' ? '已显示全部区域' : `筛选 ${id} 区`,
+    id === 'ALL' ? `${DEVICES.length} 台设备` : `${DEVICES.filter((d) => d.zone === id).length} 台设备`);
+}
+$('#zoneList').addEventListener('click', (e) => {
+  const el = e.target.closest('.zone');
+  if (el) setZone(el.dataset.zone);
+});
+$('#zoneAll').addEventListener('click', () => setZone('ALL'));
+
+function paintEnv() {
+  const avgT = DEVICES.reduce((s, d) => s + d.temp, 0) / DEVICES.length;
+  const hum = 44 + Math.sin(Date.now() / 41000) * 3;
+  const items = [
+    { l: '冷通道温度', v: avgT.toFixed(1), u: '℃', cls: avgT > 30 ? 'bad' : 'ok' },
+    { l: '相对湿度', v: hum.toFixed(0), u: '%', cls: 'ok' },
+    { l: '漏水检测', v: '正常', u: '', cls: 'ok' },
+    { l: '烟雾检测', v: '正常', u: '', cls: 'ok' },
+  ];
+  $('#env').innerHTML = items.map((i) =>
+    `<div class="env-item ${i.cls}"><div class="env-l">${i.l}</div>
+     <div class="env-v">${i.v}<small>${i.u}</small></div></div>`
+  ).join('');
+}
+
+const ALARM_TYPES = [
+  { k: 'server', n: '服务器' },
+  { k: 'storage', n: '存储' },
+  { k: 'network', n: '网络' },
+  { k: 'ups', n: 'UPS' },
+];
+function paintMix() {
+  const alarms = DEVICES.filter((d) => d.alarm > 0);
+  const rows = ALARM_TYPES.map((t) => ({
+    name: t.n,
+    n: alarms.filter((d) => d.type === t.k).length,
+  }));
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  $('#alarmMix').innerHTML = rows.map((r) =>
+    `<div class="mix-row">
+      <span class="mix-name">${r.name}</span>
+      <span class="mix-bar"><i style="width:${(r.n / max) * 100}%;background:linear-gradient(90deg,#ff5f70,#ffbc5c)"></i></span>
+      <span class="mix-num">${r.n}</span>
+    </div>`
+  ).join('');
+}
+
+function paintDetail() {
+  const d = state.selected;
+  const badge = $('#devState');
+  if (!d) {
+    badge.className = 'badge';
+    badge.textContent = '待选择';
+    $('#devInfo').innerHTML = `<div class="dev-empty">点击场景中的任意机柜，查看它的功率、负载、进风温度与告警历史。<br><br>
+      数据来自左侧设备表：<br><b style="color:#7fa6cd">deviceId → 坐标 / 尺寸 / 业务状态</b><br>
+      三维只负责把这张表画出来。</div>`;
+    $('#trendWho').textContent = '全屏均值';
+    return;
+  }
+  const txt = ['正常', '警告', '严重'][d.alarm];
+  badge.className = 'badge ' + ['ok', 'warn', 'danger'][d.alarm];
+  badge.textContent = txt;
+  $('#devInfo').innerHTML = `
+    <div class="dev-id">${d.name}</div>
+    <div class="dev-sub">${d.id} · ${zoneOf(d.zone).name} · 第 ${d.row + 1} 排 ${d.col + 1} 位</div>
+    <div class="dev-grid">
+      <div class="cell"><div class="l">IT 负载</div><div class="v">${d.load.toFixed(0)}<small>%</small></div></div>
+      <div class="cell"><div class="l">功率</div><div class="v">${d.power.toFixed(1)}<small>kW</small></div></div>
+      <div class="cell"><div class="l">进风温度</div><div class="v">${d.temp.toFixed(1)}<small>℃</small></div></div>
+      <div class="cell"><div class="l">UPS 电量</div><div class="v">${d.ups.toFixed(0)}<small>%</small></div></div>
+    </div>`;
+  $('#trendWho').textContent = d.name;
+}
+
+/* ---------- 趋势图（Canvas 2D，无图表库） ---------- */
+const trendCv = $('#trend');
+const tctx = trendCv.getContext('2d');
+const dpr = Math.min(2, window.devicePixelRatio || 1);
+trendCv.width = Math.round(352 * dpr);
+trendCv.height = Math.round(172 * dpr);
+tctx.scale(dpr, dpr);
+
+function seriesFor() {
+  const d = state.selected;
+  if (d && d.hist.length > 1) {
+    return { t: d.hist.map((p) => p.t), l: d.hist.map((p) => p.l) };
+  }
+  const n = 40;
+  const t = [], l = [];
+  for (let i = 0; i < n; i++) {
+    const ph = i / n;
+    t.push(25 + Math.sin(ph * 6.2 + Date.now() / 60000) * 2.2);
+    l.push(58 + Math.sin(ph * 5.1 + Date.now() / 70000) * 9);
+  }
+  return { t, l };
+}
+
+function drawTrend() {
+  const W = 352, H = 172, padL = 26, padR = 8, padT = 10, padB = 18;
+  const w = W - padL - padR, h = H - padT - padB;
+  tctx.clearRect(0, 0, W, H);
+
+  // 网格
+  tctx.strokeStyle = 'rgba(76,144,210,.16)';
+  tctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (h * i) / 4;
+    tctx.beginPath(); tctx.moveTo(padL, y); tctx.lineTo(W - padR, y); tctx.stroke();
+  }
+  tctx.fillStyle = '#4f7099';
+  tctx.font = '9px ui-monospace, monospace';
+  tctx.textAlign = 'right';
+  ['40', '34', '28', '22', '16'].forEach((v, i) => {
+    tctx.fillText(v, padL - 4, padT + (h * i) / 4 + 3);
+  });
+
+  const s = seriesFor();
+  const n = s.t.length;
+  const chart = (arr, min, max, color, fill) => {
+    const pts = arr.map((v, i) => {
+      const x = padL + (w * i) / Math.max(1, n - 1);
+      const y = padT + h * (1 - (v - min) / (max - min));
+      return [x, y];
+    });
+    if (fill) {
+      const g = tctx.createLinearGradient(0, padT, 0, padT + h);
+      g.addColorStop(0, fill);
+      g.addColorStop(1, 'rgba(56,214,255,0)');
+      tctx.beginPath();
+      tctx.moveTo(pts[0][0], padT + h);
+      pts.forEach((p) => tctx.lineTo(p[0], p[1]));
+      tctx.lineTo(pts[n - 1][0], padT + h);
+      tctx.closePath();
+      tctx.fillStyle = g;
+      tctx.fill();
+    }
+    tctx.beginPath();
+    pts.forEach((p, i) => (i ? tctx.lineTo(p[0], p[1]) : tctx.moveTo(p[0], p[1])));
+    tctx.strokeStyle = color;
+    tctx.lineWidth = 1.6;
+    tctx.shadowColor = color;
+    tctx.shadowBlur = 8;
+    tctx.stroke();
+    tctx.shadowBlur = 0;
+    // 末端亮点
+    const last = pts[n - 1];
+    tctx.beginPath();
+    tctx.arc(last[0], last[1], 2.4, 0, Math.PI * 2);
+    tctx.fillStyle = color;
+    tctx.fill();
+  };
+
+  chart(s.t, 16, 40, '#38d6ff', 'rgba(56,214,255,.22)');
+  chart(s.l, 16, 100, '#a78bfa', null);
+
+  // 末端数值
+  tctx.font = '10px ui-monospace, monospace';
+  tctx.textAlign = 'left';
+  tctx.fillStyle = '#38d6ff';
+  tctx.fillText(s.t[n - 1].toFixed(1) + '℃', padL + 2, padT + 10);
+  tctx.fillStyle = '#a78bfa';
+  tctx.fillText(s.l[n - 1].toFixed(0) + '%', padL + 2, padT + 23);
+}
+
+/* ---------- 告警流水 ---------- */
+function pushFeed(level, title, msg) {
+  const d = new Date();
+  const time = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+  state.feed.unshift({ level, title, msg, time });
+  state.feed = state.feed.slice(0, 4);
+  paintFeed();
+}
+function paintFeed() {
+  $('#feed').innerHTML = state.feed.map((f) =>
+    `<div class="feed-item ${f.level}">
+      <div class="feed-t"><span>${f.title}</span><span>${f.time}</span></div>
+      <div class="feed-m">${f.msg}</div>
+    </div>`
+  ).join('');
+}
+
+/* ---------- 时钟 ---------- */
+function paintClock() {
+  const d = new Date();
+  $('#clockTime').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map((v) => String(v).padStart(2, '0')).join(':');
+  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+  $('#clockDate').textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}  星期${week}`;
+}
+
+/* ============================================================
+ * 6. 大屏适配：1920×1080 设计稿等比缩放
+ * ============================================================ */
+let scale = 1;
+function fit() {
+  // 以可见容器（stageWrap）的实际尺寸为准，而不是沙箱 window：
+  // wujie 隐藏 iframe 的 innerWidth 在宿主全屏/改容器时不一定同步
+  const wrap = document.getElementById('stageWrap');
+  const r = (wrap && wrap.getBoundingClientRect().width) ? wrap.getBoundingClientRect() : null;
+  const w = r ? r.width : window.innerWidth;
+  const h = r ? r.height : window.innerHeight;
+  const k = Math.min(w / 1920, h / 1080);
+  scale = k;
+  $('#screen').style.transform = `translate(-50%, -50%) scale(${k})`;
+  // 缩放后 canvas 被 CSS 拉伸，pixelRatio 补回来，避免糊
+  renderer.setPixelRatio(Math.min(2, (window.devicePixelRatio || 1) / Math.max(k, 0.4)));
+}
+window.addEventListener('resize', fit);
+fit();
+// 宿主全屏/容器尺寸变化不一定派发 resize 事件，按容器实测尺寸兜底轮询
+let vpW = 0, vpH = 0;
+setInterval(() => {
+  const r = document.getElementById('stageWrap').getBoundingClientRect();
+  if (Math.round(r.width) !== vpW || Math.round(r.height) !== vpH) {
+    vpW = Math.round(r.width); vpH = Math.round(r.height);
+    fit();
+  }
+}, 300);
+
+/* ============================================================
+ * 7. 主循环
+ * ============================================================ */
+writeMatrices();
+writeState();
+paintKPI(); paintZones(); paintEnv(); paintMix(); paintDetail(); drawTrend(); paintClock();
+pushFeed('info', '系统就绪', `已接入 ${DEVICES.length} 台设备 · ${ZONES.length} 个区域`);
+pushFeed('warn', '温度预警', `${DEVICES[3].name} · 进风 ${DEVICES[3].temp.toFixed(1)}℃`);
+pushFeed('danger', '严重告警', `${DEVICES[13].name} · 进风 ${DEVICES[13].temp.toFixed(1)}℃`);
+
+let last = performance.now();
+let acc = 0;
+let hoverAcc = 0;
+let perfAcc = 0;
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  uTime.value += dt;
+
+  updateCamera(dt);
+
+  // 选中框脉冲
+  if (state.selected) {
+    const s = 1 + Math.sin(uTime.value * 3.2) * 0.012;
+    selBox.position.set(state.selected.x, CAB_H / 2, state.selected.z);
+    selBox.scale.set(s, s, s);
+  }
+  // 悬停：节流到 ~20fps
+  hoverAcc += dt;
+  if (hoverPending && hoverAcc > 0.05) {
+    hoverAcc = 0;
+    const e = hoverPending;
+    hoverPending = null;
+    applyHover(e);
+  }
+
+  acc += dt;
+  if (acc > 1.4) { acc = 0; tickData(); }
+
+  renderer.render(scene, camera);
+
+  // 性能读数：实例数、draw calls、当前缩放与反算坐标（4Hz 刷新足够）
+  perfAcc += dt;
+  if (perfAcc > 0.25) {
+    perfAcc = 0;
+    const info = renderer.info.render;
+    const shown = state.zone === 'ALL' ? COUNT : DEVICES.filter((d) => d.zone === state.zone).length;
+    const mouseTxt = lastMouse ? `反算 (${Math.round(lastMouse.x)}, ${Math.round(lastMouse.y)})` : '反算 --';
+    $('#perf').textContent =
+      `instances ${shown}/${COUNT} · draw calls ${info.calls} · tris ${(info.triangles / 1000).toFixed(1)}k` +
+      ` · scale ${scale.toFixed(2)} · ${mouseTxt}`;
+  }
+}
+requestAnimationFrame(frame);
+
+let lastMouse = null;
+window.addEventListener('pointermove', (e) => {
+  const r = stageEl.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { lastMouse = null; return; }
+  lastMouse = { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+});
+
+/* 每 30 秒补一条系统类流水，避免底栏死板 */
+setInterval(() => {
+  const pool = [
+    ['info', '巡检完成', 'A/B/C 区温湿度巡检无异常'],
+    ['info', '门禁记录', '运维人员刷卡进入 B 区'],
+    ['info', 'UPS 自检', 'C 区 UPS 组自检通过'],
+  ];
+  const p = pool[Math.floor(Math.random() * pool.length)];
+  pushFeed(p[0], p[1], p[2]);
+}, 30000);
+
+setInterval(paintClock, 1000);
+setInterval(paintEnv, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,2357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>组件交互实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 22px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.8; margin: 0 0 26px; max-width: 760px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .tab {
+    padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.16);
+    color: #9fabd4; transition: all .2s;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(140,165,255,0.4); }
+  .tab.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .35s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 22px 24px; margin-bottom: 18px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card h3 i { font-style: normal; color: #7c9dff; margin-right: 8px; font-family: ui-monospace, monospace; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note code { color: #a8c6ff; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  .ctl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ctl-row label { font-size: 12.5px; color: #8b96bd; display: inline-flex; align-items: center; gap: 6px; }
+  .btn {
+    padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(124,157,255,0.14); color: #cfd8ff;
+    border: 1px solid rgba(140,165,255,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(124,157,255,0.26); }
+  .btn.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+  .btn.danger { color: #ff9fb2; border-color: rgba(232,110,140,0.45); background: rgba(232,110,140,0.10); }
+  .btn.danger:hover { background: rgba(232,110,140,0.22); }
+  input[type="text"], .txt-input {
+    padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(140,165,255,0.3);
+    font-size: 13px; color: #e7ecff; background: rgba(255,255,255,0.05); outline: none; min-width: 120px;
+  }
+  input[type="text"]:focus { border-color: #7c9dff; }
+  input[type="text"]::placeholder, .txt-input::placeholder { color: #5f6c96; }
+  input[type="range"] { accent-color: #7c9dff; }
+  .stat { font-size: 12.5px; color: #8b96bd; }
+  .stat b { color: #7c9dff; font-family: ui-monospace, monospace; }
+
+  .codebox { margin-top: 14px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(140,165,255,0.12); background: rgba(0,0,0,0.45); }
+  .codebox summary {
+    cursor: pointer; padding: 9px 14px; font-size: 12px; color: #8b96bd;
+    background: transparent; user-select: none; letter-spacing: 1px;
+  }
+  .codebox summary:hover { color: #cfd8ff; }
+  .codebox[open] summary { border-bottom: 1px solid rgba(140,165,255,0.14); }
+  .code {
+    display: block; background: transparent; border: none;
+    padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px; color: #a8c6ff; overflow-x: auto; white-space: pre; margin: 0;
+  }
+
+  /* ================= DEMO 1 · 防删除水印 ================= */
+  .wm-stage {
+    position: relative; border-radius: 12px; overflow: hidden;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.14); padding: 18px 20px;
+  }
+  .wm-stage p { margin: 0 0 10px; font-size: 13px; line-height: 1.9; color: #9fabd4; max-width: 620px; }
+  .wm-layer { position: absolute; inset: 0; pointer-events: none; }
+  .wm-layer canvas { width: 100%; height: 100%; display: block; }
+
+  /* ================= DEMO 2 · 五种 Observer ================= */
+  .ob-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .ob-grid { grid-template-columns: 1fr; } }
+  .ob-card {
+    border: 1px solid rgba(140,165,255,0.14); border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03);
+  }
+  .ob-card h4 { margin: 0 0 4px; font-size: 13px; color: #cfd8ff; }
+  .ob-card .d { font-size: 11.5px; color: #7c88b8; line-height: 1.7; margin: 0 0 10px; }
+  .ob-scroll {
+    height: 170px; overflow-y: auto; border-radius: 8px;
+    background: rgba(0,0,0,0.32); border: 1px solid rgba(140,165,255,0.12); padding: 10px;
+    display: grid; gap: 8px; align-content: start;
+  }
+  .ob-item {
+    padding: 14px; border-radius: 8px; font-size: 12.5px; color: #9fabd4;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(140,165,255,0.14); transition: all .3s;
+  }
+  .ob-item .ratio { float: right; font-family: ui-monospace, monospace; font-size: 11px; color: #7c88b8; }
+  .ob-item.lit { background: linear-gradient(135deg, rgba(124,157,255,0.22), rgba(185,139,255,0.22)); border-color: rgba(160,190,255,0.6); color: #e7ecff; }
+  .ob-resize {
+    position: relative; min-width: 180px; max-width: 100%; width: 320px;
+    border-radius: 8px; padding: 16px; background: rgba(0,0,0,0.32); border: 1px solid rgba(140,165,255,0.12);
+    overflow: hidden; line-height: 1.7; color: #cfd8ff;
+  }
+  .ob-resize .val { font-family: ui-monospace, monospace; font-size: 11px; color: #7c88b8; margin-top: 8px; }
+  .ob-handle {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 10px; cursor: ew-resize;
+    background: linear-gradient(180deg, rgba(124,157,255,0.55), rgba(185,139,255,0.55)); border-radius: 0 8px 8px 0;
+  }
+  .ob-handle:hover { background: linear-gradient(180deg, rgba(150,180,255,0.9), rgba(205,160,255,0.9)); }
+  .ob-mut-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .ob-mut-list li {
+    font-size: 12px; padding: 6px 10px; border-radius: 7px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(140,165,255,0.14); color: #cfd8ff;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .ob-mut-list li .del { cursor: pointer; color: #ff9fb2; font-size: 12px; border: none; background: none; padding: 0 4px; }
+  .ob-report { font-size: 12px; line-height: 1.8; color: #8b96bd; }
+  .ob-report b { font-family: ui-monospace, monospace; color: #7c9dff; }
+
+  /* ================= DEMO 3 · 手写 Zustand ================= */
+  .zs-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .zs-row { grid-template-columns: 1fr; } }
+  .zs-comp { border: 1px solid rgba(140,165,255,0.14); border-radius: 12px; padding: 16px; background: rgba(255,255,255,0.03); }
+  .zs-comp h4 { margin: 0 0 10px; font-size: 13px; color: #cfd8ff; }
+  .zs-comp .tag { font-size: 10.5px; color: #5f6c96; border: 1px dashed rgba(140,165,255,0.3); border-radius: 999px; padding: 2px 9px; margin-left: 8px; }
+  .zs-count { font-size: 30px; font-weight: 700; color: #7c9dff; font-family: ui-monospace, monospace; margin-bottom: 10px; }
+  .zs-todo { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; max-height: 150px; overflow-y: auto; }
+  .zs-todo li {
+    font-size: 12.5px; padding: 6px 10px; border-radius: 7px; cursor: pointer;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(140,165,255,0.14); color: #cfd8ff;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .zs-todo li.done span { text-decoration: line-through; color: #5f6c96; }
+  .zs-todo li .del { color: #ff9fb2; cursor: pointer; padding: 0 4px; }
+  .zs-log { margin-top: 12px; font-size: 11.5px; color: #7c88b8; font-family: ui-monospace, monospace; line-height: 1.8; }
+
+  /* ================= DEMO 4 · ColorPicker ================= */
+  .cp-row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .cp-left { flex: 1; min-width: 280px; }
+  #cpSV {
+    width: 100%; height: 180px; border-radius: 10px; cursor: crosshair;
+    border: 1px solid rgba(140,165,255,0.2); display: block; touch-action: none;
+  }
+  .cp-hue { width: 100%; margin: 12px 0 4px; }
+  .cp-out { flex: 1; min-width: 240px; display: grid; gap: 8px; align-content: start; }
+  .cp-fmt {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 9px 13px; border-radius: 9px; cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.16); font-size: 12.5px; transition: all .15s;
+  }
+  .cp-fmt:hover { border-color: rgba(160,190,255,0.45); background: rgba(124,157,255,0.12); }
+  .cp-fmt b { color: #7c88b8; font-size: 11px; letter-spacing: 1px; }
+  .cp-fmt code { font-family: ui-monospace, monospace; color: #e7ecff; }
+  .cp-fmt .copied { color: #34d399; font-size: 11px; }
+  .cp-preview {
+    border-radius: 12px; padding: 22px; text-align: center; font-size: 14px; font-weight: 600;
+    border: 1px solid rgba(140,165,255,0.2); transition: background .15s;
+  }
+
+  /* ================= DEMO 5 · onBoarding 引导 ================= */
+  .ob2-stage {
+    position: relative; border-radius: 12px; background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.14);
+    padding: 30px 26px; display: flex; gap: 34px; align-items: center; flex-wrap: wrap; justify-content: center;
+  }
+  .ob2-icon {
+    width: 46px; height: 46px; display: grid; place-content: center; border-radius: 12px;
+    background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-size: 22px; cursor: pointer;
+  }
+  .ob2-switch { position: relative; width: 52px; height: 28px; cursor: pointer; }
+  .ob2-switch input { display: none; }
+  .ob2-switch .track {
+    position: absolute; inset: 0; border-radius: 999px; background: #3a4360; transition: background .2s;
+  }
+  .ob2-switch .track::after {
+    content: ''; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px;
+    border-radius: 50%; background: #e7ecff; transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .ob2-switch input:checked + .track { background: #34b07c; }
+  .ob2-switch input:checked + .track::after { transform: translateX(24px); }
+  .ob2-mask { position: fixed; inset: 0; z-index: 999; }
+  .ob2-mask.hidden { display: none; }
+  .ob2-hole {
+    position: absolute; border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(3, 6, 16, 0.62);
+    border: 2px dashed #7c9dff; transition: all .3s cubic-bezier(.22,1,.36,1);
+  }
+  .ob2-tip {
+    position: absolute; width: 260px; background: #161d33; border: 1px solid rgba(140,165,255,0.28);
+    border-radius: 12px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); transition: all .3s cubic-bezier(.22,1,.36,1);
+  }
+  .ob2-tip h4 { margin: 0 0 6px; font-size: 14px; color: #e7ecff; }
+  .ob2-tip p { margin: 0 0 12px; font-size: 12px; color: #8b96bd; line-height: 1.8; }
+  .ob2-tip .ops { display: flex; gap: 8px; align-items: center; }
+  .ob2-tip .step { margin-left: auto; font-size: 11px; color: #5f6c96; font-family: ui-monospace, monospace; }
+
+  /* ================= DEMO 6 · Web Audio 钢琴 ================= */
+  .piano {
+    position: relative; height: 170px; border-radius: 10px; overflow: hidden;
+    background: #1a2138; border: 1px solid rgba(140,165,255,0.14); padding: 6px 6px 6px; user-select: none;
+  }
+  .piano .whites { display: flex; height: 100%; gap: 3px; }
+  .key-w {
+    flex: 1; position: relative; border-radius: 0 0 7px 7px;
+    background: linear-gradient(#ffffff, #eef1f8); border: 1px solid #c9d2e8; border-top: none;
+    cursor: pointer; transition: background .08s;
+  }
+  .key-w .nm {
+    position: absolute; bottom: 8px; left: 0; right: 0; text-align: center;
+    font-size: 10px; color: #8a93ad; font-family: ui-monospace, monospace; pointer-events: none; line-height: 1.5;
+  }
+  .key-b {
+    position: absolute; top: 0; width: 6.4%; height: 62%; z-index: 2;
+    border-radius: 0 0 5px 5px; transform: translateX(-50%);
+    background: linear-gradient(#3a4360, #171d2e); border: 1px solid #0d1220;
+    cursor: pointer; transition: background .08s;
+  }
+  .key-b .nm {
+    position: absolute; bottom: 6px; left: 0; right: 0; text-align: center;
+    font-size: 9px; color: #7a84a0; font-family: ui-monospace, monospace; pointer-events: none;
+  }
+  .key-w.down { background: linear-gradient(#dfe6ff, #c6d2f5); }
+  .key-b.down { background: linear-gradient(#5b8cff, #3a55c8); }
+
+  /* ================= 分组导航 ================= */
+  .tabs-groups { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .tabs-groups .glabel { font-size: 11px; letter-spacing: 3px; color: #5f6c96; margin-right: 2px; }
+  .tab.group-btn { padding: 8px 22px; font-weight: 600; }
+  #tabs { margin-bottom: 22px; }
+  #tabs .tab { padding: 7px 14px; font-size: 12.5px; }
+  #tabs .tab.hide { display: none; }
+
+  /* ================= DEMO 7 · Message 全局提示 ================= */
+  .msg-queue {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 1200;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none;
+  }
+  .msg-item {
+    pointer-events: auto; display: flex; align-items: center; gap: 9px;
+    padding: 9px 16px; border-radius: 10px; font-size: 13px; color: #e7ecff;
+    background: rgba(22,29,51,0.96); border: 1px solid rgba(140,165,255,0.3);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: msgIn .28s cubic-bezier(.22,1,.36,1) both;
+  }
+  .msg-item.out { animation: msgOut .24s ease forwards; }
+  .msg-ico { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+  .msg-item.success .msg-ico { background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,0.6); }
+  .msg-item.warning .msg-ico { background: #f5b455; box-shadow: 0 0 8px rgba(245,180,85,0.6); }
+  .msg-item.loading .msg-ico {
+    background: transparent; border: 2px solid rgba(124,157,255,0.25);
+    border-top-color: #7c9dff; animation: spin .8s linear infinite;
+  }
+  .msg-x { background: none; border: none; color: #8b96bd; cursor: pointer; font-size: 12px; padding: 0 0 0 2px; }
+  .msg-x:hover { color: #fff; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(-16px) scale(0.95); } to { opacity: 1; transform: none; } }
+  @keyframes msgOut { to { opacity: 0; transform: translateY(-12px) scale(0.95); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ================= DEMO 8 · 智能定位 Popover ================= */
+  .pp-stage {
+    position: relative; height: 250px; border-radius: 12px;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.14);
+  }
+  .pp-anchor { position: absolute; }
+  .pp-pop {
+    position: fixed; z-index: 1100; width: 224px; background: #161d33;
+    border: 1px solid rgba(140,165,255,0.32); border-radius: 12px; padding: 14px 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55); animation: fade .18s ease both;
+  }
+  .pp-pop h4 { margin: 0 0 6px; font-size: 13px; color: #e7ecff; }
+  .pp-pop p { margin: 0; font-size: 12px; color: #8b96bd; line-height: 1.8; }
+  .pp-arrow {
+    position: absolute; width: 12px; height: 12px; background: #161d33;
+    border: 1px solid rgba(140,165,255,0.32); transform: rotate(45deg);
+  }
+  .pp-arrow.t-bottom { bottom: -7px; border-top: none; border-left: none; }
+  .pp-arrow.t-top { top: -7px; border-bottom: none; border-right: none; }
+  .pp-arrow.t-right { right: -7px; border-bottom: none; border-left: none; }
+  .pp-arrow.t-left { left: -7px; border-top: none; border-right: none; }
+
+  /* ================= DEMO 9 · 拖拽上传 Upload ================= */
+  .up-drop {
+    border: 2px dashed rgba(140,165,255,0.35); border-radius: 12px; padding: 30px 20px;
+    text-align: center; cursor: pointer; transition: all .2s; background: rgba(255,255,255,0.02);
+  }
+  .up-drop:hover { border-color: rgba(160,190,255,0.55); }
+  .up-drop.over { border-color: #7c9dff; background: rgba(124,157,255,0.14); }
+  .up-drop .big { font-size: 26px; color: #7c9dff; margin-bottom: 8px; }
+  .up-drop p { margin: 0; font-size: 13px; color: #cfd8ff; }
+  .up-drop .sub { margin-top: 6px; font-size: 11.5px; color: #7c88b8; }
+  .up-file { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+  .up-file li { border: 1px solid rgba(140,165,255,0.14); border-radius: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); }
+  .up-file .row1 { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: #e7ecff; }
+  .up-file .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .up-file .meta { color: #7c88b8; font-size: 11px; font-family: ui-monospace, monospace; flex: none; }
+  .up-bar { height: 5px; border-radius: 99px; background: rgba(255,255,255,0.08); margin-top: 9px; overflow: hidden; }
+  .up-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #7c9dff, #b98bff); transition: width .15s; }
+  .up-file .st { font-size: 11px; color: #8b96bd; margin-top: 6px; }
+  .up-file .st.ok { color: #34d399; }
+  .up-preview { margin-top: 14px; border-radius: 10px; border: 1px solid rgba(140,165,255,0.14); background: rgba(0,0,0,0.4); padding: 12px 14px; }
+  .up-preview h5 { margin: 0 0 8px; font-size: 12px; color: #8b96bd; }
+  .up-preview pre {
+    margin: 0; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11.5px; color: #a8c6ff;
+    white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto;
+  }
+
+  /* ================= DEMO 10 · 弹簧物理 ================= */
+  .sp-stage {
+    position: relative; height: 250px; border-radius: 12px; overflow: hidden;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.14);
+    cursor: grab; touch-action: none;
+  }
+  .sp-stage:active { cursor: grabbing; }
+  .sp-center {
+    position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+    transform: translate(-50%, -50%); border: 1px dashed rgba(140,165,255,0.5);
+    border-radius: 50%; pointer-events: none;
+  }
+  .sp-ball {
+    position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px;
+    border-radius: 50%; background: linear-gradient(135deg, #7c9dff, #b98bff);
+    box-shadow: 0 0 20px rgba(124,157,255,0.55); pointer-events: none; will-change: transform;
+  }
+  .sp-chart-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .sp-chart-row canvas {
+    flex: 1; height: 60px; min-width: 0; display: block; border-radius: 8px;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(140,165,255,0.12);
+  }
+
+  /* ================= DEMO 11 · 拖拽排序 ================= */
+  .ds-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .ds-item {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px;
+    cursor: grab; background: rgba(255,255,255,0.05); border: 1px solid rgba(140,165,255,0.16);
+    font-size: 13px; color: #cfd8ff; user-select: none;
+  }
+  .ds-item .no { font-family: ui-monospace, monospace; font-size: 11px; color: #7c88b8; }
+  .ds-item .grip { color: #5f6c96; letter-spacing: 2px; margin-left: auto; }
+  .ds-item.dragging { opacity: 0.25; }
+  .ds-ph { border: 2px dashed rgba(124,157,255,0.65); border-radius: 10px; background: rgba(124,157,255,0.08); }
+
+  /* ================= DEMO 12 · 懒加载 + 骨架屏 ================= */
+  .lz-scroll {
+    height: 330px; overflow-y: auto; border-radius: 12px;
+    background: rgba(0,0,0,0.32); border: 1px solid rgba(140,165,255,0.12);
+    padding: 12px; display: grid; gap: 12px;
+  }
+  .lz-card { min-height: 84px; border-radius: 12px; padding: 14px 16px; border: 1px solid rgba(140,165,255,0.14); position: relative; overflow: hidden; }
+  .lz-card.skeleton { background: rgba(255,255,255,0.04); }
+  .lz-card.skeleton::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(140,165,255,0.13) 50%, transparent 70%);
+    transform: translateX(-100%); animation: shimmer 1.3s infinite;
+  }
+  .skl-bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.08); margin-bottom: 9px; }
+  .lz-card h4 { margin: 0 0 6px; font-size: 13.5px; color: #e7ecff; }
+  .lz-card p { margin: 0; font-size: 12px; color: #8b96bd; }
+  .lz-card .ms { position: absolute; right: 12px; top: 12px; font-size: 10.5px; color: #7c88b8; font-family: ui-monospace, monospace; }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+
+  /* ================= DEMO 13 · keepalive 页签缓存 ================= */
+  .ka-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .ka-row { grid-template-columns: 1fr; } }
+  .ka-col { border: 1px solid rgba(140,165,255,0.14); border-radius: 12px; padding: 16px; background: rgba(255,255,255,0.03); }
+  .ka-col h4 { margin: 0 0 12px; font-size: 13px; color: #cfd8ff; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ka-col .tag { font-size: 10.5px; color: #5f6c96; border: 1px dashed rgba(140,165,255,0.3); border-radius: 999px; padding: 2px 9px; font-weight: 400; }
+  .ka-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .ka-tab {
+    padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: all .15s;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.16); color: #9fabd4;
+  }
+  .ka-tab:hover { color: #e7ecff; }
+  .ka-tab.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+  .ka-form { display: grid; gap: 12px; align-content: start; font-size: 12.5px; color: #9fabd4; }
+  .ka-form .fr { display: flex; align-items: center; gap: 10px; }
+  .ka-form .fr > span { width: 52px; flex: none; }
+  .ka-remount { margin-top: 10px; font-size: 11.5px; color: #7c88b8; font-family: ui-monospace, monospace; line-height: 1.7; }
+
+  /* ================= DEMO 14 · 迷你流程图 ================= */
+  .fg-stage {
+    position: relative; height: 320px; border-radius: 12px; overflow: hidden;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.14);
+  }
+  .fg-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .fg-stage svg path.hit { pointer-events: stroke; cursor: pointer; }
+  .fg-node {
+    position: absolute; min-width: 84px; padding: 10px 16px; border-radius: 10px;
+    text-align: center; font-size: 12.5px; color: #e7ecff; background: #1a2138;
+    border: 1px solid rgba(140,165,255,0.4); cursor: grab; user-select: none; touch-action: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .fg-node:active { cursor: grabbing; }
+  .fg-node.sel { border-color: #b98bff; box-shadow: 0 0 0 3px rgba(185,139,255,0.25); }
+  .fg-node.start { background: linear-gradient(135deg, rgba(52,176,124,0.4), rgba(52,176,124,0.12)); }
+  .fg-node.end { background: linear-gradient(135deg, rgba(232,110,140,0.4), rgba(232,110,140,0.12)); }
+
+  /* ================= DEMO 15 · 表单校验引擎 ================= */
+  .fm-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .fm-row { grid-template-columns: 1fr; } }
+  .fm-form { border: 1px solid rgba(140,165,255,0.14); border-radius: 12px; padding: 18px; background: rgba(255,255,255,0.03); }
+  .fm-field { display: grid; gap: 5px; margin-bottom: 12px; cursor: text; }
+  .fm-field > span { font-size: 12.5px; color: #9fabd4; }
+  .fm-field .txt-input { width: 100%; }
+  .fm-field .txt-input.invalid { border-color: rgba(232,110,140,0.75); }
+  .fm-err { font-style: normal; font-size: 11.5px; color: #ff9fb2; min-height: 15px; }
+  .fm-field.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+  .fm-side { border: 1px solid rgba(140,165,255,0.14); border-radius: 12px; padding: 18px; background: rgba(255,255,255,0.03); }
+  .fm-side h4 { margin: 0 0 10px; font-size: 13px; color: #cfd8ff; }
+  .fm-summary { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 12px; }
+  .fm-summary li {
+    display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.12);
+  }
+  .fm-summary li b { font-weight: 400; color: #9fabd4; flex: none; }
+  .fm-summary li .ok { color: #34d399; }
+  .fm-summary li .bad { color: #ff9fb2; text-align: right; }
+
+  @media (max-width: 720px) { .wrap { padding: 26px 16px 70px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">WIDGETS LAB</div>
+    <h1>组件交互实验室</h1>
+    <p>十五个常被做成"组件"或"库"的交互机制，用无依赖的原生实现拆开看，按组件 / 交互 / 动效 / 工程四组归位：防删除水印、五种 Observer、取色器、漫游引导、Web Audio 钢琴、Message 提示队列、智能定位 Popover、拖拽上传、拖拽排序、懒加载骨架屏、弹簧物理、手写 Zustand、keepalive 页签缓存、迷你流程图、表单校验引擎。来自掘金《React 通关秘籍》组件实战与原理篇的配套练手——把 React 和组件库帮你做的事，用 vanilla JS 做一遍。</p>
+  </header>
+
+  <div class="tabs-groups" id="groups">
+    <span class="glabel">GROUP</span>
+    <button class="tab group-btn on" data-g="comp">组件</button>
+    <button class="tab group-btn" data-g="inter">交互</button>
+    <button class="tab group-btn" data-g="motion">动效</button>
+    <button class="tab group-btn" data-g="eng">工程</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="p1" data-g="comp">防删除水印</button>
+    <button class="tab" data-p="p2" data-g="comp">五种 Observer</button>
+    <button class="tab" data-p="p4" data-g="comp">ColorPicker</button>
+    <button class="tab" data-p="p5" data-g="comp">onBoarding 引导</button>
+    <button class="tab" data-p="p6" data-g="comp">Web Audio 钢琴</button>
+    <button class="tab" data-p="p7" data-g="comp">Message 提示</button>
+    <button class="tab" data-p="p8" data-g="comp">Popover 定位</button>
+    <button class="tab" data-p="p9" data-g="inter">拖拽上传</button>
+    <button class="tab" data-p="p11" data-g="inter">拖拽排序</button>
+    <button class="tab" data-p="p12" data-g="inter">懒加载骨架屏</button>
+    <button class="tab" data-p="p10" data-g="motion">弹簧物理</button>
+    <button class="tab" data-p="p3" data-g="eng">手写 Zustand</button>
+    <button class="tab" data-p="p13" data-g="eng">keepalive 缓存</button>
+    <button class="tab" data-p="p14" data-g="eng">迷你流程图</button>
+    <button class="tab" data-p="p15" data-g="eng">表单校验引擎</button>
+  </div>
+
+  <!-- 1 防删除水印 -->
+  <section class="panel on" id="p1">
+    <div class="card">
+      <h3><i>01</i> 防删除水印 · canvas 平铺 + MutationObserver 守卫</h3>
+      <p class="note">水印是铺满整个区域的 <code>&lt;canvas&gt;</code>，文字、透明度、角度、密度都实时可调。真正的看点在守卫：点「试图删除水印」，<code>MutationObserver</code> 监听到节点被移走，100ms 内自动重建，并记下你失败的次数。</p>
+      <div class="ctl-row">
+        <label>水印文字 <input type="text" id="wmText" value="鲁博出品 · 禁止外传" style="width:170px" /></label>
+        <label>透明度 <input type="range" id="wmAlpha" min="0.05" max="0.6" step="0.05" value="0.16" /></label>
+        <label>角度 <input type="range" id="wmAngle" min="-60" max="0" step="5" value="-25" /><span class="stat" id="wmAngleVal">-25°</span></label>
+        <label>密度 <input type="range" id="wmGap" min="60" max="220" step="10" value="120" /></label>
+        <button class="btn danger" id="wmDel">试图删除水印</button>
+      </div>
+      <div class="wm-stage" id="wmStage">
+        <p>这是一块受保护的演示区。水印层是 absolute 定位的 canvas，盖在内容上，pointer-events: none 所以不影响阅读和操作。</p>
+        <p>前端水印的老问题是：打开 DevTools 把那个节点一删就没了。MutationObserver 盯住父节点的 childList，谁动了水印就立刻补一个回去——"你删你的，我生我的"。</p>
+        <p>注意：这挡得住大多数人的手滑，挡不住禁用 JS 的硬核操作；工程上一般还要配合服务端落水印。</p>
+        <div class="wm-layer" id="wmLayer"><canvas id="wmCanvas"></canvas></div>
+      </div>
+      <p class="stat" style="margin-top:10px" id="wmStat">已防御 <b>0</b> 次删除</p>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 平铺水印：旋转画布后按间距填满文字
+function drawWatermark(text, alpha, deg, gap) {
+  const c = canvas, ctx = c.getContext('2d');
+  c.width = stage.clientWidth; c.height = stage.clientHeight;
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate(deg * Math.PI / 180);
+  ctx.globalAlpha = alpha;
+  ctx.font = '16px sans-serif';
+  for (let x = -c.width; x &lt; c.width; x += gap)
+    for (let y = -c.height; y &lt; c.height; y += gap)
+      ctx.fillText(text, x, y);
+}
+
+// 守卫：水印节点被移走 → 100ms 内重建
+const mo = new MutationObserver((muts) => {
+  for (const m of muts) {
+    if ([...m.removedNodes].includes(layer)) {
+      defenseCount++;
+      setTimeout(rebuildWatermark, 60);  // 立刻补上
+    }
+  }
+});
+mo.observe(stage, { childList: true, subtree: true });</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 2 五种 Observer -->
+  <section class="panel" id="p2">
+    <div class="card">
+      <h3><i>02</i> 五种 Observer · 浏览器的五个"哨兵"</h3>
+      <p class="note">同一套回调风格的五个 API，各管一摊：谁进视口、谁改了尺寸、谁动了 DOM、首屏绘到哪、浏览器替你降级了什么。五个哨兵并排跑，一次看完。</p>
+      <div class="ob-grid">
+        <div class="ob-card">
+          <h4>IntersectionObserver · 进视口点亮</h4>
+          <p class="d">滚动下面的盒子，卡片交叉比率超过 0.5 就点亮，右侧实时显示 ratio。</p>
+          <div class="ob-scroll" id="ioScroll">
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 1 · 往下滚</div>
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 2</div>
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 3</div>
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 4</div>
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 5</div>
+            <div class="ob-item"><span class="ratio">0.00</span>卡片 6</div>
+          </div>
+        </div>
+        <div class="ob-card">
+          <h4>ResizeObserver · 尺寸决定字号</h4>
+          <p class="d">拖右边的彩色把手改宽度，字号随宽度实时换算（clamp 12–20px）。</p>
+          <div class="ob-resize" id="roBox">
+            <span id="roText">拖我右边的把手，我的字号跟着宽度变。</span>
+            <div class="val" id="roVal">宽度 320px · 字号 16px</div>
+            <div class="ob-handle" id="roHandle"></div>
+          </div>
+        </div>
+        <div class="ob-card">
+          <h4>MutationObserver · DOM 变更计数</h4>
+          <p class="d">加一项、删一项都是一次 childList 变更，计数器实时统计。</p>
+          <div class="ctl-row" style="margin-bottom:8px">
+            <button class="btn" id="moAdd">+ 加一项</button>
+            <span class="stat">列表 <b id="moLen">3</b> 项 · 变更 <b id="moCount">0</b> 次</span>
+          </div>
+          <ul class="ob-mut-list" id="moList"></ul>
+        </div>
+        <div class="ob-card">
+          <h4>PerformanceObserver · 首屏指标实测</h4>
+          <p class="d">观察 paint 与 largest-contentful-paint，读本页真实加载数据。</p>
+          <p class="ob-report">FCP（首次内容绘制）：<b id="poFcp">测量中…</b><br>LCP（最大内容绘制）：<b id="poLcp">测量中…</b></p>
+        </div>
+        <div class="ob-card">
+          <h4>ReportingObserver · 浏览器的"报告信箱"</h4>
+          <p class="d">收集弃用警告、干预报告——API 本身支持性一般，正是练"特性检测 + 降级"的好例子。</p>
+          <p class="ob-report" id="rptOut"></p>
+        </div>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 五个哨兵，同一套 observe 回调风格
+new IntersectionObserver((entries) => {
+  entries.forEach((e) => {
+    e.target.querySelector('.ratio').textContent = e.intersectionRatio.toFixed(2);
+    e.target.classList.toggle('lit', e.intersectionRatio &gt; 0.5);
+  });
+}, { threshold: [0, 0.25, 0.5, 0.75, 1] })
+  .observe(el);
+
+new ResizeObserver(([entry]) => {
+  const w = entry.contentRect.width;
+  el.style.fontSize = Math.min(20, Math.max(12, w / 20)) + 'px';
+}).observe(box);
+
+new MutationObserver((muts) => { count += muts.length; })
+  .observe(list, { childList: true, subtree: true });
+
+new PerformanceObserver((list) => {
+  list.getEntries().forEach((e) => {
+    if (e.name === 'first-contentful-paint') show('FCP', e.startTime);
+    if (e.entryType === 'largest-contentful-paint') show('LCP', e.startTime);
+  });
+}).observe({ type: 'paint', buffered: true });
+
+// ReportingObserver：支持性差，必须先探测再降级
+if ('ReportingObserver' in window) {
+  new ReportingObserver((reports) => { /* 弃用/干预报告 */ },
+    { types: ['deprecation', 'intervention'], buffered: true }).observe();
+}</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 3 手写 Zustand -->
+  <section class="panel" id="p3">
+    <div class="card">
+      <h3><i>03</i> 手写 Zustand · 30 行的 createStore</h3>
+      <p class="note">Zustand 的核心就三件事：<code>getState</code> 读、<code>setState</code> 浅合并后广播、<code>subscribe</code> 注册监听。下面两个消费组件（计数器、待办清单）共享同一个 store——任一处 <code>setState</code>，两处自动更新；「外部 setState」按钮证明不挂在组件上也能改状态。先看实现：</p>
+      <details class="codebox" open>
+        <summary>▸ createStore 实现（约 15 行核心）</summary>
+        <pre class="code">function createStore(initialState) {
+  let state = initialState;          // 闭包里的唯一事实源
+  const listeners = new Set();
+
+  const getState = () => state;
+
+  const setState = (partial) => {
+    const next = typeof partial === 'function' ? partial(state) : partial;
+    state = { ...state, ...next };   // 浅合并，引用替换才算更新
+    listeners.forEach((fn) => fn(state));
+  };
+
+  const subscribe = (fn) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn); // 返回退订函数
+  };
+
+  return { getState, setState, subscribe };
+}</pre>
+      </details>
+      <div class="zs-row" style="margin-top:16px">
+        <div class="zs-comp">
+          <h4>消费组件 A：计数器<span class="tag">订阅 count 切片</span></h4>
+          <div class="zs-count" id="zsCount">0</div>
+          <div class="ctl-row" style="margin-bottom:0">
+            <button class="btn" id="zsInc">+1</button>
+            <button class="btn" id="zsDec">-1</button>
+          </div>
+        </div>
+        <div class="zs-comp">
+          <h4>消费组件 B：待办清单<span class="tag">订阅 todos 切片</span></h4>
+          <ul class="zs-todo" id="zsTodos"></ul>
+          <div class="ctl-row" style="margin-bottom:0">
+            <input type="text" class="txt-input" id="zsInput" placeholder="加一条待办，回车提交" style="flex:1" />
+            <button class="btn" id="zsAdd">添加</button>
+          </div>
+        </div>
+      </div>
+      <div class="ctl-row" style="margin-top:14px;margin-bottom:0">
+        <button class="btn" id="zsExt">外部 setState：任意代码给计数器 +10</button>
+        <span class="stat">没有 React、没有库，同样的订阅模型。</span>
+      </div>
+      <p class="zs-log" id="zsLog"></p>
+      <details class="codebox">
+        <summary>▸ 消费端的关键代码</summary>
+        <pre class="code">// 消费组件只订阅自己关心的切片
+store.subscribe((s) => { countEl.textContent = s.count; });
+store.subscribe((s) => { renderTodos(s.todos); });
+
+// 事件 → setState → 自动广播
+incBtn.onclick = () => store.setState((s) => ({ count: s.count + 1 }));
+
+// 组件外的任意代码也一样改
+setTimeout(() => store.setState((s) => ({ count: s.count + 10 })), 0);</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 4 ColorPicker -->
+  <section class="panel" id="p4">
+    <div class="card">
+      <h3><i>04</i> ColorPicker · 色相滑杆 + SV 二维面板</h3>
+      <p class="note">所有取色器都是同一个模型：H（色相）一维滑杆，S（饱和）V（明度）二维画布。SV 渐变是 canvas 两层线性渐变叠出来的——底层从白到纯色横向过渡，再盖一层从透明到黑纵向过渡。三种格式的换算都是纯函数，点任意一行复制。</p>
+      <div class="cp-row">
+        <div class="cp-left">
+          <canvas id="cpSV" width="560" height="360"></canvas>
+          <input type="range" class="cp-hue" id="cpHue" min="0" max="360" value="210" />
+          <div class="ctl-row" style="margin-bottom:0">
+            <span class="stat">色相 <b id="cpHueVal">210°</b> · 点画布或拖动取色</span>
+          </div>
+        </div>
+        <div class="cp-out">
+          <div class="cp-fmt" data-fmt="hex"><b>HEX</b><code id="cpHex">#3d7bd9</code><span class="copied" hidden>已复制</span></div>
+          <div class="cp-fmt" data-fmt="rgb"><b>RGB</b><code id="cpRgb">rgb(61, 123, 217)</code><span class="copied" hidden>已复制</span></div>
+          <div class="cp-fmt" data-fmt="hsl"><b>HSL</b><code id="cpHsl">hsl(213, 68%, 55%)</code><span class="copied" hidden>已复制</span></div>
+          <div class="cp-preview" id="cpPreview">预览卡片 · 文字色自动取对比</div>
+        </div>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// SV 面板 = 两层线性渐变叠加
+function drawSV(hue) {
+  ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+  ctx.fillRect(0, 0, w, h);
+  const white = ctx.createLinearGradient(0, 0, w, 0);
+  white.addColorStop(0, '#fff'); white.addColorStop(1, 'transparent');
+  ctx.fillStyle = white; ctx.fillRect(0, 0, w, h);
+  const black = ctx.createLinearGradient(0, 0, 0, h);
+  black.addColorStop(0, 'transparent'); black.addColorStop(1, '#000');
+  ctx.fillStyle = black; ctx.fillRect(0, 0, w, h);
+}
+
+// 点击位置 → s / v
+const onPick = (e) => {
+  const r = canvas.getBoundingClientRect();
+  s = (e.clientX - r.left) / r.width;
+  v = 1 - (e.clientY - r.top) / r.height;
+  update(h, s, v);
+};
+
+// HSV → RGB → HEX/HSL，纯函数换算三种格式</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 5 onBoarding 引导 -->
+  <section class="panel" id="p5">
+    <div class="card">
+      <h3><i>05</i> onBoarding 漫游引导 · 挖孔 + 定位气泡</h3>
+      <p class="note">引导的本质是三层：全屏半透明遮罩、在目标元素位置"挖个孔"（用一个 div 的 <code>box-shadow: 0 0 0 9999px</code> 把孔外全遮住）、气泡根据目标在视口上/下半区自动放上方或下方。点「开始引导」走一遍，支持 Esc 关闭。</p>
+      <div class="ctl-row">
+        <button class="btn on" id="obStart">开始引导</button>
+        <span class="stat">4 个演示元素：按钮 / 输入框 / 图标 / 开关</span>
+      </div>
+      <div class="ob2-stage">
+        <button class="btn" id="obBtn">主操作按钮</button>
+        <input type="text" class="txt-input" id="obInput" placeholder="随便输点什么" />
+        <div class="ob2-icon" id="obIcon" title="收藏">★</div>
+        <label class="ob2-switch" id="obSwitch">
+          <input type="checkbox" checked />
+          <span class="track"></span>
+        </label>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 挖孔：一个 div 盖住目标，孔外全靠 box-shadow 遮黑
+function focusStep(i) {
+  const rect = steps[i].target.getBoundingClientRect();
+  hole.style.cssText = `
+    left: ${rect.left - 8}px; top: ${rect.top - 8}px;
+    width: ${rect.width + 16}px; height: ${rect.height + 16}px;`;
+  placeTip(rect);   // 气泡放孔的上方还是下方？
+}
+
+// 目标中心在视口上半区 → 气泡放下面；否则放上面
+function placeTip(rect) {
+  const below = rect.top + rect.height / 2 &lt; innerHeight / 2;
+  tip.style.top = below ? rect.bottom + 14 + 'px' : '';
+  tip.style.bottom = below ? '' : (innerHeight - rect.top + 14) + 'px';
+}
+
+// Esc 一步到位
+addEventListener('keydown', (e) => { if (e.key === 'Escape') end(); });</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 6 Web Audio 钢琴 -->
+  <section class="panel" id="p6">
+    <div class="card">
+      <h3><i>06</i> Web Audio 在线钢琴 · 振荡器 + ADSR 包络</h3>
+      <p class="note">每个琴键 = 一个 <code>OscillatorNode</code> 接一个 <code>GainNode</code>。按下时按 ADSR 包络起音（attack→decay→sustain），松开时做释放淡出（release），所以尾巴不生硬。鼠标点、电脑键盘都能弹——A S D F G H J K 是低八度白键，W E T Y U 是对应黑键；高八度用鼠标点。首次发声前会 <code>resume</code> AudioContext。</p>
+      <div class="ctl-row">
+        <span class="stat">波形：</span>
+        <button class="btn wave on" data-wave="sine">sine</button>
+        <button class="btn wave" data-wave="square">square</button>
+        <button class="btn wave" data-wave="triangle">triangle</button>
+        <button class="btn wave" data-wave="sawtooth">sawtooth</button>
+        <span class="stat" id="pgHint">点任意琴键开始（首次点击会激活音频上下文）</span>
+      </div>
+      <div class="piano" id="piano"></div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 一按一振一包：osc 定频率，gain 走 ADSR
+function noteOn(midi) {
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = wave;                          // sine/square/…
+  osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.5, t + 0.01);        // A 起
+  g.gain.exponentialRampToValueAtTime(0.22, t + 0.18);  // D→S 持
+  osc.connect(g).connect(ctx.destination);
+  osc.start(t);
+  active.set(midi, { osc, g });
+}
+
+function noteOff(midi) {                    // R 释放淡出
+  const a = active.get(midi); if (!a) return;
+  const t = ctx.currentTime;
+  a.g.gain.cancelScheduledValues(t);
+  a.g.gain.setValueAtTime(a.g.gain.value, t);
+  a.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  a.osc.stop(t + 0.4);
+}
+
+// 频率由 MIDI 编号换算：A4(69) = 440Hz
+// 首次交互 resume，浏览器 autoplay 策略要求
+ensureAudioBtn.addEventListener('click', () => ctx.resume());</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 7 Message 全局提示 -->
+  <section class="panel" id="p7">
+    <div class="card">
+      <h3><i>07</i> Message 全局提示 · 顶部滑入的 toast 队列</h3>
+      <p class="note">一个固定在顶部的队列容器，每条提示是一个带进出场 CSS 动画的节点；<code>message.success('...')</code> 这样的 API 返回 Promise——<code>await</code> 它就能实现「上一条走完再发下一条」的排队。loading 类型不会自动消失，点 ✕ 手动关闭。点「连发多条排队」看四条依次入场的完整过程。</p>
+      <div class="ctl-row">
+        <button class="btn" id="msgOk">发一条 success</button>
+        <button class="btn" id="msgWarn">发一条 warning</button>
+        <button class="btn" id="msgLoading">发一条 loading（手动关）</button>
+        <button class="btn on" id="msgBurst">连发多条排队</button>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// Promise 化的 message API：close 时 resolve，调用方可以 await 排队
+function show(type, text, duration = 2400) {
+  return new Promise((resolve) => {
+    const el = render(type, text);
+    queue.appendChild(el);              // 队列容器：竖排堆叠
+    const close = () => {
+      el.classList.add('out');          // 进出场全靠 CSS animation
+      setTimeout(() => { el.remove(); resolve(); }, 240);
+    };
+    if (duration &gt; 0) setTimeout(close, duration);
+    else bindManualClose(el, close);    // loading 不自动消失
+  });
+}
+message.success = (t) =&gt; show('success', t);
+message.loading = (t) =&gt; show('loading', t, 0);
+
+// 连发排队：await 上一条走完才发下一条
+await message.loading('同步中…');
+message.success('完成');</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 8 智能定位 Popover -->
+  <section class="panel" id="p8">
+    <div class="card">
+      <h3><i>08</i> 智能定位 Popover · 剩余空间检测 + 自动翻转</h3>
+      <p class="note">点下面几个任意摆放的元素弹气泡：默认弹上方，上方放不下翻下方，上下都不行再试左右——判断依据全是 <code>getBoundingClientRect</code> 算出的四向剩余空间。箭头永远在贴近锚点的那条边上，并沿边对准锚点中心。滚动页面让元素贴近视口上/下边缘，再点同一个元素就能看到翻转；把浏览器窗口压窄还能看到左右翻转。</p>
+      <div class="pp-stage">
+        <button class="btn pp-anchor" style="left:16px; top:16px" data-title="左上角元素" data-text="这里通常上方空间充足，气泡默认弹在上方。把页面滚到顶再点试试。">左上角元素</button>
+        <button class="btn pp-anchor" style="right:16px; top:16px" data-title="右上角元素" data-text="贴近视口右侧和顶部——空间不够时气泡会自动翻转躲避。">右上角元素</button>
+        <button class="btn pp-anchor" style="left:50%; top:50%; transform:translate(-50%,-50%)" data-title="正中央元素" data-text="四周空间都够，稳定弹上方，箭头沿边对准锚点中心。">正中央元素</button>
+        <button class="btn pp-anchor" style="left:16px; bottom:16px" data-title="左下角元素" data-text="贴近视口底部时上方反而更空？翻转逻辑会自己算。">左下角元素</button>
+        <button class="btn pp-anchor" style="right:16px; bottom:16px" data-title="右下角元素" data-text="四个角都试一遍，观察气泡位置和箭头朝向怎么变。">右下角元素</button>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 剩余空间检测 → 翻转位置
+const r = anchor.getBoundingClientRect();
+const spaceT = r.top,            spaceB = innerHeight - r.bottom;
+const spaceL = r.left,           spaceR = innerWidth  - r.right;
+let where = 'top';                    // 默认弹在上方
+if (spaceT &lt; POP_H + GAP) {
+  if (spaceB &gt;= POP_H + GAP) where = 'bottom';
+  else if (spaceR &gt;= POP_W + GAP) where = 'right';
+  else if (spaceL &gt;= POP_W + GAP) where = 'left';
+  else where = 'bottom';              // 全都放不下：选最不挤的一边
+}
+// 箭头永远在贴近锚点的那条边上，再沿边对准锚点中心</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 9 拖拽上传 Upload -->
+  <section class="panel" id="p9">
+    <div class="card">
+      <h3><i>09</i> 拖拽上传 Upload · drop 区 + 进度模拟 + 文本预览</h3>
+      <p class="note">感应区监听 <code>dragenter / dragover / dragleave / drop</code> 四个事件——<code>dragover</code> 必须阻止默认行为，<code>drop</code> 才会触发；用计数器抵消子元素进出造成的 dragleave 闪烁。文件进来后展示名称/大小/类型列表并跑一个模拟进度条；文本文件用 <code>FileReader</code> 读前 4KB 预览前几行。纯前端模拟，不会真的上传。</p>
+      <div class="up-drop" id="upDrop">
+        <div class="big">⇪</div>
+        <p>把文件拖到这里，或者点击选择</p>
+        <p class="sub">支持多文件 · 文本文件会预览前 6 行 · 没有任何网络请求</p>
+      </div>
+      <input type="file" id="upFile" multiple hidden />
+      <ul class="up-file" id="upList"></ul>
+      <div class="up-preview" id="upPreview" hidden>
+        <h5></h5>
+        <pre></pre>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 拖拽三件套：enter/over 阻止默认，drop 拿 files
+let overN = 0;                        // 计数器抵消 dragleave 闪烁
+drop.addEventListener('dragenter', (e) =&gt; { e.preventDefault(); overN++; hi(); });
+drop.addEventListener('dragover',  (e) =&gt; e.preventDefault()); // 必须，否则不触发 drop
+drop.addEventListener('dragleave', () =&gt; { if (--overN === 0) unhi(); });
+drop.addEventListener('drop', (e) =&gt; {
+  e.preventDefault(); overN = 0; unhi();
+  handleFiles([...e.dataTransfer.files]);
+});
+
+// FileReader 读文本文件前几行做预览
+reader.readAsText(file.slice(0, 4096));   // Blob.slice 只读前 4KB</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 10 弹簧物理动画 -->
+  <section class="panel" id="p10">
+    <div class="card">
+      <h3><i>10</i> 弹簧物理动画 · 手写刚度和阻尼</h3>
+      <p class="note">没有任何动画库：小球由胡克定律 <code>F = -k·x - c·v</code> 驱动，用半隐式欧拉积分（先更新速度再更新位置，子步进防发散）。在区域里按住拖动小球跟鼠标走，松手后目标点回到中心，小球自己「弹」回去——刚度调大弹得又快又硬，阻尼调大几乎不振荡，阻尼调小会来回弹好几次。下方迷你图实时画速度 <code>vx</code> 曲线，振荡一眼可见。</p>
+      <div class="ctl-row">
+        <label>刚度 stiffness <input type="range" id="spK" min="40" max="500" step="10" value="170" /><span class="stat"><b id="spKVal">170</b></span></label>
+        <label>阻尼 damping <input type="range" id="spC" min="1" max="40" step="1" value="14" /><span class="stat"><b id="spCVal">14</b></span></label>
+        <span class="stat">在区域里按住拖动，松手看回弹</span>
+      </div>
+      <div class="sp-stage" id="spStage">
+        <div class="sp-center"></div>
+        <div class="sp-ball" id="spBall"></div>
+      </div>
+      <div class="sp-chart-row">
+        <span class="stat">vx 曲线</span>
+        <canvas id="spChart"></canvas>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 半隐式欧拉：先积分速度，再用新速度积分位置（比显式欧拉稳定）
+const sub = 4, h = dt / sub;          // 子步进，防高刚度下发散
+for (let i = 0; i &lt; sub; i++) {
+  const ax = -k * (x - tx) - c * vx;  // 胡克定律 + 阻尼
+  const ay = -k * (y - ty) - c * vy;
+  vx += ax * h;  vy += ay * h;        // ① 先更新速度
+  x  += vx * h;  y  += vy * h;        // ② 再用新速度更新位置
+}
+// 松手 → 目标点回中心，小球自己"弹"回去</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 11 拖拽排序列表 -->
+  <section class="panel" id="p11">
+    <div class="card">
+      <h3><i>11</i> 拖拽排序列表 · 占位虚框 + FLIP 让位动画</h3>
+      <p class="note">按住任意一项拖动：原位置变成虚框占位，其他项用 FLIP 动画平滑让位（First 记旧位置、Last 改 DOM、Invert 反向位移、Play 过渡回零）。<code>dragover</code> 里拿 <code>clientY</code> 和每项中点比较算出插入位置，松手后被拖项落到虚框处，序号自动重排。</p>
+      <ul class="ds-list" id="dsList"></ul>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// FLIP：First 记录旧位置 → Last 改 DOM → Invert 反向位移 → Play 过渡回零
+function withFlip(mutate) {
+  const before = new Map(items.map((el) =&gt; [el, el.getBoundingClientRect().top]));
+  mutate();                            // 移动占位虚框
+  items.forEach((el) =&gt; {
+    const d = before.get(el) - el.getBoundingClientRect().top;
+    if (!d) return;
+    el.style.transition = 'none';
+    el.style.transform = `translateY(${d}px)`;
+    el.getBoundingClientRect();        // 强制 reflow
+    el.style.transition = 'transform .22s';
+    el.style.transform = '';
+  });
+}
+// dragover：clientY 和每项中点比较，算出插入位置
+for (const el of items) {
+  const r = el.getBoundingClientRect();
+  if (e.clientY &lt; r.top + r.height / 2) { next = el; break; }
+}</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 12 懒加载 + 骨架屏 -->
+  <section class="panel" id="p12">
+    <div class="card">
+      <h3><i>12</i> 懒加载 + 骨架屏 · IntersectionObserver 预加载距离</h3>
+      <p class="note">滚动容器里 20 张卡，进入视口才把骨架换成真实内容（渐变色块代表加载后的图片）。「预加载距离」就是 <code>rootMargin</code>——把判定区向外扩 N 像素，卡片还没露脸就开始加载；调成 0 就变成了「见了才加载」。骨架屏开关用来对比：开着时有 700ms 骨架闪烁，关掉后瞬间渲染。</p>
+      <div class="ctl-row">
+        <button class="btn" id="lzReset">重置演示</button>
+        <label>骨架屏 <span class="ob2-switch"><input type="checkbox" id="lzSk" checked /><span class="track"></span></span></label>
+        <label>预加载距离 rootMargin <input type="range" id="lzRoot" min="0" max="400" step="50" value="100" /><span class="stat"><b id="lzRootVal">100px</b></span></label>
+        <span class="stat" id="lzStat"></span>
+      </div>
+      <div class="lz-scroll" id="lzScroll"></div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// root 指向滚动容器本身；rootMargin 把判定区向外扩 N px → 提前预加载
+const io = new IntersectionObserver((entries) =&gt; {
+  entries.forEach((e) =&gt; { if (e.isIntersecting) load(e.target); });
+}, { root: scrollEl, rootMargin: `${margin}px` });
+
+function load(card) {
+  if (skeletonOn) setTimeout(() =&gt; finish(card), 700);  // 骨架屏停留
+  else finish(card);                                    // 直接渲染，对比用
+}</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 13 keepalive 页签缓存 -->
+  <section class="panel" id="p13">
+    <div class="card">
+      <h3><i>13</i> keepalive 页签缓存 · display:none 保留 DOM</h3>
+      <p class="note">左右两列各三个页签，各带一个表单（输入框 + 开关 + 滑杆）。左边是 keepalive 版：切走只是 <code>display:none</code>，DOM 和输入状态原样保留，切回即恢复；右边是对照组：每次切换都销毁重建（重挂载），你输的东西全部丢失。先在两边都输入一些内容，再来回切页签对比。</p>
+      <div class="ka-row">
+        <div class="ka-col" id="kaC">
+          <h4>keepalive 版<span class="tag">display:none 保留 DOM</span></h4>
+          <div class="ka-tabs">
+            <button class="ka-tab on" type="button">页签 1</button>
+            <button class="ka-tab" type="button">页签 2</button>
+            <button class="ka-tab" type="button">页签 3</button>
+          </div>
+          <div class="ka-pane ka-form"></div>
+          <div class="ka-pane ka-form" style="display:none"></div>
+          <div class="ka-pane ka-form" style="display:none"></div>
+        </div>
+        <div class="ka-col" id="kaU">
+          <h4>无缓存版<span class="tag">切走即销毁重建</span></h4>
+          <div class="ka-tabs">
+            <button class="ka-tab on" type="button">页签 1</button>
+            <button class="ka-tab" type="button">页签 2</button>
+            <button class="ka-tab" type="button">页签 3</button>
+          </div>
+          <div class="ka-form" id="kaUBox"></div>
+          <p class="ka-remount" id="kaULog"></p>
+        </div>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// keepalive 的本质：不销毁，只藏起来
+function switchTab(i) {
+  panes.forEach((p, j) =&gt; { p.style.display = j === i ? '' : 'none'; });
+}
+// 对照组每次切换 innerHTML 重建 → 输入框、开关、滑杆全部回默认值
+uBox.innerHTML = formHTML(i, defaults);
+remounts++;   // 数一数无缓存版被"重挂载"了多少次</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 14 迷你流程图 -->
+  <section class="panel" id="p14">
+    <div class="card">
+      <h3><i>14</i> 迷你流程图 · 拖拽节点 + SVG 贝塞尔连线</h3>
+      <p class="note">节点可以直接拖拽移动，连线实时跟随（每次拖动重算 path 的 <code>d</code>）。开「连接模式」后依次点两个节点连一条三次贝塞尔曲线——锚点取节点边缘、控制点沿主方向外推，横连竖连都顺眼。点击任意连线直接删除。拖拽用 pointer capture，移动小于 4px 视为点击，两种手势不打架。</p>
+      <div class="ctl-row">
+        <button class="btn" id="fgMode">连接模式</button>
+        <span class="stat" id="fgHint">拖拽节点移动 · 开启连接模式后点两个节点连线 · 点击连线删除</span>
+      </div>
+      <div class="fg-stage" id="fgStage">
+        <svg id="fgSvg"></svg>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// 贝塞尔连线：锚点取节点边缘，控制点沿主方向外推
+const s = p2.x &gt;= p1.x ? 1 : -1;
+x1 = p1.x + s * A.offsetWidth / 2;    // 从右侧/左侧边缘出线
+x2 = p2.x - s * B.offsetWidth / 2;
+const dx = Math.abs(x2 - x1) / 2 + 30;
+d = `M ${x1} ${y1} C ${x1 + s * dx} ${y1}, ${x2 - s * dx} ${y2}, ${x2} ${y2}`;
+// 拖拽用 pointer capture；移动 &lt;4px 视为点击 → 连接模式下选节点
+// 点击连线删除：一条透明粗 path 盖在上面接点击（pointer-events: stroke）</pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 15 表单校验引擎 -->
+  <section class="panel" id="p15">
+    <div class="card">
+      <h3><i>15</i> 表单校验引擎 · schema 驱动的链式规则执行器</h3>
+      <p class="note">校验逻辑全部住在 <code>rules</code> 这份 schema 里：每个字段一串规则，链式执行、短路返回第一条错误——表单逻辑里看不到一行 if-else。<code>confirm</code> 的规则里能读到 <code>password</code> 字段，跨字段校验也只是多一条规则的事。输入时实时校验，blur 时带抖动动画强调错误；右侧汇总面板实时反映每个字段状态，提交时统一跑一遍并聚焦第一个错误字段。「填充合法值」一键看全绿的样子。</p>
+      <div class="fm-row">
+        <form class="fm-form" id="fmForm" novalidate>
+          <label class="fm-field"><span>用户名</span><input type="text" class="txt-input" name="username" placeholder="3–12 位字母、数字或下划线" /><em class="fm-err"></em></label>
+          <label class="fm-field"><span>邮箱</span><input type="text" class="txt-input" name="email" placeholder="you@example.com" /><em class="fm-err"></em></label>
+          <label class="fm-field"><span>密码</span><input type="text" class="txt-input" name="password" placeholder="至少 8 位，含字母和数字" /><em class="fm-err"></em></label>
+          <label class="fm-field"><span>确认密码</span><input type="text" class="txt-input" name="confirm" placeholder="再输一遍" /><em class="fm-err"></em></label>
+          <div class="ctl-row" style="margin-bottom:0">
+            <button type="submit" class="btn on">注册</button>
+            <button type="button" class="btn" id="fmFill">填充合法值</button>
+          </div>
+        </form>
+        <div class="fm-side">
+          <h4>实时校验汇总</h4>
+          <ul class="fm-summary" id="fmSummary"></ul>
+        </div>
+      </div>
+      <details class="codebox">
+        <summary>▸ 关键代码</summary>
+        <pre class="code">// schema 驱动：每个字段是一串规则，链式执行、短路返回第一条错误
+const rules = {
+  password: [
+    { test: (v) =&gt; v.length &gt; 0, msg: '密码不能为空' },
+    { test: (v) =&gt; v.length &gt;= 8, msg: '密码至少 8 位' },
+    { test: (v) =&gt; /[a-zA-Z]/.test(v) &amp;&amp; /\d/.test(v), msg: '需包含字母和数字' },
+  ],
+  // 规则里能读到其他字段 → 跨字段校验
+  confirm: [{ test: (v) =&gt; v === form.password.value, msg: '两次不一致' }],
+};
+
+function validateField(name) {
+  for (const r of rules[name]) {
+    if (!r.test(form.elements[name].value)) return r.msg;  // 短路
+  }
+  return '';
+}</pre>
+      </details>
+    </div>
+  </section>
+</div>
+
+<script>
+  /* ---- 回主站：主站内用 wujie 传下来的方法，独立运行时改 hash 路由 ---- */
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') {
+      w.props.onBack();
+      return;
+    }
+    window.location.href = `${window.location.origin}/#/portfolio`;
+  });
+
+  /* ---- tabs ---- */
+  const tabs = document.getElementById('tabs');
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    tabs.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === btn));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.id === btn.dataset.p));
+  });
+
+  /* ---- 1 防删除水印 ---- */
+  (() => {
+    const stage = document.getElementById('wmStage');
+    const layer = document.getElementById('wmLayer');
+    const canvas = document.getElementById('wmCanvas');
+    const txt = document.getElementById('wmText');
+    const alpha = document.getElementById('wmAlpha');
+    const angle = document.getElementById('wmAngle');
+    const angleVal = document.getElementById('wmAngleVal');
+    const gap = document.getElementById('wmGap');
+    const stat = document.getElementById('wmStat');
+    let defenses = 0;
+
+    function draw() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(angle.value * Math.PI / 180);
+      ctx.globalAlpha = parseFloat(alpha.value);
+      ctx.fillStyle = '#a5b6df';
+      ctx.font = '15px sans-serif';
+      const g = parseInt(gap.value, 10);
+      for (let x = -w; x < w * 1.5; x += g) {
+        for (let y = -h; y < h * 1.5; y += g) ctx.fillText(txt.value, x, y);
+      }
+      ctx.restore();
+    }
+    function rebuild() {
+      if (!layer.isConnected || stage.contains(layer) === false) {
+        stage.appendChild(layer);
+      }
+      draw();
+    }
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if ([...m.removedNodes].includes(layer)) {
+          defenses++;
+          stat.innerHTML = `已防御 <b>${defenses}</b> 次删除`;
+          setTimeout(rebuild, 60); // 100ms 内补回
+        }
+      }
+    });
+    mo.observe(stage, { childList: true, subtree: false });
+
+    document.getElementById('wmDel').addEventListener('click', () => {
+      if (layer.parentNode === stage) stage.removeChild(layer);
+    });
+    [txt, alpha, angle, gap].forEach((el) => {
+      el.addEventListener('input', () => {
+        angleVal.textContent = angle.value + '°';
+        draw();
+      });
+    });
+    draw();
+  })();
+
+  /* ---- 2 五种 Observer ---- */
+  (() => {
+    /* IntersectionObserver */
+    const ioItems = document.querySelectorAll('#ioScroll .ob-item');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        e.target.querySelector('.ratio').textContent = e.intersectionRatio.toFixed(2);
+        e.target.classList.toggle('lit', e.intersectionRatio > 0.5);
+      });
+    }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    ioItems.forEach((el) => io.observe(el));
+
+    /* ResizeObserver + 拖拽 */
+    const roBox = document.getElementById('roBox');
+    const roHandle = document.getElementById('roHandle');
+    const roVal = document.getElementById('roVal');
+    const ro = new ResizeObserver(([entry]) => {
+      const w = Math.round(entry.contentRect.width);
+      const fs = Math.round(Math.min(20, Math.max(12, w / 20)));
+      roBox.style.fontSize = fs + 'px';
+      roVal.textContent = `宽度 ${w}px · 字号 ${fs}px`;
+    });
+    ro.observe(roBox);
+    let dragging = false;
+    roHandle.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      roHandle.setPointerCapture(e.pointerId);
+    });
+    roHandle.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const left = roBox.getBoundingClientRect().left;
+      roBox.style.width = Math.min(560, Math.max(180, e.clientX - left)) + 'px';
+    });
+    roHandle.addEventListener('pointerup', () => { dragging = false; });
+
+    /* MutationObserver 变更计数 */
+    const moList = document.getElementById('moList');
+    const moCount = document.getElementById('moCount');
+    const moLen = document.getElementById('moLen');
+    let moN = 0, moId = 3;
+    function renderMo() {
+      moLen.textContent = moList.children.length;
+    }
+    const mo = new MutationObserver((muts) => {
+      moN += muts.length;
+      moCount.textContent = moN;
+      renderMo();
+    });
+    mo.observe(moList, { childList: true, subtree: false });
+    document.getElementById('moAdd').addEventListener('click', () => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>条目 #${++moId}</span><button class="del">删</button>`;
+      moList.appendChild(li);
+    });
+    moList.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del')) e.target.closest('li').remove();
+    });
+    for (let i = 1; i <= 3; i++) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>条目 #${i}</span><button class="del">删</button>`;
+      moList.appendChild(li);
+    }
+
+    /* PerformanceObserver：FCP / LCP */
+    const poFcp = document.getElementById('poFcp');
+    const poLcp = document.getElementById('poLcp');
+    try {
+      const po = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          if (e.name === 'first-contentful-paint') poFcp.textContent = Math.round(e.startTime) + ' ms';
+          if (e.entryType === 'largest-contentful-paint') poLcp.textContent = Math.round(e.startTime) + ' ms';
+        }
+      });
+      po.observe({ type: 'paint', buffered: true });
+      po.observe({ type: 'largest-contentful-paint', buffered: true });
+    } catch (err) {
+      poFcp.textContent = poLcp.textContent = '当前浏览器不支持该 entryType';
+    }
+
+    /* ReportingObserver：特性检测 + 降级 */
+    const rptOut = document.getElementById('rptOut');
+    if ('ReportingObserver' in window) {
+      let n = 0;
+      try {
+        const ro2 = new ReportingObserver((reports) => {
+          n += reports.length;
+          rptOut.innerHTML = `已注册，收到 <b>${n}</b> 条弃用/干预报告（本页很干净，多半是 0）。`;
+        }, { types: ['deprecation', 'intervention'], buffered: true });
+        ro2.observe();
+        rptOut.innerHTML = '已注册 ReportingObserver，监听 deprecation / intervention 两类报告，收到会在这里显示。';
+      } catch (err) {
+        rptOut.innerHTML = 'ReportingObserver 存在但当前环境构造失败，已降级为提示文案。';
+      }
+    } else {
+      rptOut.innerHTML = '你的浏览器还没有 <b>ReportingObserver</b>——这正是它的常态：特性检测失败，展示降级说明，页面其余功能照常跑。Safari 目前不支持，Chrome 需较新版本。';
+    }
+  })();
+
+  /* ---- 3 手写 Zustand ---- */
+  (() => {
+    function createStore(initialState) {
+      let state = initialState;
+      const listeners = new Set();
+      const getState = () => state;
+      const setState = (partial) => {
+        const next = typeof partial === 'function' ? partial(state) : partial;
+        state = { ...state, ...next };
+        listeners.forEach((fn) => fn(state));
+      };
+      const subscribe = (fn) => {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      };
+      return { getState, setState, subscribe };
+    }
+
+    const store = createStore({
+      count: 0,
+      todos: [
+        { id: 1, text: '读完组件原理篇', done: true },
+        { id: 2, text: '手写一遍 createStore', done: false },
+        { id: 3, text: '给实验室加个新 demo', done: false },
+      ],
+    });
+
+    const countEl = document.getElementById('zsCount');
+    const todosEl = document.getElementById('zsTodos');
+    const logEl = document.getElementById('zsLog');
+    const logs = [];
+    const say = (s) => {
+      logs.push(s);
+      if (logs.length > 4) logs.shift();
+      logEl.innerHTML = logs.join('<br />');
+    };
+
+    store.subscribe((s) => { countEl.textContent = s.count; });
+    store.subscribe((s) => renderTodos(s.todos));
+
+    function renderTodos(todos) {
+      todosEl.innerHTML = '';
+      todos.forEach((t) => {
+        const li = document.createElement('li');
+        if (t.done) li.className = 'done';
+        li.innerHTML = `<span>${t.text}</span><span class="del" data-id="${t.id}">删</span>`;
+        li.addEventListener('click', () => {
+          store.setState((s) => ({
+            todos: s.todos.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)),
+          }));
+        });
+        todosEl.appendChild(li);
+      });
+      todosEl.querySelectorAll('.del').forEach((b) => {
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          store.setState((s) => ({ todos: s.todos.filter((x) => x.id !== Number(b.dataset.id)) }));
+          say('setState 删除一条 → 两个订阅者都会收到通知');
+        });
+      });
+    }
+
+    document.getElementById('zsInc').addEventListener('click', () => {
+      store.setState((s) => ({ count: s.count + 1 }));
+      say('setState(+1) → 订阅 count 的组件刷新，todos 不受影响');
+    });
+    document.getElementById('zsDec').addEventListener('click', () => {
+      store.setState((s) => ({ count: s.count - 1 }));
+    });
+    function addTodo() {
+      const input = document.getElementById('zsInput');
+      const text = input.value.trim();
+      if (!text) return;
+      store.setState((s) => ({ todos: [...s.todos, { id: Date.now(), text, done: false }] }));
+      input.value = '';
+      say('setState 加一条 → 订阅 todos 的组件刷新，count 不受影响');
+    }
+    document.getElementById('zsAdd').addEventListener('click', addTodo);
+    document.getElementById('zsInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addTodo();
+    });
+    document.getElementById('zsExt').addEventListener('click', () => {
+      store.setState((s) => ({ count: s.count + 10 }));
+      say('组件外的任意代码 setState → 同样广播，这就是"无组件状态"');
+    });
+    renderTodos(store.getState().todos);
+  })();
+
+  /* ---- 4 ColorPicker ---- */
+  (() => {
+    const canvas = document.getElementById('cpSV');
+    const ctx = canvas.getContext('2d');
+    const hueEl = document.getElementById('cpHue');
+    const hueVal = document.getElementById('cpHueVal');
+    const hexEl = document.getElementById('cpHex');
+    const rgbEl = document.getElementById('cpRgb');
+    const hslEl = document.getElementById('cpHsl');
+    const preview = document.getElementById('cpPreview');
+    let hue = 210, s = 0.72, v = 0.85;
+
+    function drawSV() {
+      const w = canvas.width, h = canvas.height;
+      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+      ctx.fillRect(0, 0, w, h);
+      const white = ctx.createLinearGradient(0, 0, w, 0);
+      white.addColorStop(0, '#fff');
+      white.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = white;
+      ctx.fillRect(0, 0, w, h);
+      const black = ctx.createLinearGradient(0, 0, 0, h);
+      black.addColorStop(0, 'rgba(0,0,0,0)');
+      black.addColorStop(1, '#000');
+      ctx.fillStyle = black;
+      ctx.fillRect(0, 0, w, h);
+      // 取色游标
+      ctx.beginPath();
+      ctx.arc(s * w, (1 - v) * h, 9, 0, Math.PI * 2);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    function hsvToRgb(h, s, v) {
+      const f = (n) => {
+        const k = (n + h / 60) % 6;
+        return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+      };
+      return [f(5) * 255, f(3) * 255, f(1) * 255].map(Math.round);
+    }
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      if (max === min) return [0, 0, Math.round(l * 100)];
+      const d = max - min;
+      const sp = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      let hp;
+      if (max === r) hp = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+      else if (max === g) hp = ((b - r) / d + 2) * 60;
+      else hp = ((r - g) / d + 4) * 60;
+      return [Math.round(hp), Math.round(sp * 100), Math.round(l * 100)];
+    }
+    const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+    function update() {
+      const [r, g, b] = hsvToRgb(hue, s, v);
+      const [h2, s2, l2] = rgbToHsl(r, g, b);
+      const rgbStr = `rgb(${r}, ${g}, ${b})`;
+      hexEl.textContent = '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
+      rgbEl.textContent = rgbStr;
+      hslEl.textContent = `hsl(${h2}, ${s2}%, ${l2}%)`;
+      preview.style.background = rgbStr;
+      preview.style.color = lum(r, g, b) > 150 ? '#212a3d' : '#ffffff';
+      hueVal.textContent = hue + '°';
+      drawSV();
+    }
+    function pick(e) {
+      const r = canvas.getBoundingClientRect();
+      s = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      v = Math.min(1, Math.max(0, 1 - (e.clientY - r.top) / r.height));
+      update();
+    }
+    let pressing = false;
+    canvas.addEventListener('pointerdown', (e) => {
+      pressing = true;
+      canvas.setPointerCapture(e.pointerId);
+      pick(e);
+    });
+    canvas.addEventListener('pointermove', (e) => { if (pressing) pick(e); });
+    canvas.addEventListener('pointerup', () => { pressing = false; });
+    hueEl.addEventListener('input', () => {
+      hue = parseInt(hueEl.value, 10);
+      update();
+    });
+    /* 点击复制 */
+    document.querySelectorAll('.cp-fmt').forEach((row) => {
+      row.addEventListener('click', () => {
+        const text = row.querySelector('code').textContent;
+        const tag = row.querySelector('.copied');
+        const done = () => {
+          tag.hidden = false;
+          setTimeout(() => { tag.hidden = true; }, 1200);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(() => {});
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          done();
+        }
+      });
+    });
+    update();
+  })();
+
+  /* ---- 5 onBoarding 漫游引导 ---- */
+  (() => {
+    const steps = [
+      { target: document.getElementById('obBtn'), title: '主操作按钮', text: '页面上最重要的那颗按钮。引导会自动判断它在视口的位置，把气泡放在合适的一侧。' },
+      { target: document.getElementById('obInput'), title: '输入框', text: '挖孔是"负空间"实现的：一个盖住目标的 div，用 box-shadow 把孔外的世界全部压暗。' },
+      { target: document.getElementById('obIcon'), title: '图标入口', text: '目标元素任意形状都行，getBoundingClientRect 拿到矩形，孔就是矩形加一圈呼吸边。' },
+      { target: document.getElementById('obSwitch'), title: '通知开关', text: '上一步 / 下一步 / 跳过，Esc 随时退出。真实产品里通常还会存 localStorage 防止重复打扰。' },
+    ];
+    const mask = document.createElement('div');
+    mask.className = 'ob2-mask hidden';
+    mask.innerHTML = `
+      <div class="ob2-hole"></div>
+      <div class="ob2-tip">
+        <h4></h4>
+        <p></p>
+        <div class="ops">
+          <button class="btn ob-prev">上一步</button>
+          <button class="btn ob-next">下一步</button>
+          <button class="btn ob-skip">跳过</button>
+          <span class="step"></span>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+    const hole = mask.querySelector('.ob2-hole');
+    const tip = mask.querySelector('.ob2-tip');
+    let cur = -1;
+
+    function focusStep(i) {
+      cur = i;
+      const rect = steps[i].target.getBoundingClientRect();
+      hole.style.left = rect.left - 8 + 'px';
+      hole.style.top = rect.top - 8 + 'px';
+      hole.style.width = rect.width + 16 + 'px';
+      hole.style.height = rect.height + 16 + 'px';
+      tip.querySelector('h4').textContent = steps[i].title;
+      tip.querySelector('p').textContent = steps[i].text;
+      tip.querySelector('.step').textContent = `${i + 1} / ${steps.length}`;
+      const below = rect.top + rect.height / 2 < window.innerHeight / 2;
+      tip.style.top = below ? rect.bottom + 14 + 'px' : '';
+      tip.style.bottom = below ? '' : window.innerHeight - rect.top + 14 + 'px';
+      tip.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - 280)) + 'px';
+      tip.querySelector('.ob-prev').disabled = i === 0;
+      tip.querySelector('.ob-next').textContent = i === steps.length - 1 ? '完成' : '下一步';
+    }
+    function start() { mask.classList.remove('hidden'); focusStep(0); }
+    function end() { mask.classList.add('hidden'); cur = -1; }
+    document.getElementById('obStart').addEventListener('click', start);
+    mask.addEventListener('click', (e) => {
+      if (e.target === mask) return end();
+      if (e.target.classList.contains('ob-prev') && cur > 0) focusStep(cur - 1);
+      if (e.target.classList.contains('ob-next')) {
+        cur < steps.length - 1 ? focusStep(cur + 1) : end();
+      }
+      if (e.target.classList.contains('ob-skip')) end();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && cur >= 0) end();
+    });
+  })();
+
+  /* ---- 6 Web Audio 钢琴 ---- */
+  (() => {
+    const piano = document.getElementById('piano');
+    const KEYMAP = {
+      KeyA: 60, KeyS: 62, KeyD: 64, KeyF: 65, KeyG: 67, KeyH: 69, KeyJ: 71, KeyK: 72,
+      KeyW: 61, KeyE: 63, KeyT: 66, KeyY: 68, KeyU: 70,
+    };
+    const KB_LABEL = { 60: 'A', 62: 'S', 64: 'D', 65: 'F', 67: 'G', 69: 'H', 71: 'J', 72: 'K', 61: 'W', 63: 'E', 66: 'T', 68: 'Y', 70: 'U' };
+    const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const BLACK_OFFSETS = [1, 3, 6, 8, 10]; // 每个八度内的黑键半音
+
+    /* 两个八度：C4(60) – B5(83) */
+    const whites = [], blacks = [];
+    for (let m = 60; m <= 83; m++) {
+      const isBlack = NAMES[m % 12].includes('#');
+      (isBlack ? blacks : whites).push(m);
+    }
+
+    const whitesBox = document.createElement('div');
+    whitesBox.className = 'whites';
+    piano.appendChild(whitesBox);
+    const keyEls = new Map();
+    whites.forEach((m) => {
+      const el = document.createElement('div');
+      el.className = 'key-w';
+      el.dataset.midi = m;
+      const name = NAMES[m % 12] + Math.floor(m / 12 - 1);
+      el.innerHTML = `<span class="nm">${name}${KB_LABEL[m] ? '<br />' + KB_LABEL[m] : ''}</span>`;
+      whitesBox.appendChild(el);
+      keyEls.set(m, el);
+    });
+    blacks.forEach((m) => {
+      const el = document.createElement('div');
+      el.className = 'key-b';
+      el.dataset.midi = m;
+      /* 位置：该半音之前有几个白键 */
+      const whiteIdx = whites.findIndex((w) => w > m);
+      el.style.left = (whiteIdx / whites.length) * 100 + '%';
+      el.innerHTML = `<span class="nm">${KB_LABEL[m] || ''}</span>`;
+      piano.appendChild(el);
+      keyEls.set(m, el);
+    });
+
+    /* 音频 */
+    let ctx = null, wave = 'sine';
+    const active = new Map();
+    function ensureCtx() {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+    }
+    function noteOn(midi) {
+      ensureCtx();
+      if (active.has(midi)) return;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = wave;
+      osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.5, t + 0.01);         // A
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.18);   // D → S
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t);
+      active.set(midi, { osc, g });
+      const el = keyEls.get(midi);
+      if (el) el.classList.add('down');
+    }
+    function noteOff(midi) {
+      const a = active.get(midi);
+      if (!a) return;
+      const t = ctx.currentTime;
+      a.g.gain.cancelScheduledValues(t);
+      a.g.gain.setValueAtTime(Math.max(a.g.gain.value, 0.001), t);
+      a.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35); // R
+      a.osc.stop(t + 0.4);
+      active.delete(midi);
+      const el = keyEls.get(midi);
+      if (el) el.classList.remove('down');
+    }
+
+    /* 鼠标 */
+    piano.addEventListener('pointerdown', (e) => {
+      const key = e.target.closest('[data-midi]');
+      if (!key) return;
+      noteOn(Number(key.dataset.midi));
+    });
+    piano.addEventListener('pointerover', (e) => {
+      if (e.buttons !== 1) return;
+      const key = e.target.closest('[data-midi]');
+      if (key) noteOn(Number(key.dataset.midi));
+    });
+    document.addEventListener('pointerup', () => {
+      [...active.keys()].forEach(noteOff);
+    });
+
+    /* 键盘：仅钢琴面板可见且不在输入框里时生效 */
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      const panel = document.getElementById('p6');
+      if (!panel.classList.contains('on')) return;
+      const midi = KEYMAP[e.code];
+      if (midi === undefined) return;
+      e.preventDefault();
+      noteOn(midi);
+    });
+    document.addEventListener('keyup', (e) => {
+      const midi = KEYMAP[e.code];
+      if (midi === undefined) return;
+      noteOff(midi);
+    });
+
+    /* 波形切换 */
+    document.querySelectorAll('#p6 .wave').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#p6 .wave').forEach((x) => x.classList.toggle('on', x === b));
+        wave = b.dataset.wave;
+      });
+    });
+  })();
+
+  /* ---- 分组导航 ---- */
+  const groupBtns = [...document.querySelectorAll('#groups .group-btn')];
+  const demoTabs = [...document.querySelectorAll('#tabs .tab')];
+  function setGroup(g) {
+    groupBtns.forEach((b) => b.classList.toggle('on', b.dataset.g === g));
+    demoTabs.forEach((t) => t.classList.toggle('hide', t.dataset.g !== g));
+  }
+  groupBtns.forEach((b) => b.addEventListener('click', () => {
+    setGroup(b.dataset.g);
+    const first = demoTabs.find((t) => t.dataset.g === b.dataset.g);
+    if (first) first.click();
+  }));
+  setGroup('comp');
+
+  /* ---- 7 Message 全局提示 ---- */
+  (() => {
+    const queue = document.createElement('div');
+    queue.className = 'msg-queue';
+    document.body.appendChild(queue);
+
+    function show(type, text, duration) {
+      return new Promise((resolve) => {
+        const el = document.createElement('div');
+        el.className = 'msg-item ' + type;
+        el.innerHTML = '<span class="msg-ico"></span><span class="msg-txt"></span>';
+        el.querySelector('.msg-txt').textContent = text;
+        queue.appendChild(el);
+        let timer = null;
+        const close = () => {
+          if (el.dataset.closed) return;
+          el.dataset.closed = '1';
+          if (timer) clearTimeout(timer);
+          el.classList.add('out');
+          setTimeout(() => { el.remove(); resolve(); }, 240);
+        };
+        if (duration > 0) timer = setTimeout(close, duration);
+        if (type === 'loading') {
+          const x = document.createElement('button');
+          x.className = 'msg-x';
+          x.textContent = '✕';
+          x.title = '手动关闭';
+          x.addEventListener('click', close);
+          el.appendChild(x);
+        }
+      });
+    }
+    const message = {
+      success: (t) => show('success', t, 2400),
+      warning: (t) => show('warning', t, 3000),
+      loading: (t) => show('loading', t, 0),
+    };
+    document.getElementById('msgOk').addEventListener('click', () => message.success('保存成功，草稿已写入本地'));
+    document.getElementById('msgWarn').addEventListener('click', () => message.warning('磁盘空间不足 10%，建议清理'));
+    document.getElementById('msgLoading').addEventListener('click', () => message.loading('正在同步到云端…（点 ✕ 关闭）'));
+    document.getElementById('msgBurst').addEventListener('click', async () => {
+      await message.success('第 1 条：排队进入');
+      await message.warning('第 2 条：上一条走完我才出现');
+      await message.loading('第 3 条：loading 要手动关闭');
+      message.success('第 4 条：全清之后收尾');
+    });
+  })();
+
+  /* ---- 8 智能定位 Popover ---- */
+  (() => {
+    const pop = document.createElement('div');
+    pop.className = 'pp-pop';
+    pop.style.display = 'none';
+    pop.innerHTML = '<div class="pp-arrow"></div><h4></h4><p></p>';
+    document.body.appendChild(pop);
+    const arrow = pop.children[0];
+
+    function place(anchor) {
+      const r = anchor.getBoundingClientRect();
+      const GAP = 12, PW = 224, PH = 96;   // PH 为估算高度，翻转判断够用
+      const spaceT = r.top, spaceB = window.innerHeight - r.bottom;
+      const spaceL = r.left, spaceR = window.innerWidth - r.right;
+      let where = 'top';
+      if (spaceT < PH + GAP) {
+        if (spaceB >= PH + GAP) where = 'bottom';
+        else if (spaceR >= PW + GAP) where = 'right';
+        else if (spaceL >= PW + GAP) where = 'left';
+        else where = 'bottom';
+      }
+      pop.style.visibility = 'hidden';
+      pop.style.display = 'block';
+      const w = pop.offsetWidth, h = pop.offsetHeight;
+      let x, y;
+      if (where === 'top') { x = r.left + r.width / 2 - w / 2; y = r.top - h - GAP; }
+      else if (where === 'bottom') { x = r.left + r.width / 2 - w / 2; y = r.bottom + GAP; }
+      else if (where === 'left') { x = r.left - w - GAP; y = r.top + r.height / 2 - h / 2; }
+      else { x = r.right + GAP; y = r.top + r.height / 2 - h / 2; }
+      x = Math.max(10, Math.min(x, window.innerWidth - w - 10));
+      y = Math.max(10, Math.min(y, window.innerHeight - h - 10));
+      pop.style.left = x + 'px';
+      pop.style.top = y + 'px';
+      // 箭头：贴锚点的那条边 + 沿边对准锚点中心
+      const cls = { top: 't-bottom', bottom: 't-top', left: 't-right', right: 't-left' }[where];
+      arrow.className = 'pp-arrow ' + cls;
+      arrow.style.left = arrow.style.right = arrow.style.top = arrow.style.bottom = '';
+      if (where === 'top' || where === 'bottom') {
+        arrow.style.left = Math.max(14, Math.min(r.left + r.width / 2 - x, w - 26)) + 'px';
+      } else {
+        arrow.style.top = Math.max(14, Math.min(r.top + r.height / 2 - y, h - 26)) + 'px';
+      }
+      pop.style.visibility = '';
+    }
+
+    let cur = null;
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('.pp-anchor');
+      if (!a || cur === a) {
+        pop.style.display = 'none';
+        cur = null;
+        return;
+      }
+      cur = a;
+      pop.querySelector('h4').textContent = a.dataset.title;
+      pop.querySelector('p').textContent = a.dataset.text;
+      place(a);
+    });
+  })();
+
+  /* ---- 9 拖拽上传 Upload ---- */
+  (() => {
+    const drop = document.getElementById('upDrop');
+    const input = document.getElementById('upFile');
+    const list = document.getElementById('upList');
+    const prevBox = document.getElementById('upPreview');
+    let overN = 0;
+
+    drop.addEventListener('dragenter', (e) => { e.preventDefault(); overN++; drop.classList.add('over'); });
+    drop.addEventListener('dragover', (e) => e.preventDefault());
+    drop.addEventListener('dragleave', () => {
+      overN = Math.max(0, overN - 1);
+      if (!overN) drop.classList.remove('over');
+    });
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      overN = 0;
+      drop.classList.remove('over');
+      handleFiles([...e.dataTransfer.files]);
+    });
+    drop.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => {
+      handleFiles([...input.files]);
+      input.value = '';
+    });
+
+    const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
+    const isText = (f) => f.type.startsWith('text/') || /\.(md|txt|json|csv|js|html|css)$/i.test(f.name);
+
+    function handleFiles(files) {
+      files.forEach((f) => {
+        const li = document.createElement('li');
+        li.innerHTML = '<div class="row1"><span class="nm"></span><span class="meta"></span></div>'
+          + '<div class="up-bar"><i></i></div><div class="st">排队中…</div>';
+        li.querySelector('.nm').textContent = f.name;
+        li.querySelector('.meta').textContent = fmtSize(f.size) + ' · ' + (f.type || '未知类型');
+        list.appendChild(li);
+        const bar = li.querySelector('.up-bar i');
+        const st = li.querySelector('.st');
+        let p = 0;
+        const timer = setInterval(() => {
+          p = Math.min(100, p + 8 + Math.random() * 14);
+          bar.style.width = p + '%';
+          st.textContent = '模拟上传中 ' + Math.round(p) + '%（并没有真的传）';
+          if (p >= 100) {
+            clearInterval(timer);
+            st.textContent = '完成 ✓（模拟）';
+            st.classList.add('ok');
+            if (isText(f)) previewText(f);
+          }
+        }, 120);
+      });
+    }
+
+    function previewText(f) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const lines = String(reader.result).split(/\r?\n/).slice(0, 6).join('\n');
+        prevBox.hidden = false;
+        prevBox.querySelector('h5').textContent = f.name + ' · 前 6 行预览';
+        prevBox.querySelector('pre').textContent = lines.slice(0, 400) || '（空文件）';
+      };
+      reader.readAsText(f.slice(0, 4096));
+    }
+  })();
+
+  /* ---- 10 弹簧物理动画 ---- */
+  (() => {
+    const stage = document.getElementById('spStage');
+    const ball = document.getElementById('spBall');
+    const chart = document.getElementById('spChart');
+    const cctx = chart.getContext('2d');
+    const kEl = document.getElementById('spK');
+    const cEl = document.getElementById('spC');
+    const kVal = document.getElementById('spKVal');
+    const cVal = document.getElementById('spCVal');
+    let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0;
+    let grabbed = false;
+    const hist = new Array(140).fill(0);
+
+    function center() { return { x: stage.clientWidth / 2, y: stage.clientHeight / 2 }; }
+    const c0 = center();
+    x = tx = c0.x; y = ty = c0.y;
+
+    function sizeChart() { chart.width = chart.clientWidth; chart.height = 60; }
+    sizeChart();
+    window.addEventListener('resize', () => {
+      sizeChart();
+      if (!grabbed) { const c = center(); tx = c.x; ty = c.y; }
+    });
+
+    const toLocal = (e) => {
+      const r = stage.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    stage.addEventListener('pointerdown', (e) => {
+      grabbed = true;
+      stage.setPointerCapture(e.pointerId);
+      const p = toLocal(e);
+      tx = p.x; ty = p.y;
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!grabbed) return;
+      const p = toLocal(e);
+      tx = p.x; ty = p.y;
+    });
+    const release = () => {
+      if (!grabbed) return;
+      grabbed = false;
+      const c = center();
+      tx = c.x; ty = c.y;
+    };
+    stage.addEventListener('pointerup', release);
+    stage.addEventListener('pointercancel', release);
+
+    kEl.addEventListener('input', () => { kVal.textContent = kEl.value; });
+    cEl.addEventListener('input', () => { cVal.textContent = cEl.value; });
+
+    function drawChart() {
+      const w = chart.width, h = chart.height;
+      cctx.clearRect(0, 0, w, h);
+      cctx.strokeStyle = 'rgba(140,165,255,0.2)';
+      cctx.setLineDash([4, 4]);
+      cctx.beginPath(); cctx.moveTo(0, h / 2); cctx.lineTo(w, h / 2); cctx.stroke();
+      cctx.setLineDash([]);
+      const max = Math.max(60, ...hist.map(Math.abs));
+      cctx.strokeStyle = '#7c9dff';
+      cctx.lineWidth = 1.5;
+      cctx.beginPath();
+      hist.forEach((v, i) => {
+        const px = (i / (hist.length - 1)) * w;
+        const py = h / 2 - (v / max) * (h / 2 - 6);
+        i ? cctx.lineTo(px, py) : cctx.moveTo(px, py);
+      });
+      cctx.stroke();
+    }
+
+    let last = performance.now();
+    function tick(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const k = +kEl.value, c = +cEl.value;
+      const sub = 4, h = dt / sub;              // 半隐式欧拉 + 子步进
+      for (let i = 0; i < sub; i++) {
+        const ax = -k * (x - tx) - c * vx;
+        const ay = -k * (y - ty) - c * vy;
+        vx += ax * h; vy += ay * h;
+        x += vx * h; y += vy * h;
+      }
+      ball.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+      hist.push(vx); hist.shift();
+      drawChart();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+
+  /* ---- 11 拖拽排序列表 ---- */
+  (() => {
+    const list = document.getElementById('dsList');
+    const names = [
+      '初始化 → 拉 SKU 列表', '参数校验 → 拦截非法输入', '构造请求体 → 合并默认值',
+      '发请求 → 带重试与超时', '解析响应 → 字段映射', '写入缓存 → TTL 5 分钟',
+      '刷新视图 → 增量 patch', '上报埋点 → 静默失败',
+    ];
+    names.forEach((t, i) => {
+      const li = document.createElement('li');
+      li.className = 'ds-item';
+      li.draggable = true;
+      li.innerHTML = '<span class="no">' + String(i + 1).padStart(2, '0') + '</span><span>' + t + '</span><span class="grip">⋮⋮</span>';
+      list.appendChild(li);
+    });
+
+    let dragged = null, ph = null;
+    function withFlip(mutate) {
+      const els = [...list.querySelectorAll('.ds-item')];
+      const before = new Map(els.map((el) => [el, el.getBoundingClientRect().top]));
+      mutate();
+      els.forEach((el) => {
+        if (el === dragged || el.style.display === 'none') return;
+        const d = before.get(el) - el.getBoundingClientRect().top;
+        if (!d) return;
+        el.style.transition = 'none';
+        el.style.transform = 'translateY(' + d + 'px)';
+        el.getBoundingClientRect();               // 强制 reflow
+        el.style.transition = 'transform .22s ease';
+        el.style.transform = '';
+      });
+    }
+
+    list.addEventListener('dragstart', (e) => {
+      dragged = e.target.closest('.ds-item');
+      if (!dragged) return;
+      dragged.classList.add('dragging');
+      ph = document.createElement('li');
+      ph.className = 'ds-ph';
+      ph.style.height = dragged.offsetHeight + 'px';
+      list.insertBefore(ph, dragged);
+      setTimeout(() => { dragged.style.display = 'none'; }, 0);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragged.textContent); } catch (err) { /* 老 Edge */ }
+    });
+
+    list.addEventListener('dragover', (e) => {
+      if (!dragged) return;
+      e.preventDefault();
+      const items = [...list.children].filter((el) => el !== ph && el !== dragged);
+      let next = null;
+      for (const el of items) {
+        const r = el.getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { next = el; break; }
+      }
+      if (next ? ph.nextElementSibling === next : ph === list.lastElementChild) return;
+      withFlip(() => (next ? list.insertBefore(ph, next) : list.appendChild(ph)));
+    });
+
+    list.addEventListener('dragend', () => {
+      if (!dragged) return;
+      withFlip(() => {
+        list.insertBefore(dragged, ph);
+        ph.remove();
+      });
+      ph = null;
+      dragged.style.display = '';
+      dragged.classList.remove('dragging');
+      [...list.querySelectorAll('.ds-item')].forEach((el, i) => {
+        el.querySelector('.no').textContent = String(i + 1).padStart(2, '0');
+      });
+      dragged = null;
+    });
+  })();
+
+  /* ---- 12 懒加载 + 骨架屏 ---- */
+  (() => {
+    const scroll = document.getElementById('lzScroll');
+    const skEl = document.getElementById('lzSk');
+    const rmEl = document.getElementById('lzRoot');
+    const rmVal = document.getElementById('lzRootVal');
+    const statEl = document.getElementById('lzStat');
+    const TOTAL = 20;
+    let io = null, loadedCount = 0;
+
+    const hues = [212, 258, 156, 24, 340, 190];
+    function updateStat() {
+      statEl.innerHTML = '已加载 <b>' + loadedCount + '</b> / ' + TOTAL;
+    }
+    function makeObserver() {
+      if (io) io.disconnect();
+      io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) load(e.target); });
+      }, { root: scroll, rootMargin: rmEl.value + 'px' });
+    }
+    function observeAll() {
+      scroll.querySelectorAll('.lz-card').forEach((c) => io.observe(c));
+    }
+    function build() {
+      scroll.innerHTML = '';
+      loadedCount = 0;
+      for (let i = 1; i <= TOTAL; i++) {
+        const card = document.createElement('div');
+        card.className = 'lz-card skeleton';
+        card.dataset.idx = i;
+        card.dataset.hue = hues[i % hues.length] + Math.floor(i / hues.length) * 12;
+        card.innerHTML = '<div class="skl-bar" style="width:38%"></div><div class="skl-bar" style="width:70%;margin-bottom:0"></div>';
+        scroll.appendChild(card);
+        io.observe(card);
+      }
+      updateStat();
+    }
+    function load(card) {
+      if (card.dataset.done || card.dataset.loading) return;
+      card.dataset.loading = '1';
+      if (skEl.checked) setTimeout(() => finish(card), 700);
+      else finish(card);
+    }
+    function finish(card) {
+      const h = card.dataset.hue;
+      card.dataset.done = '1';
+      delete card.dataset.loading;
+      card.classList.remove('skeleton');
+      card.style.background = 'linear-gradient(135deg, hsla(' + h + ',55%,34%,0.5), hsla(' + (Number(h) + 40) + ',55%,22%,0.5))';
+      card.innerHTML = '<span class="ms">已加载</span><h4>卡片 ' + card.dataset.idx + '</h4>'
+        + '<p>进入视口才渲染真实内容，渐变色块代表加载后的图片。</p>';
+      loadedCount++;
+      updateStat();
+    }
+
+    rmEl.addEventListener('input', () => {
+      rmVal.textContent = rmEl.value + 'px';
+      makeObserver();
+      observeAll();
+    });
+    document.getElementById('lzReset').addEventListener('click', () => {
+      makeObserver();
+      build();
+    });
+    rmVal.textContent = rmEl.value + 'px';
+    makeObserver();
+    build();
+  })();
+
+  /* ---- 13 keepalive 页签缓存 ---- */
+  (() => {
+    const defaults = [
+      { name: '页签 1', text: '', on: true, val: 40 },
+      { name: '页签 2', text: '', on: false, val: 70 },
+      { name: '页签 3', text: '', on: true, val: 10 },
+    ];
+    function formHTML(d) {
+      return '<div class="fr"><span>备注</span>'
+        + '<input type="text" class="txt-input" placeholder="随便输入，切走再回来" style="flex:1;min-width:0" /></div>'
+        + '<div class="fr"><span>开关</span>'
+        + '<label class="ob2-switch"><input type="checkbox"' + (d.on ? ' checked' : '') + ' /><span class="track"></span></label></div>'
+        + '<div class="fr"><span>滑杆</span>'
+        + '<input type="range" min="0" max="100" value="' + d.val + '" style="flex:1" /></div>';
+    }
+
+    /* keepalive 版：display:none 切换，DOM 不销毁 */
+    const cTabs = [...document.querySelectorAll('#kaC .ka-tab')];
+    const cPanes = [...document.querySelectorAll('#kaC .ka-pane')];
+    cPanes.forEach((p, i) => {
+      p.innerHTML = formHTML(defaults[i]);
+      p.querySelector('.txt-input').value = defaults[i].text;
+      p.style.display = i ? 'none' : '';
+    });
+    cTabs.forEach((t, i) => t.addEventListener('click', () => {
+      cTabs.forEach((x, j) => x.classList.toggle('on', i === j));
+      cPanes.forEach((p, j) => { p.style.display = i === j ? '' : 'none'; });
+    }));
+
+    /* 无缓存版：每次切换 innerHTML 重建，状态回默认 */
+    const uTabs = [...document.querySelectorAll('#kaU .ka-tab')];
+    const uBox = document.getElementById('kaUBox');
+    const uLog = document.getElementById('kaULog');
+    let remounts = 0;
+    function mountUncached(i, count) {
+      if (count) remounts++;
+      uBox.innerHTML = formHTML(defaults[i]);
+      uLog.textContent = count
+        ? '已重挂载 ' + remounts + ' 次 —— 每次都是全新的 DOM，你输的东西不在了'
+        : '切一下页签试试';
+    }
+    uTabs.forEach((t, i) => t.addEventListener('click', () => {
+      uTabs.forEach((x, j) => x.classList.toggle('on', i === j));
+      mountUncached(i, true);
+    }));
+    mountUncached(0, false);
+  })();
+
+  /* ---- 14 迷你流程图 ---- */
+  (() => {
+    const stage = document.getElementById('fgStage');
+    const svg = document.getElementById('fgSvg');
+    const modeBtn = document.getElementById('fgMode');
+    const hint = document.getElementById('fgHint');
+    const NODES = [
+      { id: 'start', text: '开始', x: 40, y: 40, cls: 'start' },
+      { id: 'a', text: '校验表单', x: 230, y: 130 },
+      { id: 'b', text: '调用接口', x: 450, y: 60 },
+      { id: 'c', text: '写入状态', x: 450, y: 220 },
+      { id: 'end', text: '结束', x: 660, y: 140, cls: 'end' },
+    ];
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const els = {};
+    NODES.forEach((n) => {
+      const el = document.createElement('div');
+      el.className = 'fg-node' + (n.cls ? ' ' + n.cls : '');
+      el.textContent = n.text;
+      el.style.left = n.x + 'px';
+      el.style.top = n.y + 'px';
+      stage.appendChild(el);
+      els[n.id] = el;
+    });
+
+    const edges = [];
+    const center = (id) => {
+      const el = els[id];
+      return { x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2 };
+    };
+    function drawEdge(e) {
+      const A = els[e.a], B = els[e.b];
+      const p1 = center(e.a), p2 = center(e.b);
+      let x1, y1, x2, y2, c1x, c1y, c2x, c2y;
+      if (Math.abs(p2.x - p1.x) >= Math.abs(p2.y - p1.y)) {  // 水平主导：左右出线
+        const s = p2.x >= p1.x ? 1 : -1;
+        x1 = p1.x + s * A.offsetWidth / 2; y1 = p1.y;
+        x2 = p2.x - s * B.offsetWidth / 2; y2 = p2.y;
+        const dx = Math.abs(x2 - x1) / 2 + 30;
+        c1x = x1 + s * dx; c1y = y1; c2x = x2 - s * dx; c2y = y2;
+      } else {                                                // 垂直主导：上下出线
+        const s = p2.y >= p1.y ? 1 : -1;
+        x1 = p1.x; y1 = p1.y + s * A.offsetHeight / 2;
+        x2 = p2.x; y2 = p2.y - s * B.offsetHeight / 2;
+        const dy = Math.abs(y2 - y1) / 2 + 30;
+        c1x = x1; c1y = y1 + s * dy; c2x = x2; c2y = y2 - s * dy;
+      }
+      const d = 'M ' + x1 + ' ' + y1 + ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + x2 + ' ' + y2;
+      e.path.setAttribute('d', d);
+      e.hit.setAttribute('d', d);
+    }
+    const redraw = () => edges.forEach(drawEdge);
+
+    function addEdge(a, b) {
+      if (edges.some((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a))) return;
+      const path = document.createElementNS(SVGNS, 'path');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#7c9dff');
+      path.setAttribute('stroke-width', '2');
+      const hit = document.createElementNS(SVGNS, 'path');
+      hit.setAttribute('fill', 'none');
+      hit.setAttribute('stroke', 'rgba(0,0,0,0)');
+      hit.setAttribute('stroke-width', '14');
+      hit.setAttribute('class', 'hit');
+      svg.appendChild(hit);
+      svg.appendChild(path);
+      const e = { a, b, path, hit };
+      edges.push(e);
+      drawEdge(e);
+      hit.addEventListener('click', () => {
+        e.path.remove();
+        e.hit.remove();
+        edges.splice(edges.indexOf(e), 1);
+        hint.textContent = '已删除一条连线（剩 ' + edges.length + ' 条）';
+      });
+    }
+
+    /* 连接模式 */
+    let mode = false, selA = null;
+    const clearSel = () => {
+      selA = null;
+      Object.values(els).forEach((el) => el.classList.remove('sel'));
+    };
+    modeBtn.addEventListener('click', () => {
+      mode = !mode;
+      modeBtn.classList.toggle('on', mode);
+      clearSel();
+      hint.textContent = mode
+        ? '连接模式：依次点两个节点连一条线，再点连线可删除'
+        : '拖拽节点移动 · 开启连接模式后点两个节点连线';
+    });
+
+    /* 节点拖拽：pointer capture；移动 <4px 视为点击 */
+    NODES.forEach((n) => {
+      const el = els[n.id];
+      el.addEventListener('pointerdown', (e) => {
+        el.setPointerCapture(e.pointerId);
+        const sx = e.clientX, sy = e.clientY;
+        const ox = el.offsetLeft, oy = el.offsetTop;
+        let moved = false;
+        const move = (ev) => {
+          const dx = ev.clientX - sx, dy = ev.clientY - sy;
+          if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+          if (!moved) return;
+          el.style.left = Math.max(0, Math.min(ox + dx, stage.clientWidth - el.offsetWidth)) + 'px';
+          el.style.top = Math.max(0, Math.min(oy + dy, stage.clientHeight - el.offsetHeight)) + 'px';
+          redraw();
+        };
+        const up = () => {
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          if (moved || !mode) return;
+          if (!selA) {
+            selA = n.id;
+            el.classList.add('sel');
+            hint.textContent = '已选「' + n.text + '」，再点另一个节点完成连线';
+          } else if (selA === n.id) {
+            clearSel();
+            hint.textContent = '已取消选择，重新点两个节点';
+          } else {
+            addEdge(selA, n.id);
+            clearSel();
+            hint.textContent = '连线成功，现在 ' + edges.length + ' 条 · 拖动节点看看连线跟随';
+          }
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+      });
+    });
+
+    addEdge('start', 'a');
+    addEdge('a', 'b');
+    addEdge('b', 'end');
+  })();
+
+  /* ---- 15 表单校验引擎 ---- */
+  (() => {
+    const form = document.getElementById('fmForm');
+    const summary = document.getElementById('fmSummary');
+    const rules = {
+      username: [
+        { test: (v) => v.trim().length > 0, msg: '用户名不能为空' },
+        { test: (v) => /^[a-zA-Z0-9_]{3,12}$/.test(v.trim()), msg: '需为 3–12 位字母、数字或下划线' },
+      ],
+      email: [
+        { test: (v) => v.trim().length > 0, msg: '邮箱不能为空' },
+        { test: (v) => /^[\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,}$/.test(v.trim()), msg: '邮箱格式不对' },
+      ],
+      password: [
+        { test: (v) => v.length > 0, msg: '密码不能为空' },
+        { test: (v) => v.length >= 8, msg: '密码至少 8 位' },
+        { test: (v) => /[a-zA-Z]/.test(v) && /\d/.test(v), msg: '密码需同时包含字母和数字' },
+      ],
+      confirm: [
+        { test: (v) => v.length > 0, msg: '请再输一遍密码' },
+        { test: (v) => v === form.password.value, msg: '两次输入的密码不一致' },
+      ],
+    };
+    const NAMES = { username: '用户名', email: '邮箱', password: '密码', confirm: '确认密码' };
+    const state = {};
+
+    /* 链式规则执行器：依次跑，第一条不过就短路返回错误 */
+    function validateField(name) {
+      const v = form.elements[name].value;
+      for (const r of rules[name]) {
+        if (!r.test(v)) return r.msg;
+      }
+      return '';
+    }
+    function showError(name, msg, shake) {
+      const field = form.elements[name].closest('.fm-field');
+      const input = form.elements[name];
+      if (msg) {
+        field.querySelector('.fm-err').textContent = msg;
+        input.classList.add('invalid');
+        state[name] = msg;
+        if (shake) {
+          field.classList.remove('shake');
+          void field.offsetWidth;            // 强制 reflow，让 animation 重新触发
+          field.classList.add('shake');
+        }
+      } else {
+        field.querySelector('.fm-err').textContent = '';
+        input.classList.remove('invalid');
+        state[name] = '';
+      }
+      renderSummary();
+    }
+    function renderSummary() {
+      summary.innerHTML = Object.keys(rules).map((k) => {
+        const bad = state[k];
+        return '<li><b>' + NAMES[k] + '</b><span class="' + (bad ? 'bad' : 'ok') + '">'
+          + (bad || '✓ 通过') + '</span></li>';
+      }).join('');
+    }
+
+    Object.keys(rules).forEach((name) => {
+      const input = form.elements[name];
+      input.addEventListener('blur', () => showError(name, validateField(name), true));
+      input.addEventListener('input', () => showError(name, validateField(name), false));
+    });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      let firstBad = null;
+      Object.keys(rules).forEach((name) => {
+        const msg = validateField(name);
+        showError(name, msg, !!msg);
+        if (msg && !firstBad) firstBad = name;
+      });
+      if (firstBad) form.elements[firstBad].focus();
+      else summary.innerHTML = '<li><span class="ok">全部通过 ✓（演示环境，不会真的注册）</span></li>';
+    });
+    document.getElementById('fmFill').addEventListener('click', () => {
+      form.elements.username.value = 'lubo_dev';
+      form.elements.email.value = 'lubo@example.com';
+      form.elements.password.value = 'passw0rd123';
+      form.elements.confirm.value = 'passw0rd123';
+      Object.keys(rules).forEach((name) => showError(name, validateField(name), false));
+    });
+    renderSummary();
+  })();
+</script>
+</body>
+</html>

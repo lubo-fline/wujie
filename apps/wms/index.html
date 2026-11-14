@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>智能仓储数字孪生 · 子应用</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden; background: #02040a; color: #cfe3ff;
+    font-family: 'Bahnschrift', 'DIN Alternate', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  #stageWrap {
+    position: fixed; inset: 0; overflow: hidden;
+    background: radial-gradient(1200px 700px at 50% -10%, #0a1830 0%, #03060e 60%, #02040a 100%);
+  }
+  #screen {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+    background:
+      radial-gradient(900px 480px at 18% 0%, rgba(42,212,255,.10), transparent 62%),
+      radial-gradient(900px 520px at 86% 6%, rgba(124,157,255,.10), transparent 62%),
+      linear-gradient(180deg, #060c1a 0%, #03060e 100%);
+  }
+  #screen::before {
+    content: ''; position: absolute; inset: 10px; pointer-events: none;
+    border: 1px solid rgba(72,140,210,.18);
+  }
+  .corner { position: absolute; width: 18px; height: 18px; border: 2px solid rgba(72,205,255,.75); pointer-events: none; }
+  .corner.tl { left: 10px; top: 10px; border-right: 0; border-bottom: 0; }
+  .corner.tr { right: 10px; top: 10px; border-left: 0; border-bottom: 0; }
+  .corner.bl { left: 10px; bottom: 10px; border-right: 0; border-top: 0; }
+  .corner.br { right: 10px; bottom: 10px; border-left: 0; border-top: 0; }
+
+  #top {
+    height: 92px; flex: none; display: flex; align-items: center; gap: 24px;
+    padding: 0 34px; position: relative;
+  }
+  #top::after {
+    content: ''; position: absolute; left: 24px; right: 24px; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(72,205,255,.55) 20%, rgba(72,205,255,.55) 80%, transparent);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; min-width: 470px; }
+  .brand-mark {
+    width: 38px; height: 38px; flex: none; border: 2px solid #38d6ff; border-radius: 4px;
+    position: relative; box-shadow: 0 0 22px rgba(56,214,255,.45), inset 0 0 18px rgba(56,214,255,.2);
+  }
+  .brand-mark::before, .brand-mark::after { content: ''; position: absolute; background: #38d6ff; }
+  .brand-mark::before { left: 8px; right: 8px; top: 50%; height: 1px; opacity: .7; }
+  .brand-mark::after { top: 8px; bottom: 8px; left: 50%; width: 1px; opacity: .7; }
+  .brand h1 { font-size: 25px; letter-spacing: 3px; color: #eaf7ff; font-weight: 700; text-shadow: 0 0 26px rgba(56,214,255,.35); }
+  .brand p { font-size: 11.5px; letter-spacing: 4px; color: #5d83ad; margin-top: 4px; }
+
+  .kpis { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .kpi { padding: 6px 24px; min-width: 140px; text-align: center; border-left: 1px solid rgba(72,140,210,.2); }
+  .kpi:first-child { border-left: 0; }
+  .kpi .k-label { font-size: 11px; letter-spacing: 2px; color: #6a8fb8; }
+  .kpi .k-num { font-size: 27px; font-weight: 700; color: #e6f6ff; line-height: 1.15; margin-top: 2px; text-shadow: 0 0 20px rgba(56,214,255,.4); letter-spacing: 1px; }
+  .kpi .k-num small { font-size: 12px; color: #6a8fb8; margin-left: 3px; font-weight: 400; text-shadow: none; }
+  .kpi.warn .k-num { color: #ffbc5c; text-shadow: 0 0 22px rgba(255,180,84,.55); }
+
+  .clock { text-align: right; min-width: 190px; }
+  #clockTime { font-size: 24px; letter-spacing: 2px; color: #dff2ff; }
+  #clockDate { font-size: 11.5px; letter-spacing: 2px; color: #5d83ad; margin-top: 2px; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: 2px; color: #58e0a8; margin-top: 4px; }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: #58e0a8; box-shadow: 0 0 10px #58e0a8; animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: 366px 1fr 366px; gap: 14px; padding: 14px 20px 10px; }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .col > .card { flex: 1 1 0; }
+  .card {
+    position: relative; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    padding: 13px 15px 14px; border-radius: 4px;
+    background: linear-gradient(180deg, rgba(14,30,56,.74), rgba(7,15,30,.58));
+    border: 1px solid rgba(76,144,210,.22);
+    box-shadow: inset 0 0 40px rgba(20,70,120,.14);
+  }
+  .card::before, .card::after { content: ''; position: absolute; width: 11px; height: 11px; border: 1px solid rgba(72,205,255,.65); }
+  .card::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+  .card::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+  .card-hd { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; flex: none; border-bottom: 1px solid rgba(76,144,210,.18); }
+  .card-hd span:first-child { font-size: 14.5px; letter-spacing: 2px; color: #d6ecff; position: relative; padding-left: 11px; }
+  .card-hd span:first-child::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 2px; width: 3px; background: linear-gradient(180deg, #38d6ff, rgba(56,214,255,.1)); border-radius: 2px; }
+  .dim { font-size: 10.5px; letter-spacing: 1.5px; color: #4f7099; }
+
+  /* 任务卡 */
+  .task {
+    border: 1px solid rgba(76,144,210,.18); border-left: 2px solid #38d6ff;
+    background: rgba(12,26,48,.45); border-radius: 3px; padding: 9px 11px; margin-bottom: 8px;
+  }
+  .task.pick { border-left-color: #ffbc5c; }
+  .task.drop { border-left-color: #58e0a8; }
+  .task-hd { display: flex; justify-content: space-between; font-size: 12.5px; color: #d6ecff; }
+  .task-hd b { font-weight: 600; color: #6ee7ff; }
+  .task-sub { font-size: 10.5px; color: #5d83ad; margin-top: 4px; display: flex; justify-content: space-between; }
+  .prog { height: 3px; margin-top: 7px; background: rgba(90,140,190,.18); border-radius: 2px; overflow: hidden; }
+  .prog i { display: block; height: 100%; background: linear-gradient(90deg, #38d6ff, #7ca6ff); transition: width .3s linear; }
+
+  /* 库区统计 */
+  .zone-row { margin-bottom: 12px; }
+  .zone-hd { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .zone-hd .nm { color: #cbe2fa; }
+  .zone-hd .num { margin-left: auto; font-size: 11px; color: #6a8fb8; }
+  .bar { height: 6px; margin-top: 6px; border-radius: 2px; background: rgba(90,140,190,.18); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, rgba(56,214,255,.9), rgba(56,214,255,.25)); }
+
+  /* 3D */
+  .stage-col { position: relative; min-height: 0; }
+  #stage {
+    position: absolute; inset: 0; border-radius: 4px; overflow: hidden; cursor: grab;
+    border: 1px solid rgba(76,144,210,.25);
+    background:
+      radial-gradient(70% 60% at 50% 12%, rgba(30,80,140,.35), transparent 70%),
+      linear-gradient(180deg, #071022 0%, #04080f 55%, #02050b 100%);
+    touch-action: none;
+  }
+  #stage:active { cursor: grabbing; }
+  #stage canvas { display: block; }
+  .stage-tip { position: absolute; left: 18px; bottom: 14px; font-size: 11px; letter-spacing: 1px; color: #5d83ad; pointer-events: none; }
+  .hover-card {
+    position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -120%);
+    background: rgba(6,16,32,.94); border: 1px solid rgba(72,205,255,.55); border-radius: 3px;
+    padding: 8px 11px; font-size: 11.5px; line-height: 1.7; color: #cfe6ff; white-space: nowrap;
+    transition: opacity .12s; box-shadow: 0 0 24px rgba(20,120,200,.35); z-index: 5;
+  }
+  .hover-card b { color: #6ee7ff; font-weight: 600; }
+
+  /* 详情 */
+  .dev-id { font-size: 21px; letter-spacing: 1.5px; color: #eaf8ff; }
+  .dev-sub { font-size: 11px; color: #5d83ad; letter-spacing: 1.5px; margin-top: 2px; }
+  .badge { font-size: 10.5px; letter-spacing: 1.5px; padding: 2px 8px; border-radius: 2px; border: 1px solid rgba(110,160,210,.35); color: #7d9dbe; }
+  .badge.ok { color: #58e0a8; border-color: rgba(88,224,168,.5); background: rgba(88,224,168,.08); }
+  .badge.warn { color: #ffbc5c; border-color: rgba(255,188,92,.5); background: rgba(255,188,92,.08); }
+  .badge.dim2 { color: #6a8fb8; }
+  .dev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .cell2 { border: 1px solid rgba(76,144,210,.16); background: rgba(12,26,48,.42); padding: 8px 10px; border-radius: 3px; }
+  .cell2 .l { font-size: 10px; color: #5d83ad; letter-spacing: 1px; }
+  .cell2 .v { font-size: 16px; color: #d8efff; margin-top: 2px; }
+  .cell2 .v small { font-size: 10px; color: #6a8fb8; margin-left: 2px; }
+  .dev-empty { color: #4f7099; font-size: 12px; line-height: 1.9; padding: 26px 2px; text-align: center; }
+  .dev-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; }
+  .btn {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 11.5px; letter-spacing: 1.5px;
+    border-radius: 3px; cursor: pointer; color: #9dc6ea;
+    border: 1px solid rgba(76,144,210,.35); background: rgba(20,44,76,.5); transition: all .18s;
+  }
+  .btn:hover { color: #eaf8ff; border-color: rgba(72,205,255,.7); background: rgba(26,58,96,.7); }
+  .btn.primary { background: linear-gradient(135deg, rgba(56,214,255,.9), rgba(124,166,255,.9)); color: #04101f; border-color: transparent; font-weight: 700; }
+  .btn.dis { opacity: .45; pointer-events: none; }
+
+  /* AGV 列表 */
+  .agv-row { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 3px; background: rgba(12,26,48,.4); border: 1px solid rgba(76,144,210,.14); margin-bottom: 7px; }
+  .agv-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .agv-name { font-size: 12px; color: #cbe2fa; }
+  .agv-st { font-size: 10.5px; color: #5d83ad; margin-left: auto; }
+  .agv-bat { width: 44px; height: 4px; border-radius: 2px; background: rgba(90,140,190,.2); overflow: hidden; }
+  .agv-bat i { display: block; height: 100%; background: #58e0a8; }
+
+  /* 底栏 */
+  footer { height: 96px; flex: none; display: flex; align-items: stretch; gap: 16px; padding: 0 20px 12px; }
+  .feed-hd { width: 96px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; letter-spacing: 3px; color: #6f9ac2; border: 1px solid rgba(76,144,210,.2); border-radius: 3px; background: rgba(10,22,40,.5); }
+  #feed { flex: 1; display: flex; gap: 10px; overflow: hidden; }
+  .feed-item { flex: 1; min-width: 0; border: 1px solid rgba(76,144,210,.18); border-left: 2px solid #38d6ff; background: rgba(10,22,40,.55); border-radius: 3px; padding: 9px 12px; display: flex; flex-direction: column; justify-content: center; gap: 4px; animation: slidein .35s ease; }
+  .feed-item.warn { border-left-color: #ffbc5c; }
+  .feed-item.ok { border-left-color: #58e0a8; }
+  .feed-t { font-size: 10px; color: #4f7099; letter-spacing: 1px; display: flex; justify-content: space-between; }
+  .feed-m { font-size: 12px; color: #cfe6ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+  #perf { position: absolute; left: 34px; bottom: 116px; font-size: 10.5px; letter-spacing: .5px; color: #5f83ab; pointer-events: none; z-index: 6; }
+  #back { position: absolute; right: 30px; bottom: 116px; font-size: 11px; letter-spacing: 1px; color: #6f9ac2; background: rgba(8,18,34,.7); border: 1px solid rgba(76,144,210,.3); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: all .2s; }
+  #back:hover { color: #eaf8ff; border-color: rgba(72,205,255,.7); }
+</style>
+</head>
+<body>
+<div id="stageWrap">
+  <div id="screen">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <header id="top">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div>
+          <h1>杭州 · 智能仓储数字孪生</h1>
+          <p>WMS / 货位管理 / AGV 搬运调度</p>
+        </div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="clock">
+        <div id="clockTime">--:--:--</div>
+        <div id="clockDate">--</div>
+        <div class="live"><i></i>LIVE</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="col">
+        <div class="card" style="flex-grow:1.25">
+          <div class="card-hd"><span>搬运任务</span><span class="dim">AGV 队列</span></div>
+          <div id="tasks"></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><span>库区占用</span><span class="dim">按排统计</span></div>
+          <div id="zones"></div>
+        </div>
+      </section>
+
+      <section class="stage-col">
+        <div id="stage"></div>
+        <div class="stage-tip">拖拽旋转 · 滚轮缩放 · 点击货位查看 SKU</div>
+        <div class="hover-card" id="hoverCard"></div>
+      </section>
+
+      <section class="col">
+        <div class="card" style="flex-grow:1.1">
+          <div class="card-hd"><span>货位详情</span><span class="badge dim2" id="cellState">待选择</span></div>
+          <div id="cellInfo" style="flex:1;min-height:0;"></div>
+          <div class="dev-actions">
+            <div class="btn" id="btnRandom">随机派单</div>
+            <div class="btn primary dis" id="btnPick">派车取货</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><span>AGV 车队</span><span class="dim" id="agvCount">3 台在线</span></div>
+          <div id="agvList"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="feed-hd">作业流水</div>
+      <div id="feed"></div>
+    </footer>
+
+    <div id="perf"></div>
+    <button id="back">← 返回主站</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from '../three/vendor/three.module.min.js';
+
+/* ============================================================
+ * 0. 工具
+ * ============================================================ */
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(20261112);
+
+/* ============================================================
+ * 1. 场景配置（参数化：一份数据描述整个仓库）
+ * ============================================================ */
+const RACKS = [
+  { id: 'A', z: -8.4 },
+  { id: 'B', z: -4.2 },
+  { id: 'C', z: 4.2 },
+  { id: 'D', z: 8.4 },
+];
+const COLS = 10;      // 每排 10 列
+const LEVELS = 3;     // 3 层
+const CELL_W = 1.32;
+const CELL_H = 1.02;
+const X0 = -((COLS - 1) * CELL_W) / 2;
+
+const GOODS = [
+  { name: '伺服电机', code: 'SRV' }, { name: '减速机', code: 'RDU' },
+  { name: 'PLC 模块', code: 'PLC' }, { name: '变频器', code: 'VFD' },
+  { name: '轴承套件', code: 'BRG' }, { name: '传感器', code: 'SNS' },
+  { name: '线束组件', code: 'WHL' }, { name: '铝型材', code: 'ALU' },
+];
+
+/* 货位表：业务数据，三维只是渲染 */
+const CELLS = [];
+let ci = 0;
+for (const rack of RACKS) {
+  for (const side of [-1, 1]) {
+    for (let level = 0; level < LEVELS; level++) {
+      for (let col = 0; col < COLS; col++) {
+        const g = GOODS[Math.floor(rng() * GOODS.length)];
+        const occupied = rng() > 0.26;
+        CELLS.push({
+          i: ci++,
+          rack: rack.id,
+          col, level, side,
+          x: X0 + col * CELL_W,
+          y: 0.62 + level * CELL_H,
+          z: rack.z + side * 0.62,
+          occupied,
+          state: occupied ? 'stored' : 'empty',   // stored | empty | picking | locked
+          sku: `${g.code}-${rack.id}${col + 1}${level + 1}`,
+          name: g.name,
+          qty: 12 + Math.floor(rng() * 80),
+          batch: `B26${String(1 + Math.floor(rng() * 9)).padStart(2, '0')}`,
+          inAt: `11-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}`,
+        });
+      }
+    }
+  }
+}
+const cellById = (id) => CELLS[id];
+
+/* ============================================================
+ * 2. 三维场景
+ * ============================================================ */
+const stageEl = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setSize(stageEl.clientWidth, stageEl.clientHeight, false);
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+stageEl.appendChild(renderer.domElement);
+
+/* WebGL 上下文丢失（驱动崩溃/快进快照）时不留黑屏，给出提示 */
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:absolute;inset:0;display:grid;place-content:center;color:#8fb0d4;font-size:13px;letter-spacing:1px;background:rgba(4,8,16,.8);z-index:10';
+  tip.textContent = 'WebGL 上下文丢失，刷新页面恢复';
+  stageEl.appendChild(tip);
+});
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x050a16, 55, 130);
+
+const camera = new THREE.PerspectiveCamera(45, stageEl.clientWidth / stageEl.clientHeight, 0.1, 400);
+
+scene.add(new THREE.HemisphereLight(0x9dc4ff, 0x0a1526, 0.9));
+const key = new THREE.DirectionalLight(0xdfefff, 1.0); key.position.set(20, 34, 22); scene.add(key);
+const rim = new THREE.DirectionalLight(0x4f8dff, 0.75); rim.position.set(-28, 16, -20); scene.add(rim);
+
+/* ---------- 相机 ---------- */
+const cam = {
+  target: new THREE.Vector3(0, 1.6, 0),
+  targetGoal: new THREE.Vector3(0, 1.6, 0),
+  radius: 34, radiusGoal: 34,
+  theta: 0.42, phi: 1.02,
+  dTheta: 0, dPhi: 0,
+  drag: false, lx: 0, ly: 0, moved: 0,
+};
+function applyCamera() {
+  cam.phi = clamp(cam.phi, 0.3, 1.38);
+  camera.position.set(
+    cam.radius * Math.sin(cam.phi) * Math.sin(cam.theta),
+    cam.radius * Math.cos(cam.phi),
+    cam.radius * Math.sin(cam.phi) * Math.cos(cam.theta)
+  );
+  camera.position.add(cam.target);
+  camera.lookAt(cam.target);
+}
+function updateCamera(dt) {
+  cam.theta += cam.dTheta; cam.phi += cam.dPhi;
+  cam.dTheta *= 0.88; cam.dPhi *= 0.88;
+  const k = 1 - Math.pow(0.0025, dt);
+  cam.target.lerp(cam.targetGoal, k);
+  cam.radius = lerp(cam.radius, cam.radiusGoal, k);
+  applyCamera();
+}
+applyCamera();
+
+/* ---------- 地面 + 巷道标线 ---------- */
+const floorGeo = new THREE.PlaneGeometry(70, 46);
+floorGeo.rotateX(-Math.PI / 2);
+const floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0x081326, roughness: 0.92, metalness: 0.3 }));
+floor.position.y = -0.02;
+scene.add(floor);
+
+const grid = new THREE.GridHelper(64, 64, 0x24507c, 0x102338);
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+grid.position.y = 0.004;
+scene.add(grid);
+
+/* 中央主通道黄线（虚线感：短条阵列，一次 InstancedMesh） */
+const lineGeo = new THREE.PlaneGeometry(1.1, 0.12);
+lineGeo.rotateX(-Math.PI / 2);
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xffc44d, transparent: true, opacity: 0.5 });
+const lines = new THREE.InstancedMesh(lineGeo, lineMat, 40);
+for (let i = 0; i < 40; i++) {
+  const x = -19 + (i % 20) * 2.0;
+  const z = i < 20 ? -2.6 : 2.6;
+  const m = new THREE.Matrix4().makeTranslation(x, 0.012, z);
+  lines.setMatrixAt(i, m);
+}
+scene.add(lines);
+
+/* ---------- 货架结构：立柱 + 层板（全实例化） ---------- */
+const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e2c40, metalness: 0.72, roughness: 0.42 });
+
+const postGeo = new THREE.BoxGeometry(0.1, 3.5, 0.1);
+const postCount = RACKS.length * (COLS + 1);
+const posts = new THREE.InstancedMesh(postGeo, steelMat, postCount);
+let pi = 0;
+for (const rack of RACKS) {
+  for (let c = 0; c <= COLS; c++) {
+    const x = X0 - CELL_W / 2 + c * CELL_W;
+    posts.setMatrixAt(pi++, new THREE.Matrix4().makeTranslation(x, 1.75, rack.z));
+  }
+}
+scene.add(posts);
+
+const beamGeo = new THREE.BoxGeometry(COLS * CELL_W + 0.9, 0.08, 1.85);
+const beams = new THREE.InstancedMesh(beamGeo, steelMat, RACKS.length * (LEVELS + 1));
+let bi = 0;
+for (const rack of RACKS) {
+  for (let l = 0; l <= LEVELS; l++) {
+    beams.setMatrixAt(bi++, new THREE.Matrix4().makeTranslation(0, 0.12 + l * CELL_H, rack.z));
+  }
+}
+scene.add(beams);
+
+/* 顶部灯带（仓库氛围） */
+const stripGeo = new THREE.BoxGeometry(COLS * CELL_W + 2, 0.06, 0.22);
+const stripMat = new THREE.MeshBasicMaterial({ color: 0x6cc2e2, transparent: true, opacity: 0.32 });
+const strips = new THREE.InstancedMesh(stripGeo, stripMat, RACKS.length);
+RACKS.forEach((rack, i) => {
+  strips.setMatrixAt(i, new THREE.Matrix4().makeTranslation(0, 3.55, rack.z));
+});
+scene.add(strips);
+
+/* ---------- 货位：InstancedMesh + 实例色 ---------- */
+const cellGeo = new THREE.BoxGeometry(1.06, 0.74, 0.96);
+const cellMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.18, roughness: 0.62, emissive: 0x061420, emissiveIntensity: 1 });
+const cellMesh = new THREE.InstancedMesh(cellGeo, cellMat, CELLS.length);
+cellMesh.frustumCulled = false;
+
+const STATE_COLOR = {
+  stored: new THREE.Color(0x38d6ff),
+  empty: new THREE.Color(0x1b3450),
+  picking: new THREE.Color(0xffb454),
+  locked: new THREE.Color(0xff4d5e),
+};
+
+const m4 = new THREE.Matrix4();
+const q0 = new THREE.Quaternion();
+const s1 = new THREE.Vector3(1, 1, 1);
+
+function writeCellMatrices() {
+  for (const c of CELLS) {
+    const s = c.occupied ? 1 : 0.55;   // 空货位画成薄托盘
+    m4.compose(new THREE.Vector3(c.x, c.y, c.z), q0, new THREE.Vector3(1, s, 1));
+    cellMesh.setMatrixAt(c.i, m4);
+  }
+  cellMesh.instanceMatrix.needsUpdate = true;
+  cellMesh.computeBoundingSphere?.();
+}
+function writeCellColors() {
+  for (const c of CELLS) {
+    cellMesh.setColorAt(c.i, STATE_COLOR[c.state] || STATE_COLOR.empty);
+  }
+  cellMesh.instanceColor.needsUpdate = true;
+}
+writeCellMatrices();
+writeCellColors();
+scene.add(cellMesh);
+
+/* 选中框 */
+const selBox = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.2, 0.9, 1.1)),
+  new THREE.LineBasicMaterial({ color: 0x8ff4ff, transparent: true, opacity: 0.95 })
+);
+selBox.visible = false;
+scene.add(selBox);
+
+/* ============================================================
+ * 3. AGV：曲线路径 + 状态机
+ * ============================================================ */
+const PATH_PTS = [
+  new THREE.Vector3(-17.6, 0, -1.55),
+  new THREE.Vector3(-8, 0, -1.55),
+  new THREE.Vector3(0, 0, -1.55),
+  new THREE.Vector3(8, 0, -1.55),
+  new THREE.Vector3(17.6, 0, -1.55),
+  new THREE.Vector3(19.8, 0, 0),
+  new THREE.Vector3(17.6, 0, 1.55),
+  new THREE.Vector3(8, 0, 1.55),
+  new THREE.Vector3(0, 0, 1.55),
+  new THREE.Vector3(-8, 0, 1.55),
+  new THREE.Vector3(-17.6, 0, 1.55),
+  new THREE.Vector3(-19.8, 0, 0),
+];
+const curve = new THREE.CatmullRomCurve3(PATH_PTS, true, 'catmullrom', 0.15);
+const CURVE_LEN = curve.getLength();
+
+/* 路径可视化：细线贴地 */
+const pathLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(curve.getSpacedPoints(240)),
+  new THREE.LineBasicMaterial({ color: 0x2b6c9e, transparent: true, opacity: 0.55 })
+);
+pathLine.position.y = 0.02;
+scene.add(pathLine);
+
+function makeAgv(color) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 0.34, 1.05),
+    new THREE.MeshStandardMaterial({ color: 0x1c2f47, metalness: 0.6, roughness: 0.35 })
+  );
+  body.position.y = 0.32;
+  g.add(body);
+
+  const deck = new THREE.Mesh(
+    new THREE.BoxGeometry(1.3, 0.09, 0.82),
+    new THREE.MeshStandardMaterial({ color: 0x2a4a6a, metalness: 0.5, roughness: 0.5 })
+  );
+  deck.position.y = 0.52;
+  g.add(deck);
+
+  // 车头方向灯条
+  const nose = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.1, 0.72),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  nose.position.set(0.86, 0.36, 0);
+  g.add(nose);
+
+  // 四个轮子
+  const wheelGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 14);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0d1626, roughness: 0.9 });
+  for (const [wx, wz] of [[-0.55, -0.5], [-0.55, 0.5], [0.55, -0.5], [0.55, 0.5]]) {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.rotation.x = Math.PI / 2;
+    w.position.set(wx, 0.17, wz);
+    g.add(w);
+  }
+
+  // 状态灯
+  const lamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 10, 10),
+    new THREE.MeshBasicMaterial({ color: 0x58e0a8 })
+  );
+  lamp.position.set(-0.62, 0.42, 0);
+  g.add(lamp);
+  g.userData.lamp = lamp;
+
+  g.scale.setScalar(1.3);
+  scene.add(g);
+  return g;
+}
+
+const AGVS = [
+  { id: 'AGV-01', color: 0x38d6ff, t: 0.02, speed: 3.1 },
+  { id: 'AGV-02', color: 0x7ca6ff, t: 0.37, speed: 2.9 },
+  { id: 'AGV-03', color: 0x58e0a8, t: 0.68, speed: 3.3 },
+].map((cfg, i) => {
+  const mesh = makeAgv(cfg.color);
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(0.68, 0.52, 0.68),
+    new THREE.MeshStandardMaterial({ color: 0xc79a5b, roughness: 0.85, metalness: 0.05 })
+  );
+  box.visible = false;
+  scene.add(box);
+  return {
+    ...cfg, i, mesh, box,
+    state: 'idle',            // idle | toPick | picking | toDrop | dropping
+    target: null,             // 目标货位
+    timer: 0,
+    progress: 0,
+    battery: 62 + rng() * 35,
+  };
+});
+
+/* ============================================================
+ * 4. 业务状态
+ * ============================================================ */
+const state = {
+  selected: null,
+  hover: null,
+  tasks: [],        // {agv, cell, phase}
+  feed: [],
+};
+let scale = 1;
+
+/* 派单：给空闲 AGV 指定一个货位 */
+function dispatch(cell, silent) {
+  const idle = AGVS.filter((a) => a.state === 'idle');
+  if (!idle.length) {
+    if (!silent) pushFeed('warn', '派单失败', '当前没有空闲 AGV');
+    return false;
+  }
+  if (!cell || !cell.occupied || cell.state !== 'stored') {
+    if (!silent) pushFeed('warn', '派单失败', '该货位没有可出库的货物');
+    return false;
+  }
+  // 选距离最近的空闲车
+  const p = new THREE.Vector3(cell.x, 0, cell.z);
+  let best = idle[0], bestD = Infinity;
+  for (const a of idle) {
+    const d = a.mesh.position.distanceTo(p);
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  best.state = 'toPick';
+  best.target = cell;
+  best.timer = 0;
+  cell.state = 'locked';
+  writeCellColors();
+  pushFeed('ok', '任务下发', `${best.id} → ${cell.rack} 区 ${cell.level + 1} 层 ${cell.col + 1} 列 · ${cell.sku}`);
+  paintAll();
+  return true;
+}
+
+/* ============================================================
+ * 5. 更新：AGV 状态机
+ * ============================================================ */
+const tmpV = new THREE.Vector3();
+const tmpT = new THREE.Vector3();
+
+function updateAgv(a, dt) {
+  // 巡航
+  if (a.state === 'idle' || a.state === 'toPick' || a.state === 'toDrop') {
+    a.t = (a.t + (a.speed * dt) / CURVE_LEN) % 1;
+    const pos = curve.getPointAt(a.t);
+    a.mesh.position.copy(pos);
+
+    // 朝向 = 切线（getPointAt 按弧长，弯道不会忽快忽慢）
+    const tan = curve.getTangentAt(a.t);
+    a.mesh.lookAt(pos.x + tan.x, pos.y + tan.y, pos.z + tan.z);
+    a.box.position.copy(pos).setY(0.78);
+  }
+
+  // 靠近目标货位就停车取货
+  if (a.state === 'toPick') {
+    const dx = Math.abs(a.mesh.position.x - a.target.x);
+    const near = dx < 1.1;
+    if (near) {
+      a.state = 'picking';
+      a.timer = 0;
+      a.box.visible = true;
+      a.box.position.set(a.target.x, a.target.y, a.target.z);
+      a.box.scale.set(1, 1, 1);
+      a.target.state = 'picking';
+      writeCellColors();
+      pushFeed('warn', 'AGV 到位', `${a.id} 停靠 ${a.target.sku}，开始取货`);
+      paintAll();
+    }
+  }
+
+  if (a.state === 'picking') {
+    a.timer += dt;
+    const u = clamp(a.timer / 0.9, 0, 1);
+    // 货箱从货位飞到车顶
+    tmpV.set(a.target.x, a.target.y, a.target.z);
+    tmpT.copy(a.box.position);
+    const dest = tmpV.clone().lerp(new THREE.Vector3(a.mesh.position.x, 0.82, a.mesh.position.z), easeInOut(u));
+    a.box.position.lerp(dest, 0.25);
+    a.box.rotation.y += dt * 1.6;
+    if (u >= 1) {
+      a.box.rotation.y = 0;
+      a.target.occupied = false;
+      a.target.state = 'empty';
+      writeCellMatrices();
+      writeCellColors();
+      a.state = 'toDrop';
+      a.timer = 0;
+      pushFeed('ok', '取货完成', `${a.id} 装载 ${a.target.sku}`);
+      paintAll();
+    }
+  }
+
+  if (a.state === 'toDrop') {
+    // 跑到左侧出口
+    if (a.mesh.position.x < -15.5) {
+      a.state = 'dropping';
+      a.timer = 0;
+    }
+  }
+
+  if (a.state === 'dropping') {
+    a.timer += dt;
+    const u = clamp(a.timer / 0.7, 0, 1);
+    a.box.scale.setScalar(1 - u * 0.9);
+    if (u >= 1) {
+      a.box.visible = false;
+      a.box.scale.set(1, 1, 1);
+      a.state = 'idle';
+      a.target = null;
+      pushFeed('ok', '出库完成', `${a.id} 已交付至出库口`);
+      paintAll();
+    }
+  }
+
+  // 状态灯：取货琥珀、搬运绿、空闲青
+  const lampColor = a.state === 'picking' || a.state === 'toPick' ? 0xffb454
+    : a.state === 'idle' ? 0x58e0a8 : 0x38d6ff;
+  a.mesh.userData.lamp.material.color.setHex(lampColor);
+}
+
+/* ============================================================
+ * 6. 交互
+ * ============================================================ */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let hoverPending = null;
+
+function toStage(e) {
+  const r = stageEl.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+}
+function hitCell(e) {
+  const p = toStage(e);
+  ndc.set((p.x / stageEl.clientWidth) * 2 - 1, -((p.y / stageEl.clientHeight) * 2 - 1));
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(cellMesh, false);
+  return hits.length ? hits[0].instanceId : null;
+}
+
+const dom = renderer.domElement;
+dom.addEventListener('pointerdown', (e) => {
+  cam.drag = true; cam.moved = 0; cam.lx = e.clientX; cam.ly = e.clientY;
+  dom.setPointerCapture?.(e.pointerId);
+});
+dom.addEventListener('pointermove', (e) => {
+  if (!cam.drag) { hoverPending = e; return; }
+  const dx = e.clientX - cam.lx, dy = e.clientY - cam.ly;
+  cam.moved += Math.abs(dx) + Math.abs(dy);
+  cam.dTheta -= dx * 0.0045;
+  cam.dPhi -= dy * 0.0045;
+  cam.lx = e.clientX; cam.ly = e.clientY;
+});
+dom.addEventListener('pointerup', (e) => {
+  cam.drag = false;
+  if (cam.moved < 6) {
+    const id = hitCell(e);
+    selectCell(id === null ? null : cellById(id));
+  }
+});
+dom.addEventListener('pointerleave', () => { cam.drag = false; hideHover(); });
+dom.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.radiusGoal = clamp(cam.radiusGoal * (1 + Math.sign(e.deltaY) * 0.1), 12, 62);
+}, { passive: false });
+
+function applyHover(e) {
+  const id = hitCell(e);
+  const card = $('#hoverCard');
+  if (id === null) { hideHover(); return; }
+  const c = cellById(id);
+  state.hover = c;
+  const p = toStage(e);
+  card.style.opacity = '1';
+  card.style.left = (p.x + 12) + 'px';
+  card.style.top = (p.y - 10) + 'px';
+  card.innerHTML = `<b>${c.sku}</b> · ${c.name}<br>${c.rack} 区 ${c.level + 1} 层 ${c.col + 1} 列 · ${c.occupied ? c.qty + ' 件' : '空货位'}`;
+  dom.style.cursor = 'pointer';
+}
+function hideHover() {
+  state.hover = null;
+  $('#hoverCard').style.opacity = '0';
+  dom.style.cursor = 'grab';
+}
+
+function selectCell(c) {
+  state.selected = c;
+  if (!c) {
+    selBox.visible = false;
+    cam.targetGoal.set(0, 1.6, 0);
+    cam.radiusGoal = 34;
+    paintCellInfo();
+    return;
+  }
+  selBox.visible = true;
+  selBox.position.set(c.x, c.y, c.z);
+  cam.targetGoal.set(c.x, c.y, c.z);
+  cam.radiusGoal = Math.min(cam.radiusGoal, 18);
+  paintCellInfo();
+}
+
+$('#btnPick').addEventListener('click', () => {
+  if (!state.selected) { pushFeed('warn', '未选择货位', '点击场景中的货位再派车'); return; }
+  dispatch(state.selected);
+});
+$('#btnRandom').addEventListener('click', () => {
+  const pool = CELLS.filter((c) => c.occupied && c.state === 'stored');
+  if (!pool.length) return;
+  dispatch(pool[Math.floor(Math.random() * pool.length)]);
+});
+$('#back').addEventListener('click', () => {
+  if (history.length > 1) history.back();
+  else location.href = '../../index.html';
+});
+
+/* ============================================================
+ * 7. UI
+ * ============================================================ */
+function paintKPI() {
+  const total = CELLS.length;
+  const used = CELLS.filter((c) => c.occupied).length;
+  const picking = CELLS.filter((c) => c.state === 'picking' || c.state === 'locked').length;
+  const busy = AGVS.filter((a) => a.state !== 'idle').length;
+  const kpi = [
+    { label: '货位总数', num: total, unit: '个', cls: '' },
+    { label: '已占用', num: used, unit: `/ ${total}`, cls: '' },
+    { label: '拣选中', num: picking, unit: '个', cls: picking ? 'warn' : '' },
+    { label: 'AGV 作业', num: busy, unit: `/ 3 台`, cls: '' },
+    { label: '库容率', num: ((used / total) * 100).toFixed(0), unit: '%', cls: '' },
+  ];
+  $('#kpis').innerHTML = kpi.map((k) =>
+    `<div class="kpi ${k.cls}"><div class="k-label">${k.label}</div>
+     <div class="k-num">${k.num}<small>${k.unit}</small></div></div>`
+  ).join('');
+}
+
+const STATE_TXT = {
+  idle: '巡航中', toPick: '前往货位', picking: '取货中', toDrop: '搬运中', dropping: '卸货中',
+};
+
+function paintTasks() {
+  const rows = AGVS.filter((a) => a.target).map((a) => {
+    const c = a.target;
+    const prog = a.state === 'picking' ? 55 : a.state === 'dropping' ? 92 : a.state === 'toDrop' ? 78 : 26;
+    const cls = a.state === 'picking' ? 'pick' : a.state === 'dropping' ? 'drop' : '';
+    return `<div class="task ${cls}">
+      <div class="task-hd"><b>${a.id}</b><span>${STATE_TXT[a.state]}</span></div>
+      <div class="task-sub"><span>${c.sku} · ${c.name}</span><span>${c.rack} 区 ${c.level + 1} 层</span></div>
+      <div class="prog"><i style="width:${prog}%"></i></div>
+    </div>`;
+  });
+  if (!rows.length) {
+    rows.push(`<div class="task"><div class="task-hd"><b>待命</b><span>无任务</span></div>
+      <div class="task-sub"><span>三台 AGV 均在主通道巡航</span><span>--</span></div></div>`);
+  }
+  $('#tasks').innerHTML = rows.join('');
+}
+
+function paintZones() {
+  $('#zones').innerHTML = RACKS.map((r) => {
+    const list = CELLS.filter((c) => c.rack === r.id);
+    const used = list.filter((c) => c.occupied).length;
+    return `<div class="zone-row">
+      <div class="zone-hd"><span class="nm">${r.id} 区 · 双面 ${COLS} 列 × ${LEVELS} 层</span>
+        <span class="num">${used}/${list.length}</span></div>
+      <div class="bar"><i style="width:${((used / list.length) * 100).toFixed(0)}%"></i></div>
+    </div>`;
+  }).join('');
+}
+
+function paintCellInfo() {
+  const c = state.selected;
+  const badge = $('#cellState');
+  const btn = $('#btnPick');
+  if (!c) {
+    badge.className = 'badge dim2';
+    badge.textContent = '待选择';
+    btn.classList.add('dis');
+    $('#cellInfo').innerHTML = `<div class="dev-empty">点击货架上的任一货位，查看 SKU、批次与库存；<br>
+      点「派车取货」让最近的 AGV 过来搬运。<br><br>
+      货位数据来自 <b style="color:#7fa6cd">CELLS 表</b>，<br>
+      三维只是把它渲染成实例。</div>`;
+    return;
+  }
+  const txt = c.state === 'stored' ? '在库' : c.state === 'empty' ? '空货位' : c.state === 'picking' ? '取货中' : '已锁定';
+  badge.className = 'badge ' + (c.state === 'stored' ? 'ok' : c.state === 'empty' ? 'dim2' : 'warn');
+  badge.textContent = txt;
+  btn.classList.toggle('dis', !(c.occupied && c.state === 'stored'));
+  $('#cellInfo').innerHTML = `
+    <div class="dev-id">${c.sku}</div>
+    <div class="dev-sub">${c.rack} 区 · 第 ${c.level + 1} 层 · 第 ${c.col + 1} 列 · ${c.side > 0 ? '外侧' : '内侧'}</div>
+    <div class="dev-grid">
+      <div class="cell2"><div class="l">品名</div><div class="v" style="font-size:14px">${c.name}</div></div>
+      <div class="cell2"><div class="l">数量</div><div class="v">${c.qty}<small>件</small></div></div>
+      <div class="cell2"><div class="l">批次</div><div class="v" style="font-size:14px">${c.batch}</div></div>
+      <div class="cell2"><div class="l">入库日期</div><div class="v" style="font-size:14px">${c.inAt}</div></div>
+    </div>`;
+}
+
+function paintAgv() {
+  $('#agvList').innerHTML = AGVS.map((a) => {
+    const color = a.state === 'idle' ? '#58e0a8' : a.state === 'picking' || a.state === 'toPick' ? '#ffbc5c' : '#38d6ff';
+    return `<div class="agv-row">
+      <i class="agv-dot" style="background:${color};box-shadow:0 0 10px ${color}"></i>
+      <span class="agv-name">${a.id}</span>
+      <span class="agv-st">${STATE_TXT[a.state]}</span>
+      <span class="agv-bat"><i style="width:${a.battery.toFixed(0)}%;background:${a.battery > 40 ? '#58e0a8' : '#ffbc5c'}"></i></span>
+    </div>`;
+  }).join('');
+}
+
+function paintAll() {
+  paintKPI(); paintTasks(); paintZones(); paintCellInfo(); paintAgv();
+}
+
+function pushFeed(level, title, msg) {
+  const d = new Date();
+  const time = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
+  state.feed.unshift({ level, title, msg, time });
+  state.feed = state.feed.slice(0, 4);
+  $('#feed').innerHTML = state.feed.map((f) =>
+    `<div class="feed-item ${f.level}">
+      <div class="feed-t"><span>${f.title}</span><span>${f.time}</span></div>
+      <div class="feed-m">${f.msg}</div>
+    </div>`
+  ).join('');
+}
+
+function paintClock() {
+  const d = new Date();
+  $('#clockTime').textContent = [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map((v) => String(v).padStart(2, '0')).join(':');
+  const week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+  $('#clockDate').textContent = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}  星期${week}`;
+}
+
+/* ============================================================
+ * 8. 大屏适配
+ * ============================================================ */
+function fit() {
+  // 以可见容器（stageWrap）的实际尺寸为准，而不是沙箱 window：
+  // wujie 隐藏 iframe 的 innerWidth 在宿主全屏/改容器时不一定同步
+  const wrap = document.getElementById('stageWrap');
+  const r = (wrap && wrap.getBoundingClientRect().width) ? wrap.getBoundingClientRect() : null;
+  const w = r ? r.width : window.innerWidth;
+  const h = r ? r.height : window.innerHeight;
+  const k = Math.min(w / 1920, h / 1080);
+  scale = k;
+  $('#screen').style.transform = `translate(-50%, -50%) scale(${k})`;
+  renderer.setPixelRatio(Math.min(2, (window.devicePixelRatio || 1) / Math.max(k, 0.4)));
+}
+window.addEventListener('resize', fit);
+fit();
+// 宿主全屏/容器尺寸变化不一定派发 resize 事件，按容器实测尺寸兜底轮询
+let vpW = 0, vpH = 0;
+setInterval(() => {
+  const r = document.getElementById('stageWrap').getBoundingClientRect();
+  if (Math.round(r.width) !== vpW || Math.round(r.height) !== vpH) {
+    vpW = Math.round(r.width); vpH = Math.round(r.height);
+    fit();
+  }
+}, 300);
+
+/* ============================================================
+ * 9. 主循环
+ * ============================================================ */
+paintAll();
+paintClock();
+pushFeed('ok', '系统就绪', `${CELLS.length} 个货位 · ${AGVS.length} 台 AGV 已上线`);
+pushFeed('ok', '入库完成', 'A 区 3 层新到 40 件伺服电机');
+
+let last = performance.now();
+let hoverAcc = 0;
+let perfAcc = 0;
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  updateCamera(dt);
+  for (const a of AGVS) updateAgv(a, dt);
+
+  // 选中框脉冲
+  if (state.selected) {
+    const s = 1 + Math.sin(now / 1000 * 3.4) * 0.02;
+    selBox.scale.set(s, s, s);
+  }
+
+  // 悬停节流
+  hoverAcc += dt;
+  if (hoverPending && hoverAcc > 0.06) {
+    hoverAcc = 0;
+    const e = hoverPending;
+    hoverPending = null;
+    applyHover(e);
+  }
+
+  try {
+    renderer.render(scene, camera);
+  } catch (err) {
+    // 上下文丢失后 three 内部会每帧抛错，吞掉避免刷爆控制台
+  }
+
+  perfAcc += dt;
+  if (perfAcc > 0.25) {
+    perfAcc = 0;
+    const info = renderer.info.render;
+    $('#perf').textContent =
+      `cells ${CELLS.length} · agv ${AGVS.length} · draw calls ${info.calls} · tris ${(info.triangles / 1000).toFixed(1)}k · scale ${scale.toFixed(2)}`;
+  }
+}
+requestAnimationFrame(frame);
+
+setInterval(paintClock, 1000);
+
+/* 自动派单：业务事件用定时器驱动，保证画面一直有搬运在发生 */
+setInterval(() => {
+  if (AGVS.some((a) => a.state === 'idle')) {
+    const pool = CELLS.filter((c) => c.occupied && c.state === 'stored');
+    if (pool.length) dispatch(pool[Math.floor(Math.random() * pool.length)], true);
+  }
+}, 6000);
+setInterval(() => {
+  for (const a of AGVS) a.battery = clamp(a.battery - 0.02, 8, 100);
+  paintAgv();
+}, 5000);
+</script>
+</body>
+</html>

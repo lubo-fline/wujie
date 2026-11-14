@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bits 效果实验室 · React × Vue</title>
+<style>
+  :root {
+    --bg: #0b1226;
+    --bg-soft: #101731;
+    --panel: #121a35;
+    --line: rgba(148, 163, 184, 0.18);
+    --text: #e2e8f0;
+    --text-mid: #94a3b8;
+    --cyan: #22d3ee;
+    --magenta: #e879f9;
+    --amber: #fbbf24;
+    --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
+  body { padding: 0 0 80px; }
+
+  .lab-head { padding: 34px 28px 10px; max-width: 1080px; margin: 0 auto; }
+  .lab-kicker { font-size: 12px; letter-spacing: 4px; color: var(--cyan); font-family: 'JetBrains Mono', Consolas, monospace; }
+  .lab-title { font-size: clamp(1.5rem, 2.6vw, 2.1rem); margin: 10px 0 8px; }
+  .lab-desc { color: var(--text-mid); font-size: 14px; line-height: 1.8; max-width: 780px; }
+  .lab-desc b { color: var(--text); }
+  .lab-desc a { color: var(--cyan); text-decoration: none; border-bottom: 1px dashed rgba(34,211,238,.4); }
+  .cdn-warn { display: none; margin: 14px 28px 0; max-width: 1080px; padding: 10px 16px; border: 1px solid rgba(251,191,36,.4); border-radius: 10px; color: var(--amber); font-size: 13px; background: rgba(251,191,36,.06); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 20px 28px; max-width: 1080px; margin: 0 auto; }
+  .tab { padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-soft); color: var(--text-mid); font-size: 13px; cursor: pointer; transition: all .2s; user-select: none; }
+  .tab:hover { color: var(--text); border-color: rgba(34,211,238,.4); }
+  .tab.on { color: #06121a; background: var(--cyan); border-color: var(--cyan); font-weight: 600; }
+
+  .stage { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .panel-head { margin-bottom: 18px; }
+  .panel-title { font-size: 1.25rem; margin-bottom: 6px; }
+  .panel-title .en { color: var(--text-mid); font-family: 'JetBrains Mono', Consolas, monospace; font-size: .85rem; margin-left: 10px; }
+  .panel-desc { color: var(--text-mid); font-size: 14px; line-height: 1.8; }
+
+  .demo-frame { position: relative; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 26px; min-height: 320px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .demo-frame.grid-bg { background-image: radial-gradient(rgba(148,163,184,.08) 1px, transparent 1px); background-size: 22px 22px; }
+  .demo-tag { position: absolute; top: 12px; left: 16px; font-size: 11px; letter-spacing: 2px; color: var(--text-mid); font-family: 'JetBrains Mono', Consolas, monospace; }
+  .demo-tag b.react { color: var(--cyan); }
+  .demo-tag b.vue { color: var(--green); }
+
+  .controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { padding: 8px 18px; border: 0; background: var(--bg-soft); color: var(--text-mid); font-size: 13px; cursor: pointer; transition: all .2s; font-family: 'JetBrains Mono', Consolas, monospace; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on.react-on { background: rgba(34,211,238,.14); color: var(--cyan); }
+  .seg button.on.vue-on { background: rgba(52,211,153,.14); color: var(--green); }
+  .ctl { padding: 8px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-soft); color: var(--text); font-size: 13px; cursor: pointer; transition: all .2s; }
+  .ctl:hover { border-color: rgba(34,211,238,.5); color: var(--cyan); }
+  .ctl-chip { padding: 5px 12px; border-radius: 999px; font-size: 12px; }
+
+  .note { margin-top: 18px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); color: var(--text-mid); font-size: 13px; line-height: 1.9; }
+  .note b { color: var(--text); }
+  .note a { color: var(--cyan); text-decoration: none; }
+  .note code { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; color: var(--amber); background: rgba(251,191,36,.08); padding: 1px 6px; border-radius: 5px; }
+
+  /* ============ 效果本体样式 ============ */
+
+  /* DecryptedText */
+  .fx-decrypt { font-size: clamp(1.3rem, 3vw, 2rem); letter-spacing: 2px; white-space: pre-wrap; cursor: default; }
+  .fx-decrypt .ch { display: inline-block; min-width: 1ch; transition: color .3s; }
+  .fx-decrypt .ch.enc { color: rgba(232,121,249,.75); }
+
+  /* BlurText */
+  .fx-blur { display: flex; flex-wrap: wrap; gap: .35em; font-size: clamp(1.2rem, 2.6vw, 1.8rem); font-weight: 600; }
+  .fx-blur .w { display: inline-block; filter: blur(10px); opacity: 0; transform: translateY(-16px); transition: filter .5s cubic-bezier(.22,1,.36,1), opacity .5s, transform .5s cubic-bezier(.22,1,.36,1); }
+  .fx-blur .w.in { filter: blur(0); opacity: 1; transform: translateY(0); }
+
+  /* SplitText */
+  .fx-split { font-size: clamp(1.4rem, 3vw, 2.2rem); font-weight: 700; letter-spacing: 3px; }
+  .fx-split .c { display: inline-block; opacity: 0; transform: translateY(28px) rotate(8deg); transition: opacity .45s, transform .55s cubic-bezier(.22,1,.36,1); }
+  .fx-split .c.in { opacity: 1; transform: translateY(0) rotate(0); }
+  .fx-split .c.space { width: .5em; }
+
+  /* ShinyText */
+  .fx-shiny { font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 700; background: linear-gradient(110deg, #64748b 40%, #ffffff 50%, #64748b 60%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .fx-shiny.run { animation: shiny-sweep 2.4s linear infinite; }
+  @keyframes shiny-sweep { 0% { background-position: 220% 0; } 100% { background-position: -220% 0; } }
+
+  /* StarBorder */
+  .fx-sb-wrap { position: relative; overflow: hidden; isolation: isolate; border-radius: 20px; padding: 1px 0; }
+  .fx-sb-beam { position: absolute; width: 300%; height: 50%; border-radius: 50%; opacity: .7; pointer-events: none; z-index: 0; }
+  .fx-sb-beam.top { top: -10px; left: -250%; animation: fx-star-top 6s linear infinite alternate; }
+  .fx-sb-beam.bottom { bottom: -11px; right: -250%; animation: fx-star-bottom 6s linear infinite alternate; }
+  @keyframes fx-star-top { 0% { transform: translate(0,0); opacity: 1; } 100% { transform: translate(100%,0); opacity: 0; } }
+  @keyframes fx-star-bottom { 0% { transform: translate(0,0); opacity: 1; } 100% { transform: translate(-100%,0); opacity: 0; } }
+  .fx-sb-inner { position: relative; z-index: 10; padding: 16px 38px; border: 1px solid rgba(255,255,255,.14); border-radius: 19px; background: rgba(11,13,24,.9); font-size: 15px; }
+
+  /* GlareHover */
+  .fx-glare { position: relative; width: 280px; padding: 26px 22px; border-radius: 14px; border: 1px solid rgba(148,163,184,.25); background: rgba(16,23,49,.9); overflow: hidden; isolation: isolate; cursor: pointer; }
+  .fx-glare::before { content: ''; position: absolute; top: 0; left: -80%; z-index: 1; width: 55%; height: 100%; background: linear-gradient(105deg, transparent, rgba(255,255,255,.28), transparent); transform: skewX(-18deg); transition: left .65s ease; pointer-events: none; }
+  .fx-glare:hover::before, .fx-glare.play::before { left: 130%; }
+  .fx-glare::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(120deg, rgba(255,255,255,.55), transparent 35%, transparent 65%, rgba(255,255,255,.25)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .4s; pointer-events: none; }
+  .fx-glare:hover::after, .fx-glare.play::after { opacity: 1; }
+  .fx-glare .t { font-weight: 600; font-size: 15px; }
+  .fx-glare .d { color: var(--text-mid); font-size: 12.5px; margin-top: 8px; line-height: 1.7; }
+
+  /* Counter */
+  .fx-counter { display: flex; gap: 8px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: clamp(2.6rem, 6vw, 4rem); font-weight: 700; line-height: 1; direction: ltr; }
+  .fx-counter .col { position: relative; width: 1ch; height: 1em; overflow: hidden; font-variant-numeric: tabular-nums; display: inline-flex; }
+  .fx-counter .strip { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; will-change: transform; }
+  .fx-counter .strip span { height: 1em; display: flex; align-items: center; }
+
+  /* MagnetLines */
+  .fx-magnet { display: grid; place-items: center; }
+  .fx-magnet span { display: block; transform: rotate(var(--rotate, -10deg)); transform-origin: center; will-change: transform; transition: transform .12s linear; }
+
+  .lab-foot { max-width: 1080px; margin: 26px auto 0; padding: 0 28px; color: rgba(148,163,184,.5); font-size: 12px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+  <div class="lab-head">
+    <div class="lab-kicker">REACT BITS × VUE BITS</div>
+    <h1 class="lab-title">Bits 效果实验室</h1>
+    <p class="lab-desc">
+      收录 React Bits / Vue Bits 里最实用的 8 个效果，<b>每个都同时给出 React 与 Vue 两份真实现</b>，下方可切换框架重挂载。
+      原仓库里 BlurText / SplitText / Counter 依赖 motion-v，这里用 CSS 过渡与 rAF 弹性逼近复现同样的视觉；DecryptedText、MagnetLines 与原仓库算法一致；ShinyText、StarBorder、GlareHover 本就是纯 CSS。
+      源码来源：
+      <a href="https://github.com/DavidHDev/react-bits" target="_blank" rel="noopener">react-bits</a> ·
+      <a href="https://github.com/DavidHDev/vue-bits" target="_blank" rel="noopener">vue-bits</a>
+    </p>
+  </div>
+  <div class="cdn-warn" id="cdnWarn"></div>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="stage">
+    <div class="panel-head">
+      <div class="panel-title" id="pTitle"></div>
+      <div class="panel-desc" id="pDesc"></div>
+    </div>
+    <div class="demo-frame" id="frame">
+      <span class="demo-tag">FRAMEWORK · <b id="fwTag" class="react">REACT 18</b></span>
+      <div id="demo" style="display:contents"></div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="fwSeg">
+        <button id="segReact" class="react-on on">React 18</button>
+        <button id="segVue" class="vue-on">Vue 3</button>
+      </div>
+      <button class="ctl" id="btnReplay">↻ 重播</button>
+      <span id="extraCtl" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+    </div>
+    <div class="note" id="pNote"></div>
+  </div>
+  <div class="lab-foot">Nebula Folio · Bits Lab — 同一效果，两种框架，视觉一致性自己验</div>
+
+  <!-- 运行时已本地化（源 npmmirror），零外部 CDN 依赖 -->
+  <script src="./vendor/react.production.min.js"></script>
+  <script src="./vendor/react-dom.production.min.js"></script>
+  <!-- wujie 对部分外链脚本不执行（React 正常、Vue 被跳过），这里改为运行时 fetch + eval 兜底 -->
+  <script>
+  (function () {
+    function loadVue(retries) {
+      if (typeof Vue !== 'undefined') return;
+      fetch('./vendor/vue.global.prod.js', { cache: 'no-cache' })
+        .then(function (r) { return r.text(); })
+        .then(function (t) { if (typeof Vue === 'undefined') window.eval(t); })
+        .catch(function () {
+          if (retries > 0) setTimeout(function () { loadVue(retries - 1); }, 1200);
+        });
+    }
+    loadVue(3);
+    // Vue 若晚于初始化就绪，自动撤掉警告条（框架切换本来就是动态探测的）
+    var pollVue = setInterval(function () {
+      if (typeof Vue !== 'undefined') {
+        clearInterval(pollVue);
+        var w = document.getElementById('cdnWarn');
+        if (w && typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') w.style.display = 'none';
+      }
+    }, 400);
+    setTimeout(function () { clearInterval(pollVue); }, 20000);
+  })();
+  </script>
+  <script>
+  /* wujie 会把外链脚本改成异步加载，这里等三个运行时就绪（或超时）再初始化 */
+  function initLab() {
+    function hasReact() { return typeof React !== 'undefined' && typeof ReactDOM !== 'undefined'; }
+    function hasVue() { return typeof Vue !== 'undefined'; }
+    var warn = document.getElementById('cdnWarn');
+    var missing = [];
+    if (!hasReact()) missing.push('React UMD');
+    if (!hasVue()) missing.push('Vue global');
+    if (missing.length) {
+      warn.style.display = 'block';
+      warn.textContent = '⚠ CDN 加载失败（' + missing.join('、') + '），对应框架的实现暂不可用，联网后刷新恢复。';
+    }
+
+    var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var h = hasReact() ? React.createElement : null;
+
+    /* ---------- 共享小工具 ---------- */
+    function buildOrder(len, dir) {
+      var order = [];
+      if (dir === 'end') { for (var i = len - 1; i >= 0; i--) order.push(i); return order; }
+      var mid = Math.floor(len / 2), off = 0;
+      while (order.length < len) {
+        var idx = off % 2 === 0 ? mid + off / 2 : mid - Math.ceil(off / 2);
+        if (idx >= 0 && idx < len) order.push(idx);
+        off++;
+      }
+      return order;
+    }
+    function isSpace(c) { return /\s/.test(c); }
+
+    /* ================================================================
+       1. DecryptedText —— 乱码逐帧还原（算法与 vue-bits 版一致）
+    ================================================================ */
+    var DECRYPT_TEXT = '不停在舒适圈里，是我唯一坚持的舒适。';
+    var DECRYPT_POOL = 'ACDEFGHJKLMNPQRSTUVWXYZ#@$%&*!?<>[]{}';
+
+    function decryptRun(setState, onDone) {
+      var chars = Array.from(DECRYPT_TEXT);
+      var order = buildOrder(chars.length, 'center');
+      var revealed = new Set();
+      var iter = 0;
+      var take = Math.max(1, Math.ceil(chars.filter(function (c) { return !isSpace(c); }).length / 8));
+      var timer = setInterval(function () {
+        iter++;
+        for (var k = 0; k < order.length && take > 0; k++) {
+          var idx = order[k];
+          if (!revealed.has(idx)) { revealed.add(idx); take--; }
+        }
+        var out = chars.map(function (ch, i) {
+          if (isSpace(ch) || revealed.has(i)) return ch;
+          return DECRYPT_POOL[Math.floor(Math.random() * DECRYPT_POOL.length)];
+        });
+        setState(out.join(''), revealed);
+        if (revealed.size >= chars.filter(function (c) { return !isSpace(c); }).length || iter >= 10) {
+          clearInterval(timer);
+          setState(DECRYPT_TEXT, null);
+          if (onDone) onDone();
+        }
+      }, 60);
+      return function () { clearInterval(timer); };
+    }
+
+    var decryptReact = function (root) {
+      function Comp() {
+        var ds = React.useState(DECRYPT_TEXT);
+        var display = ds[0], setDisplay = ds[1];
+        var rs = React.useState(null);
+        var revealed = rs[0], setRevealed = rs[1];
+        var stopRef = React.useRef(null);
+        React.useEffect(function () {
+          if (REDUCED) return undefined;
+          stopRef.current = decryptRun(function (txt, rev) { setDisplay(txt); setRevealed(rev); });
+          return function () { if (stopRef.current) stopRef.current(); };
+        }, []);
+        function replay() {
+          if (stopRef.current) { stopRef.current(); stopRef.current = null; }
+          stopRef.current = decryptRun(function (txt, rev) { setDisplay(txt); setRevealed(rev); });
+        }
+        return h('span', { className: 'fx-decrypt', onMouseEnter: replay },
+          Array.from(display).map(function (c, i) {
+            var enc = revealed ? !revealed.has(i) : false;
+            return h('span', { key: i, className: 'ch' + (enc ? ' enc' : '') }, c);
+          })
+        );
+      }
+      var rootEl = ReactDOM.createRoot(root);
+      rootEl.render(h(Comp));
+      return function () { rootEl.unmount(); };
+    };
+
+    var decryptVue = function (root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var display = Vue.ref(DECRYPT_TEXT);
+          var revealed = Vue.ref(null);
+          var stop = null;
+          function run() {
+            if (stop) stop();
+            stop = decryptRun(function (txt, rev) { display.value = txt; revealed.value = rev; });
+          }
+          Vue.onMounted(function () { if (!REDUCED) run(); });
+          Vue.onUnmounted(function () { if (stop) stop(); });
+          return { display: display, revealed: revealed, replay: run };
+        },
+        template: '<span class="fx-decrypt" @mouseenter="replay">' +
+          '<span v-for="(c, i) in display.split(\'\')" :key="i" class="ch" :class="{ enc: revealed && !revealed.has(i) }">{{ c }}</span></span>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    };
+
+    /* ================================================================
+       2. BlurText —— 逐词从模糊里浮上来（原版 motion-v，这里 CSS 过渡）
+    ================================================================ */
+    var BLUR_TEXT = '把每一个字 都从模糊里 捞出来';
+    function blurReact(root) {
+      function Comp() {
+        var vs = React.useState(false);
+        var vis = vs[0], setVis = vs[1];
+        React.useEffect(function () {
+          var t = setTimeout(function () { setVis(true); }, 80);
+          return function () { clearTimeout(t); };
+        }, []);
+        return h('p', { className: 'fx-blur' },
+          BLUR_TEXT.split(' ').map(function (w, i) {
+            return h('span', { key: i, className: 'w' + (vis ? ' in' : ''), style: { transitionDelay: (i * 120) + 'ms' } }, w);
+          })
+        );
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function blurVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var vis = Vue.ref(false);
+          Vue.onMounted(function () { setTimeout(function () { vis.value = true; }, 80); });
+          return { vis: vis, words: BLUR_TEXT.split(' ') };
+        },
+        template: '<p class="fx-blur"><span v-for="(w, i) in words" :key="i" class="w" :class="{ in: vis }" :style="{ transitionDelay: (i * 120) + \'ms\' }">{{ w }}</span></p>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       3. SplitText —— 逐字旋转入场
+    ================================================================ */
+    var SPLIT_TEXT = '逐字入场，一字一拍';
+    function splitReact(root) {
+      function Comp() {
+        var vs = React.useState(false);
+        var vis = vs[0], setVis = vs[1];
+        React.useEffect(function () {
+          var t = setTimeout(function () { setVis(true); }, 60);
+          return function () { clearTimeout(t); };
+        }, []);
+        return h('p', { className: 'fx-split' },
+          Array.from(SPLIT_TEXT).map(function (c, i) {
+            return h('span', {
+              key: i,
+              className: 'c' + (isSpace(c) ? ' space' : '') + (vis ? ' in' : ''),
+              style: { transitionDelay: (i * 55) + 'ms' },
+            }, isSpace(c) ? '' : c);
+          })
+        );
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function splitVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var vis = Vue.ref(false);
+          Vue.onMounted(function () { setTimeout(function () { vis.value = true; }, 60); });
+          return { vis: vis, chars: Array.from(SPLIT_TEXT), isSpace: isSpace };
+        },
+        template: '<p class="fx-split"><span v-for="(c, i) in chars" :key="i" class="c" :class="{ in: vis, space: isSpace(c) }" :style="{ transitionDelay: (i * 55) + \'ms\' }">{{ isSpace(c) ? \'\' : c }}</span></p>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       4. ShinyText —— 流光扫过（纯 CSS）
+    ================================================================ */
+    function shinyReact(root) {
+      function Comp() {
+        var ss = React.useState(true);
+        var run = ss[0], setRun = ss[1];
+        return h('p', {
+          className: 'fx-shiny' + (run ? ' run' : ''),
+          style: { cursor: 'pointer' },
+          onClick: function () { setRun(!run); },
+          title: '点击暂停 / 继续',
+        }, 'SHINY TEXT · 流光扫过');
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function shinyVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var run = Vue.ref(true);
+          function toggle() { run.value = !run.value; }
+          return { run: run, toggle: toggle };
+        },
+        template: '<p class="fx-shiny" :class="{ run: run }" style="cursor:pointer" title="点击暂停 / 继续" @click="toggle">SHINY TEXT · 流光扫过</p>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       5. StarBorder —— 光点沿上下边往复飞行（纯 CSS，与首页 CTA 同款）
+    ================================================================ */
+    var SB_COLORS = ['#22d3ee', '#e879f9', '#fbbf24'];
+    function starReact(root) {
+      function Comp() {
+        var beam = { background: 'radial-gradient(circle, ' + SB_COLORS[0] + ', transparent 10%)' };
+        return h('span', { className: 'fx-sb-wrap' },
+          h('span', { className: 'fx-sb-beam top', style: beam }),
+          h('span', { className: 'fx-sb-beam bottom', style: beam }),
+          h('span', { className: 'fx-sb-inner' }, '进入作品集 →')
+        );
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function starVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var beam = Vue.computed(function () {
+            return { background: 'radial-gradient(circle, ' + SB_COLORS[0] + ', transparent 10%)' };
+          });
+          return { beam: beam };
+        },
+        template: '<span class="fx-sb-wrap"><span class="fx-sb-beam top" :style="beam"></span>' +
+          '<span class="fx-sb-beam bottom" :style="beam"></span>' +
+          '<span class="fx-sb-inner">进入作品集 →</span></span>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       6. GlareHover —— 眩光扫过卡片（纯 CSS）
+    ================================================================ */
+    function glareReact(root) {
+      function Comp() {
+        return h('div', { className: 'fx-glare', title: '把鼠标扫过来' },
+          h('div', { className: 't' }, 'GlareHover · 眩光悬停'),
+          h('div', { className: 'd' }, 'hover 触发一道斜向眩光 + 边框高光，离开即复位。')
+        );
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function glareVue(root) {
+      var app = Vue.createApp({
+        template: '<div class="fx-glare" title="把鼠标扫过来"><div class="t">GlareHover · 眩光悬停</div><div class="d">hover 触发一道斜向眩光 + 边框高光，离开即复位。</div></div>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       7. Counter —— 数字滚动（原版 motion-v spring，这里 rAF 弹性逼近）
+    ================================================================ */
+    var COUNTER_TARGETS = [42, 888, 2026];
+    var lastCounter = null; // 最新一次挂载的实例，面板按钮共用
+    function counterMount(root) {
+      var places = [1000, 100, 10, 1];
+      var strips = [];
+      var value = 0;
+      var target = 42;
+      var raf = 0;
+
+      function frame() {
+        value += (target - value) * 0.12;
+        if (Math.abs(target - value) < 0.05) value = target;
+        for (var i = 0; i < places.length; i++) {
+          var pv = Math.floor(value / places[i]) % 10;
+          var strip = strips[i];
+          if (strip) strip.style.transform = 'translateY(' + (-pv) + 'em)';
+        }
+        if (Math.abs(target - value) >= 0.05) raf = requestAnimationFrame(frame);
+      }
+      function go(v) { target = v; cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+
+      var frag = document.createElement('div');
+      frag.className = 'fx-counter';
+      places.forEach(function () {
+        var col = document.createElement('span');
+        col.className = 'col';
+        var strip = document.createElement('span');
+        strip.className = 'strip';
+        for (var d = 0; d < 20; d++) { // 两轮 0-9，环形滚动不穿帮
+          var s = document.createElement('span');
+          s.textContent = String(d % 10);
+          strip.appendChild(s);
+        }
+        col.appendChild(strip);
+        frag.appendChild(col);
+      });
+      root.appendChild(frag);
+      root.querySelectorAll('.strip').forEach(function (s) { strips.push(s); });
+      go(42);
+
+      return {
+        unmount: function () { cancelAnimationFrame(raf); root.innerHTML = ''; },
+        api: { go: go },
+      };
+    }
+    function counterReact(root) {
+      function Comp() {
+        var ref = React.useRef(null);
+        React.useEffect(function () {
+          var m = counterMount(ref.current);
+          lastCounter = m;
+          return m.unmount;
+        }, []);
+        return h('div', { ref: ref, style: { display: 'flex', justifyContent: 'center' } });
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function counterVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var box = Vue.ref(null);
+          Vue.onMounted(function () { lastCounter = counterMount(box.value); });
+          return { box: box };
+        },
+        template: '<div ref="box" style="display:flex;justify-content:center"></div>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       8. MagnetLines —— 磁力线阵（与 vue-bits 算法一致）
+    ================================================================ */
+    var MAG = { rows: 9, cols: 9, size: 300, lineColor: '#22d3ee', lw: 3, lh: 20, base: -10 };
+    function magnetMount(root) {
+      var spans = [];
+      var grid = document.createElement('div');
+      grid.className = 'fx-magnet';
+      grid.style.gridTemplateColumns = 'repeat(' + MAG.cols + ', 1fr)';
+      grid.style.gridTemplateRows = 'repeat(' + MAG.rows + ', 1fr)';
+      grid.style.width = MAG.size + 'px';
+      grid.style.height = MAG.size + 'px';
+      for (var i = 0; i < MAG.rows * MAG.cols; i++) {
+        var s = document.createElement('span');
+        s.style.backgroundColor = MAG.lineColor;
+        s.style.width = MAG.lw + 'px';
+        s.style.height = MAG.lh + 'px';
+        s.style.setProperty('--rotate', MAG.base + 'deg');
+        grid.appendChild(s);
+        spans.push(s);
+      }
+      root.appendChild(grid);
+
+      function aim(x, y) {
+        spans.forEach(function (item) {
+          var r = item.getBoundingClientRect();
+          var cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+          var b = x - cx, a = y - cy;
+          var c = Math.sqrt(a * a + b * b) || 1;
+          var deg = (Math.acos(b / c) * 180) / Math.PI * (y > cy ? 1 : -1);
+          item.style.setProperty('--rotate', deg + 'deg');
+        });
+      }
+      var handler = function (e) { aim(e.clientX, e.clientY); };
+      window.addEventListener('pointermove', handler);
+      var mid = spans[Math.floor(spans.length / 2)];
+      var mr = mid.getBoundingClientRect();
+      aim(mr.x, mr.y);
+      return { unmount: function () { window.removeEventListener('pointermove', handler); root.innerHTML = ''; } };
+    }
+    function magnetReact(root) {
+      function Comp() {
+        var ref = React.useRef(null);
+        React.useEffect(function () {
+          var m = magnetMount(ref.current);
+          return m.unmount;
+        }, []);
+        return h('div', { ref: ref, style: { display: 'flex', justifyContent: 'center' } });
+      }
+      var r = ReactDOM.createRoot(root); r.render(h(Comp));
+      return function () { r.unmount(); };
+    }
+    function magnetVue(root) {
+      var app = Vue.createApp({
+        setup: function () {
+          var box = Vue.ref(null);
+          Vue.onMounted(function () { magnetMount(box.value); });
+          return { box: box };
+        },
+        template: '<div ref="box" style="display:flex;justify-content:center"></div>'
+      });
+      app.mount(root);
+      return function () { app.unmount(); };
+    }
+
+    /* ================================================================
+       效果注册表
+    ================================================================ */
+    var EFFECTS = [
+      {
+        id: 'decrypt', name: '解密文字', en: 'DecryptedText',
+        desc: '一串乱码逐帧还原成真话。悬停可重播，未还原字符带色偏。',
+        note: '<b>原理</b>：每帧把未还原字符随机替换成乱码池字符，按 revealDirection 的次序逐帧"解锁"，未解锁字符标色。<b>React 侧</b>基于 vue-bits 的零依赖算法用 hooks 重写（react-bits 原版加了 motion/react 做翻转动画，这里省掉）。<b>首页同款</b>：Hero 区 kicker 已在用。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/TextAnimations/DecryptedText" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/TextAnimations/DecryptedText" target="_blank" rel="noopener">Vue</a>',
+        react: decryptReact, vue: decryptVue,
+      },
+      {
+        id: 'blur', name: '逐词浮现', en: 'BlurText',
+        desc: '每个词从 blur(10px) + 位移中浮现，带阶梯延迟。',
+        note: '<b>原理</b>：blur + opacity + translate 三属性过渡，词与词之间 transitionDelay 阶梯。<b>原版</b>用 motion-v 做两段关键帧（blur 10→5→0），这里用单段 CSS 过渡复现同样的视觉节奏。适合做标题入场。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/TextAnimations/BlurText" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/TextAnimations/BlurText" target="_blank" rel="noopener">Vue</a>',
+        react: blurReact, vue: blurVue,
+      },
+      {
+        id: 'split', name: '逐字入场', en: 'SplitText',
+        desc: '按字符拆分，逐个从下方带旋转进场，55ms 一拍。',
+        note: '<b>原理</b>：文本拆成单字 span，translateY + rotate 过渡，阶梯延迟。<b>原版</b>是 motion-v 关键帧，这里 CSS 过渡等效。中文没有空格分词，逐字拆分对中文更友好。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/TextAnimations/SplitText" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/TextAnimations/SplitText" target="_blank" rel="noopener">Vue</a>',
+        react: splitReact, vue: splitVue,
+      },
+      {
+        id: 'shiny', name: '流光文字', en: 'ShinyText',
+        desc: '一道高光周期性扫过文字，点击暂停 / 继续。',
+        note: '<b>原理</b>：linear-gradient 三段（暗-亮-暗）配 background-clip: text，background-position 循环。纯 CSS，两个框架只是壳。<b>与 border-beam 同族</b>：都是"渐变当光源"，那个沿边框走，这个在文字里走。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/TextAnimations/ShinyText" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/TextAnimations/ShinyText" target="_blank" rel="noopener">Vue</a>',
+        react: shinyReact, vue: shinyVue,
+      },
+      {
+        id: 'starborder', name: '星流边框', en: 'StarBorder',
+        desc: '两颗 radial-gradient 光点沿按钮上下边往复飞行，深色按钮被光边勾出轮廓。下方可换光色。',
+        note: '<b>原理</b>：两颗 300% 宽的椭圆光点藏在 overflow:hidden 的壳里，animation alternate 往复。<b>首页同款</b>：CTA 按钮"进入作品集"包的就是它。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/Animations/StarBorder" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/Animations/StarBorder" target="_blank" rel="noopener">Vue</a>',
+        react: starReact, vue: starVue,
+      },
+      {
+        id: 'glare', name: '眩光悬停', en: 'GlareHover',
+        desc: '鼠标扫过卡片，一道斜向眩光跟过去，边框同时亮起。',
+        note: '<b>原理</b>：::before 是 skewX(-18deg) 的光带，hover 时 left 从 -80% 过渡到 130%；::after 用 mask-composite: exclude 只留 1px 边框做高光。<b>作品卡的候选效果</b>：比加阴影高级。原版支持 glarePosition（top/bottom/center）变体。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/Animations/GlareHover" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/Animations/GlareHover" target="_blank" rel="noopener">Vue</a>',
+        react: glareReact, vue: glareVue,
+      },
+      {
+        id: 'counter', name: '数字滚动', en: 'Counter',
+        desc: '每一位数字是独立的滚动列，数值变化时弹性逼近，环形滚动不穿帮。下方按钮换目标值。',
+        note: '<b>原理</b>：每个数位列塞两轮 0-9，translateY 按"当前位值"取位；原版每列一个 spring（motion-v），这里用单个 rAF 弹性逼近驱动所有列，视觉等效。<b>用途</b>：首页统计数字、项目数据。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/Components/Counter" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/Components/Counter" target="_blank" rel="noopener">Vue</a>',
+        react: counterReact, vue: counterVue,
+      },
+      {
+        id: 'magnet', name: '磁力线阵', en: 'MagnetLines',
+        desc: '一网格短线始终指向你的鼠标，磁场一样。移动鼠标试试。',
+        note: '<b>原理</b>：pointermove 时对每根线算方向角（acos(b/c)），写回 CSS 变量 --rotate。<b>与 vue-bits 原版算法一致</b>（8 个里唯一两端逻辑完全相同的）。<b>用途</b>：页面装饰背景、About 区块。<br>源码：<a href="https://github.com/DavidHDev/react-bits/tree/main/src/content/Backgrounds/MagnetLines" target="_blank" rel="noopener">React</a> · <a href="https://github.com/DavidHDev/vue-bits/tree/main/src/content/Animations/MagnetLines" target="_blank" rel="noopener">Vue</a>',
+        react: magnetReact, vue: magnetVue,
+      },
+    ];
+
+    /* ================================================================
+       舞台调度
+    ================================================================ */
+    var tabsEl = document.getElementById('tabs');
+    var demoEl = document.getElementById('demo');
+    var fwTag = document.getElementById('fwTag');
+    var segReact = document.getElementById('segReact');
+    var segVue = document.getElementById('segVue');
+    var btnReplay = document.getElementById('btnReplay');
+    var extraCtl = document.getElementById('extraCtl');
+    var pTitle = document.getElementById('pTitle');
+    var pDesc = document.getElementById('pDesc');
+    var pNote = document.getElementById('pNote');
+
+    var cur = 0;
+    var fw = hasReact() ? 'react' : 'vue';
+    var unmount = null;
+    var starIndex = 0;
+
+    function segSync() {
+      segReact.classList.toggle('on', fw === 'react');
+      segVue.classList.toggle('on', fw === 'vue');
+      fwTag.textContent = fw === 'react' ? 'REACT 18' : 'VUE 3';
+      fwTag.className = fw === 'react' ? 'react' : 'vue';
+    }
+
+    function mount() {
+      if (unmount) { try { unmount(); } catch (e) { /* noop */ } unmount = null; }
+      demoEl.innerHTML = '';
+      var fx = EFFECTS[cur];
+      if (fw === 'react' && !hasReact()) { demoEl.textContent = 'React UMD 未加载成功'; return; }
+      if (fw === 'vue' && !hasVue()) { demoEl.textContent = 'Vue global 未加载成功'; return; }
+      unmount = fx[fw](demoEl);
+      segSync();
+    }
+
+    function buildExtra(fx) {
+      extraCtl.innerHTML = '';
+      if (fx.id === 'starborder') {
+        SB_COLORS.forEach(function (c) {
+          var b2 = document.createElement('button');
+          b2.className = 'ctl ctl-chip';
+          b2.style.borderColor = c;
+          b2.style.color = c;
+          b2.textContent = '换光色';
+          b2.addEventListener('click', function () {
+            starIndex = (starIndex + 1) % SB_COLORS.length;
+            var g = 'radial-gradient(circle, ' + SB_COLORS[starIndex] + ', transparent 10%)';
+            demoEl.querySelectorAll('.fx-sb-beam').forEach(function (bm) { bm.style.background = g; });
+          });
+          extraCtl.appendChild(b2);
+        });
+      }
+      if (fx.id === 'counter') {
+        COUNTER_TARGETS.forEach(function (v) {
+          var b2 = document.createElement('button');
+          b2.className = 'ctl ctl-chip';
+          b2.textContent = '→ ' + v;
+          b2.addEventListener('click', function () { if (lastCounter) lastCounter.api.go(v); });
+          extraCtl.appendChild(b2);
+        });
+      }
+    }
+
+    EFFECTS.forEach(function (fx, i) {
+      var b = document.createElement('button');
+      b.className = 'tab' + (i === 0 ? ' on' : '');
+      b.textContent = fx.name;
+      b.addEventListener('click', function () {
+        cur = i;
+        Array.prototype.forEach.call(tabsEl.children, function (t, j) { t.classList.toggle('on', j === i); });
+        pTitle.innerHTML = fx.name + '<span class="en">' + fx.en + '</span>';
+        pDesc.textContent = fx.desc;
+        pNote.innerHTML = fx.note;
+        btnReplay.style.display = ['decrypt', 'blur', 'split'].indexOf(fx.id) >= 0 ? '' : 'none';
+        buildExtra(fx);
+        mount();
+      });
+      tabsEl.appendChild(b);
+    });
+
+    segReact.addEventListener('click', function () { if (fw !== 'react' && hasReact()) { fw = 'react'; mount(); } });
+    segVue.addEventListener('click', function () { if (fw !== 'vue' && hasVue()) { fw = 'vue'; mount(); } });
+    btnReplay.addEventListener('click', function () { mount(); });
+
+    if (!hasReact() && !hasVue()) {
+      demoEl.textContent = 'CDN 全部不可达：每个效果都需要 React UMD 或 Vue global 之一，联网后刷新即可。';
+    } else {
+      var fx0 = EFFECTS[0];
+      pTitle.innerHTML = fx0.name + '<span class="en">' + fx0.en + '</span>';
+      pDesc.textContent = fx0.desc;
+      pNote.innerHTML = fx0.note;
+      mount();
+    }
+  }
+  function waitFrameworks(cb) {
+    var t0 = Date.now();
+    (function poll() {
+      var ready = typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && typeof Vue !== 'undefined';
+      if (ready) return cb();
+      if (Date.now() - t0 > 10000) return cb(); // 超时也启动，让警告条接管
+      setTimeout(poll, 60);
+    })();
+  }
+  waitFrameworks(initLab);
+  </script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Canvas 实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 22px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.8; margin: 0 0 26px; max-width: 760px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-bottom: 22px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card h3 i { font-style: normal; color: #22d3ee; margin-right: 8px; font-family: ui-monospace, monospace; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note code { color: #a8c6ff; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .code {
+    display: block; background: rgba(0,0,0,0.45); border: 1px solid rgba(140,165,255,0.12);
+    border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px; color: #a8c6ff; overflow-x: auto; white-space: pre; margin: 14px 0 0;
+  }
+  .ctl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9fabd4; }
+  .ctl input[type=range] { width: 130px; accent-color: #22d3ee; }
+  .ctl .val { font-family: ui-monospace, monospace; color: #cfd8ff; min-width: 40px; }
+  .btn {
+    padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(34,211,238,0.12); color: #cfd8ff;
+    border: 1px solid rgba(34,211,238,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(34,211,238,0.24); }
+  .btn.on { background: linear-gradient(135deg, #22d3ee, #7c9dff); color: #0a1020; font-weight: 600; border-color: transparent; }
+  .stage {
+    position: relative; width: 100%; height: 340px; border-radius: 14px; overflow: hidden;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(140,165,255,0.14);
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage-tag {
+    position: absolute; right: 12px; top: 10px; z-index: 2; pointer-events: none;
+    font-family: ui-monospace, monospace; font-size: 11px; color: #6b78a3;
+    background: rgba(6,10,22,0.6); padding: 3px 9px; border-radius: 999px;
+  }
+
+  @media (max-width: 720px) { .wrap { padding: 26px 16px 70px; } .stage { height: 260px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">CANVAS 2D LAB</div>
+    <h1>Canvas 实验室</h1>
+    <p>《Canvas 背景特效》三章的完整落地：随机粒子、鼠标互动、以及把它们封装成一个带高分屏适配和降帧的类。三个面板共用同一批粒子，区别只在于多做了什么。</p>
+  </header>
+
+  <!-- 1 随机粒子 -->
+  <div class="card">
+    <h3><i>01</i> 使粒子动起来 · 一百行的起点</h3>
+    <p class="note">每个粒子就是一个对象：位置、速度、半径。每帧清屏 → 更新位置 → 画圆 → 撞墙反向。所有 Canvas 动画都是这个骨架，后面两章只是在这骨架上加东西。密度滑杆实时增删粒子。</p>
+    <div class="ctl-row">
+      <label class="ctl">密度 <input type="range" id="p1Density" min="20" max="160" step="10" value="70" /><span class="val" id="p1Val">70</span></label>
+    </div>
+    <div class="stage"><canvas id="cv1"></canvas><span class="stage-tag" id="tag1"></span></div>
+    <span class="code">const p = { x: rand(w), y: rand(h), vx: rand(±0.6), vy: rand(±0.6), r: 1 + rand(2) };
+
+function frame() {
+  ctx.clearRect(0, 0, w, h);          // ① 清屏
+  for (const p of parts) {
+    p.x += p.vx; p.y += p.vy;         // ② 更新
+    if (p.x < 0 || p.x > w) p.vx *= -1; // ③ 撞墙反向
+    ctx.arc(p.x, p.y, p.r, 0, 7);      // ④ 画圆
+  }
+  requestAnimationFrame(frame);
+}</span>
+  </div>
+
+  <!-- 2 鼠标互动 -->
+  <div class="card">
+    <h3><i>02</i> 鼠标互动 · 一条距离公式定亲疏</h3>
+    <p class="note">在画面里移动鼠标：靠近的粒子被推开、连线只在阈值内出现、离鼠标越近线越亮。没有新的机制，只是每帧多问每个粒子一句「你离鼠标多远」，然后按距离改速度和透明度。</p>
+    <div class="ctl-row">
+      <button class="btn on" id="p2Push">排斥</button>
+      <button class="btn" id="p2Pull">聚拢</button>
+      <label class="ctl">连线距离 <input type="range" id="p2Dist" min="40" max="180" step="10" value="110" /><span class="val" id="p2Val">110</span></label>
+    </div>
+    <div class="stage"><canvas id="cv2"></canvas><span class="stage-tag" id="tag2"></span></div>
+    <span class="code">const dx = mouse.x - p.x, dy = mouse.y - p.y;
+const dist = Math.hypot(dx, dy);
+
+// 排斥：距离越近推力越大，超出范围不受影响
+if (dist < 120 && dist > 0.01) {
+  const f = (1 - dist / 120) * 0.6;
+  p.vx -= (dx / dist) * f;
+  p.vy -= (dy / dist) * f;
+}
+
+// 连线：两两判断距离，alpha 随距离衰减
+if (dist2 < LINK) {
+  ctx.strokeStyle = `rgba(140,165,255,${1 - dist2 / LINK})`;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+}</span>
+  </div>
+
+  <!-- 3 封装成类 -->
+  <div class="card">
+    <h3><i>03</i> 更优雅的 Canvas · 类封装 + 高分屏 + 降帧</h3>
+    <p class="note">把前两个面板封装成一个 <code>ParticleField</code> 类：构造时传容器，自动适配 <code>devicePixelRatio</code>（不模糊不虚）、支持降帧（省电省 GPU）、页面切走自动暂停、回来自动恢复。右上角的标签实时显示 DPR 和实际帧率——前两个面板在同一块高分屏上是 2 倍物理像素渲染，但没处理 DPR 的话看起来一样，放到 Retina 屏上就会发虚。</p>
+    <div class="ctl-row">
+      <label class="ctl">目标帧率 <input type="range" id="p3Fps" min="15" max="60" step="5" value="60" /><span class="val" id="p3Val">60 fps</span></label>
+      <button class="btn" id="p3Pause">暂停</button>
+    </div>
+    <div class="stage"><canvas id="cv3"></canvas><span class="stage-tag" id="tag3"></span></div>
+    <span class="code">class ParticleField {
+  constructor(container, opts) {
+    this.dpr = Math.min(devicePixelRatio || 1, 2);
+    // 关键：canvas 尺寸 = CSS 尺寸 × dpr，再用 ctx.scale 缩回
+    canvas.width  = cssW * this.dpr;
+    canvas.height = cssH * this.dpr;
+    this.ctx.scale(this.dpr, this.dpr);
+  }
+  start() {
+    this.last = 0;
+    const loop = (t) => {
+      // 降帧：目标 30fps 就每两帧画一次
+      if (t - this.last >= 1000 / this.fps) {
+        this.step(); this.draw(); this.last = t;
+      }
+      this.raf = requestAnimationFrame(loop);
+    };
+  }
+}
+// 页面隐藏自动暂停，不白烧 GPU
+document.addEventListener('visibilitychange', () => api.paused && api.pause());</span>
+  </div>
+
+  <p style="text-align:center; color:#5f6c96; font-size:12px; margin-top:34px; letter-spacing:2px">
+    路小垚 · Canvas 实验室 · 独立子应用，通过微前端接入主站
+  </p>
+</div>
+
+<script>
+  /* ---- 回主站 ---- */
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${window.location.origin}/#/portfolio`;
+  });
+
+  /* ============ 公共 ============ */
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const TINTS = ['rgba(124,157,255,', 'rgba(34,211,238,', 'rgba(185,139,255,', 'rgba(232,121,249,'];
+
+  function setup(canvas) {
+    const stage = canvas.parentElement;
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    return { ctx, w, h };
+  }
+
+  function makeParts(n, w, h) {
+    return Array.from({ length: n }, () => ({
+      x: rand(0, w), y: rand(0, h),
+      vx: rand(-0.5, 0.5) || 0.3, vy: rand(-0.5, 0.5) || -0.3,
+      r: rand(1, 2.6),
+      c: TINTS[Math.floor(Math.random() * TINTS.length)],
+    }));
+  }
+
+  function stepParts(parts, w, h) {
+    for (const p of parts) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+    }
+  }
+
+  function drawParts(ctx, parts) {
+    for (const p of parts) {
+      ctx.fillStyle = p.c + '0.85)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, 6.283);
+      ctx.fill();
+    }
+  }
+
+  /* ---- 1 随机粒子 ---- */
+  (() => {
+    const { ctx, w, h } = setup(document.getElementById('cv1'));
+    let parts = makeParts(70, w, h);
+    const slider = document.getElementById('p1Density');
+    const val = document.getElementById('p1Val');
+    slider.addEventListener('input', () => {
+      const n = Number(slider.value);
+      val.textContent = n;
+      if (n > parts.length) parts.push(...makeParts(n - parts.length, w, h));
+      else parts.length = n;
+    });
+    document.getElementById('tag1').textContent = `${parts.length} 粒子`;
+    const id = setInterval(() => {
+      document.getElementById('tag1').textContent = `${parts.length} 粒子`;
+    }, 500);
+
+    (function frame() {
+      requestAnimationFrame(frame);
+      ctx.clearRect(0, 0, w, h);
+      stepParts(parts, w, h);
+      drawParts(ctx, parts);
+    })();
+  })();
+
+  /* ---- 2 鼠标互动 ---- */
+  (() => {
+    const canvas = document.getElementById('cv2');
+    const { ctx, w, h } = setup(canvas);
+    const parts = makeParts(70, w, h);
+    const mouse = { x: -9999, y: -9999 };
+    let mode = 'push';
+    let link = 110;
+
+    canvas.addEventListener('pointermove', (e) => {
+      const r = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - r.left;
+      mouse.y = e.clientY - r.top;
+    });
+    canvas.addEventListener('pointerleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+    document.getElementById('p2Push').addEventListener('click', (e) => setMode('push', e.target));
+    document.getElementById('p2Pull').addEventListener('click', (e) => setMode('pull', e.target));
+    function setMode(m, btn) {
+      mode = m;
+      document.querySelectorAll('#p2Push, #p2Pull').forEach((b) => b.classList.toggle('on', b === btn));
+    }
+    const distEl = document.getElementById('p2Dist');
+    distEl.addEventListener('input', () => {
+      link = Number(distEl.value);
+      document.getElementById('p2Val').textContent = link;
+    });
+
+    (function frame() {
+      requestAnimationFrame(frame);
+      ctx.clearRect(0, 0, w, h);
+
+      for (const p of parts) {
+        const dx = mouse.x - p.x;
+        const dy = mouse.y - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 120 && d > 0.01) {
+          const f = (1 - d / 120) * (mode === 'push' ? 0.55 : -0.45);
+          p.vx -= (dx / d) * f * 0.2;
+          p.vy -= (dy / d) * f * 0.2;
+        }
+        // 限速，别越推越快
+        p.vx = Math.max(-1.6, Math.min(1.6, p.vx));
+        p.vy = Math.max(-1.6, Math.min(1.6, p.vy));
+      }
+      stepParts(parts, w, h);
+
+      // 连线：两两距离 < link 就画，亮度随距离衰减
+      for (let i = 0; i < parts.length; i++) {
+        for (let j = i + 1; j < parts.length; j++) {
+          const a = parts[i], b = parts[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < link) {
+            ctx.strokeStyle = `rgba(124,157,255,${(1 - d / link) * 0.4})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+      drawParts(ctx, parts);
+    })();
+  })();
+
+  /* ---- 3 封装成类 ---- */
+  class ParticleField {
+    constructor(container, { count = 70, fps = 60, link = 0, mouseForce = 0 } = {}) {
+      this.stage = container;
+      this.canvas = container.querySelector('canvas');
+      this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this.fps = fps;
+      this.link = link;
+      this.mouseForce = mouseForce;
+      this.mouse = { x: -9999, y: -9999 };
+      this.paused = false;
+      this.raf = 0;
+      this.last = 0;
+      this.frames = 0;
+      this.fpsAt = performance.now();
+      this.fpsNow = 0;
+
+      this.resize();
+      window.addEventListener('resize', this.resize = this.resize.bind(this));
+      this.canvas.addEventListener('pointermove', (e) => {
+        const r = this.canvas.getBoundingClientRect();
+        this.mouse.x = e.clientX - r.left;
+        this.mouse.y = e.clientY - r.top;
+      });
+      this.canvas.addEventListener('pointerleave', () => { this.mouse.x = -9999; this.mouse.y = -9999; });
+
+      this.parts = makeParts(count, this.w, this.h);
+      document.addEventListener('visibilitychange', () => {
+        document.hidden ? this.pause() : this.resume();
+      });
+    }
+    resize() {
+      const w = this.stage.clientWidth;
+      const h = this.stage.clientHeight;
+      // 关键：物理像素 = CSS 尺寸 × dpr，绘制时再 scale 回来
+      this.canvas.width = w * this.dpr;
+      this.canvas.height = h * this.dpr;
+      this.w = w;
+      this.h = h;
+      this.ctx = this.canvas.getContext('2d');
+      this.ctx.scale(this.dpr, this.dpr);
+    }
+    start() {
+      const loop = (t) => {
+        this.raf = requestAnimationFrame(loop.bind(this));
+        if (this.paused) return;
+        if (t - this.last < 1000 / this.fps) return; // 降帧：没到点不画
+        this.last = t;
+        this.step();
+        this.draw();
+        this.frames++;
+        if (t - this.fpsAt > 800) {
+          this.fpsNow = Math.round((this.frames * 1000) / (t - this.fpsAt));
+          this.frames = 0;
+          this.fpsAt = t;
+        }
+        if (this.onTick) this.onTick();
+      };
+      this.raf = requestAnimationFrame(loop.bind(this));
+    }
+    step() {
+      for (const p of this.parts) {
+        const dx = this.mouse.x - p.x;
+        const dy = this.mouse.y - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 120 && d > 0.01) {
+          const f = (1 - d / 120) * this.mouseForce * 0.2;
+          p.vx -= (dx / d) * f;
+          p.vy -= (dy / d) * f;
+        }
+        p.vx = Math.max(-1.6, Math.min(1.6, p.vx));
+        p.vy = Math.max(-1.6, Math.min(1.6, p.vy));
+      }
+      stepParts(this.parts, this.w, this.h);
+    }
+    draw() {
+      const ctx = this.ctx;
+      ctx.clearRect(0, 0, this.w, this.h);
+      if (this.link) {
+        for (let i = 0; i < this.parts.length; i++) {
+          for (let j = i + 1; j < this.parts.length; j++) {
+            const a = this.parts[i], b = this.parts[j];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d < this.link) {
+              ctx.strokeStyle = `rgba(124,157,255,${(1 - d / this.link) * 0.4})`;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+      drawParts(ctx, this.parts);
+    }
+    pause() { this.paused = true; }
+    resume() { this.paused = false; }
+    setFps(v) { this.fps = v; }
+  }
+
+  (() => {
+    const field = new ParticleField(document.getElementById('cv3').parentElement, {
+      count: 80, fps: 60, link: 120, mouseForce: 0.5,
+    });
+    field.start();
+    const tag = document.getElementById('tag3');
+    field.onTick = () => {
+      tag.textContent = `dpr ${field.dpr} · ${field.fpsNow || '—'} fps${field.paused ? ' · 暂停' : ''}`;
+    };
+
+    const fpsEl = document.getElementById('p3Fps');
+    fpsEl.addEventListener('input', () => {
+      const v = Number(fpsEl.value);
+      document.getElementById('p3Val').textContent = v + ' fps';
+      field.setFps(v);
+    });
+    document.getElementById('p3Pause').addEventListener('click', (e) => {
+      if (field.paused) { field.resume(); e.target.textContent = '暂停'; e.target.classList.remove('on'); }
+      else { field.pause(); e.target.textContent = '继续'; e.target.classList.add('on'); }
+    });
+  })();
+</script>
+</body>
+</html>

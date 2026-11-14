@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cesium 实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 82% -8%, #10303a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #141c3c 0%, transparent 62%),
+      #060a12;
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 22px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f7c8f; margin-bottom: 10px; }
+  header h1 { font-size: 27px; margin: 0 0 10px; letter-spacing: 1px; }
+  header h1 em { font-style: normal; color: #6fe3c4; }
+  header p { color: #8b9cbd; font-size: 13.5px; line-height: 1.85; margin: 0 0 24px; max-width: 860px; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .tab {
+    padding: 8px 15px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,190,200,0.18);
+    color: #9fb2cd; transition: all .2s; user-select: none;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(120,200,210,0.45); }
+  .tab.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .32s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.032); border: 1px solid rgba(120,190,200,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .4px; }
+  .card h3 small { font-weight: 400; color: #6f80a0; font-size: 11.5px; margin-left: 8px; letter-spacing: 1px; }
+  .card .note { color: #8b9cbd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note b { color: #c6d4ec; font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    padding: 7px 15px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(95,216,196,0.1); color: #b6ecd9;
+    border: 1px solid rgba(95,216,196,0.32); transition: all .18s; font-family: inherit;
+  }
+  .btn:hover { background: rgba(95,216,196,0.22); }
+  .btn.ghost { background: rgba(255,255,255,0.03); color: #9fb2cd; border-color: rgba(140,170,210,0.2); }
+  .btn.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+
+  label.f { display: block; font-size: 11.5px; color: #7d8fae; letter-spacing: 1px; margin-bottom: 5px; }
+  input[type=number], input[type=text] {
+    width: 100%; padding: 8px 11px; border-radius: 9px; font-size: 13px;
+    background: rgba(0,0,0,0.34); border: 1px solid rgba(120,170,200,0.2); color: #e7ecff;
+    font-family: 'JetBrains Mono', Consolas, monospace; outline: none;
+  }
+  input[type=number]:focus { border-color: rgba(95,216,196,0.55); }
+  input[type=range] { width: 100%; accent-color: #5fd8c4; }
+
+  .code {
+    display: block; background: rgba(0,0,0,0.42); border: 1px solid rgba(120,190,200,0.12);
+    border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11.5px; line-height: 1.75; color: #8fd7e6; overflow-x: auto; white-space: pre; margin-top: 14px;
+  }
+  .code em { color: #7f8fa8; font-style: normal; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; font-size: 12.5px; }
+  .kv dt { color: #7d8fae; }
+  .kv dd { margin: 0; font-family: 'JetBrains Mono', Consolas, monospace; color: #cfe0f5; word-break: break-all; }
+  .kv dd.big { font-size: 15px; color: #7cf0d0; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .chip {
+    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,170,200,0.18); color: #9fb2cd;
+  }
+  .chip:hover { color: #e7ecff; border-color: rgba(95,216,196,0.4); }
+
+  canvas { display: block; width: 100%; border-radius: 12px; background: rgba(0,0,0,0.35); touch-action: none; }
+
+  /* 坐标剖面 */
+  .earth-svg { width: 100%; max-width: 340px; display: block; margin: 0 auto; }
+
+  /* 3D Tiles 树 */
+  .tree { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; line-height: 1.9; }
+  .tree .node { cursor: pointer; padding: 2px 6px; border-radius: 6px; color: #9fb2cd; white-space: nowrap; }
+  .tree .node:hover { background: rgba(95,216,196,0.1); color: #e7ecff; }
+  .tree .node.on { background: rgba(95,216,196,0.2); color: #7cf0d0; }
+  .tree .node .badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; background: rgba(120,170,200,0.15); color: #8fa4c4; }
+  .tree .node.tile .badge { background: rgba(111,157,255,0.16); color: #9fb6ff; }
+  .tree .node.content .badge { background: rgba(255,190,110,0.14); color: #ffc978; }
+
+  /* 天空盒 */
+  .sky-stage {
+    position: relative; height: 380px; border-radius: 14px; overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, #0a1424, #04070d 70%);
+    cursor: grab;
+  }
+  .sky-stage:active { cursor: grabbing; }
+  .sky-cube {
+    position: absolute; left: 50%; top: 50%; width: 260px; height: 260px;
+    transform-style: preserve-3d; margin: -130px 0 0 -130px;
+    transition: transform .06s linear;
+  }
+  .sky-face { position: absolute; width: 260px; height: 260px; backface-visibility: visible; }
+  .sky-hint {
+    position: absolute; left: 14px; bottom: 12px; font-size: 11px; color: #5f7c8f; letter-spacing: 1px;
+  }
+
+  /* 特效 */
+  .eff-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(120,190,200,0.13); border-radius: 14px; padding: 12px; }
+  .eff-card h4 { margin: 0 0 3px; font-size: 13px; }
+  .eff-card p { margin: 0 0 10px; font-size: 11.5px; color: #7d8fae; line-height: 1.7; }
+
+  .status {
+    font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11.5px; color: #8fd7e6;
+    background: rgba(0,0,0,0.4); border-radius: 10px; padding: 10px 12px; min-height: 42px;
+    line-height: 1.8; white-space: pre-wrap; margin-top: 12px;
+  }
+  #cesiumBox { height: 420px; border-radius: 12px; overflow: hidden; background: #05080f; margin-top: 14px; }
+  #cesiumBox .cesium-widget, #cesiumBox .cesium-widget canvas { width: 100%; height: 100%; }
+  #fusionBox { height: 460px; border-radius: 12px; overflow: hidden; background: #05080f; margin-top: 14px; position: relative; }
+  #fusionBox .cesium-widget, #fusionBox .cesium-widget canvas { width: 100%; height: 100%; }
+  #snowBox { height: 440px; border-radius: 12px; overflow: hidden; background: #05080f; margin-top: 14px; }
+  #snowBox .cesium-widget, #snowBox .cesium-widget canvas { width: 100%; height: 100%; }
+  .mini { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: #8fa3c0; letter-spacing: 0.5px; }
+  .mini input[type=range] { width: 130px; accent-color: #5fd8c4; }
+  .mini input[type=color] { width: 34px; height: 20px; padding: 0; border: 1px solid rgba(140,170,210,0.35); background: transparent; border-radius: 4px; }
+  #fusionBox .fusion-tag {
+    position: absolute; left: 12px; bottom: 12px; z-index: 5; pointer-events: none;
+    font-family: 'JetBrains Mono', Consolas, monospace; font-size: 11px; color: #7cf0d0;
+    background: rgba(5,10,18,0.78); border: 1px solid rgba(124,240,208,0.35);
+    border-radius: 999px; padding: 5px 12px; letter-spacing: 1px;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">CESIUM · 三维地球</div>
+  <header>
+    <h1>Cesium <em>实验室</em></h1>
+    <p>
+      这套 demo 是从 <b style="color:#c6d4ec">C:\lubo\cesiumxin</b> 那 33 个示例里挑出来的六个骨架：坐标怎么换、线面怎么画、距离怎么量、瓦片怎么切、天空怎么糊、特效怎么糊。
+      前六个不需要 Cesium 就能跑 —— 因为原理本身不依赖库；最后一个才是真地球，联网才起得来。
+    </p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="coord">坐标转换</div>
+    <div class="tab" data-p="draw">标绘 · 点线面</div>
+    <div class="tab" data-p="measure">量算 · 方位角</div>
+    <div class="tab" data-p="tiles">3D Tiles 解剖</div>
+    <div class="tab" data-p="sky">天空盒</div>
+    <div class="tab" data-p="fx">动态特效</div>
+    <div class="tab" data-p="live">真 · Cesium</div>
+    <div class="tab" data-p="fusion">Cesium×Three 融合</div>
+    <div class="tab" data-p="snow">积雪 · CustomShader</div>
+  </div>
+
+  <!-- ============ 1 坐标转换 ============ -->
+  <section class="panel on" id="p-coord">
+    <div class="card">
+      <h3>经纬度 → 笛卡尔 <small>Cartesian3.fromDegrees</small></h3>
+      <p class="note">
+        Cesium 里所有坐标最后都变成地心直角坐标（米）。这一步没人绕得过去，也最容易糊：
+        <b>经纬度是度，Cesium 内部是弧度，位置是世界坐标米</b>，三套单位混着用，bug 就从这来。
+        下面是 WGS84 椭球的真实公式，不是近似。
+      </p>
+      <div class="grid2">
+        <div>
+          <div class="grid3" style="gap:10px">
+            <div><label class="f">经度 LON</label><input type="number" id="cLon" value="120.1551" step="0.0001" /></div>
+            <div><label class="f">纬度 LAT</label><input type="number" id="cLat" value="30.2741" step="0.0001" /></div>
+            <div><label class="f">高度 H(m)</label><input type="number" id="cH" value="50" step="1" /></div>
+          </div>
+          <div class="chips" id="cityChips">
+            <span class="chip" data-lon="120.1551" data-lat="30.2741">杭州</span>
+            <span class="chip" data-lon="116.4074" data-lat="39.9042">北京</span>
+            <span class="chip" data-lon="135.5023" data-lat="34.6937">大阪</span>
+            <span class="chip" data-lon="126.5312" data-lat="33.4996">济州岛</span>
+            <span class="chip" data-lon="121.4737" data-lat="31.2304">上海</span>
+          </div>
+          <dl class="kv" style="margin-top:18px">
+            <dt>X（米）</dt><dd id="cX">—</dd>
+            <dt>Y（米）</dt><dd id="cY">—</dd>
+            <dt>Z（米）</dt><dd id="cZ">—</dd>
+            <dt>地心距</dt><dd id="cR">—</dd>
+            <dt>弧度</dt><dd id="cRad">—</dd>
+            <dt>反算校验</dt><dd id="cBack">—</dd>
+          </dl>
+        </div>
+        <div>
+          <svg class="earth-svg" viewBox="0 0 300 240">
+            <ellipse cx="150" cy="120" rx="86" ry="85.7" fill="rgba(60,120,150,0.16)" stroke="rgba(120,200,210,0.45)" stroke-width="1"/>
+            <line x1="64" y1="120" x2="236" y2="120" stroke="rgba(120,170,200,0.2)" stroke-dasharray="3 4"/>
+            <line x1="150" y1="34" x2="150" y2="206" stroke="rgba(120,170,200,0.2)" stroke-dasharray="3 4"/>
+            <line id="normalLine" x1="150" y1="120" x2="150" y2="80" stroke="rgba(255,190,110,0.55)" stroke-dasharray="4 3"/>
+            <circle id="earthPt" cx="236" cy="120" r="4.5" fill="#7cf0d0"/>
+            <text id="earthLbl" x="150" y="226" fill="#7d8fae" font-size="10" text-anchor="middle" font-family="monospace">φ = 30.27°</text>
+            <text x="150" y="16" fill="#5f7c8f" font-size="9.5" text-anchor="middle" font-family="monospace">WGS84 子午面剖面（非等比）</text>
+          </svg>
+        </div>
+      </div>
+      <pre class="code"><em>// Cesium 里同一个点，三种写法</em>
+const p1 = Cesium.Cartesian3.fromDegrees(120.1551, 30.2741, 50);        <em>// 度 · 最常用</em>
+const p2 = Cesium.Cartesian3.fromRadians(2.0971, 0.5284, 50);           <em>// 弧度</em>
+const carto = Cesium.Cartographic.fromDegrees(120.1551, 30.2741, 50);   <em>// 保留经纬高</em>
+const picked = Cesium.Cartographic.fromCartesian(p1);                   <em>// 反算，注意弧度</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 2 标绘 ============ -->
+  <section class="panel" id="p-draw">
+    <div class="card">
+      <h3>标绘 · 点线面 <small>drawPolygon / drawPolyline / DrawHelper.js</small></h3>
+      <p class="note">
+        原来那几个 html 是 1.5x 时代的老写法（CesiumWidget + 手动拾取）。下面这版是同一套逻辑的干净版：
+        <b>点击落点、移动预览、双击收尾</b>，再加一步面积换算。画完之后你能看到 Cesium 里真正要用的那两行 —— <code>CallbackProperty</code> 和
+        <code>PolygonHierarchy</code>。
+      </p>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn on" id="dModeLine">折线</button>
+        <button class="btn ghost" id="dModePoly">面</button>
+        <button class="btn ghost" id="dUndo">撤销</button>
+        <button class="btn ghost" id="dClear">清空</button>
+        <span style="font-size:11.5px;color:#6f80a0;margin-left:6px">双击结束当前图形</span>
+      </div>
+      <canvas id="drawCv" height="360"></canvas>
+      <dl class="kv" style="margin-top:14px;grid-template-columns:auto 1fr auto 1fr">
+        <dt>节点</dt><dd id="dCount">0</dd>
+        <dt>周长</dt><dd id="dLen">—</dd>
+        <dt>面积</dt><dd id="dArea">—</dd>
+        <dt>状态</dt><dd id="dState">待落点</dd>
+      </dl>
+      <pre class="code"><em>// 动态图形：坐标还在变的时候，位置要用 CallbackProperty 喂</em>
+const dynamicPositions = new Cesium.CallbackProperty(() =&gt; positions, false);
+viewer.entities.add({
+  polygon: { hierarchy: new Cesium.PolygonHierarchy(positions),
+             material: Cesium.Color.CYAN.withAlpha(0.35),
+             outline: true, outlineColor: Cesium.Color.WHITE } });
+
+<em>// 面积/距离不要自己在地图上量，用椭球算</em>
+const geodesic = new Cesium.EllipsoidGeodesic(a, b);
+geodesic.surfaceDistance;   <em>// 米</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 3 量算 ============ -->
+  <section class="panel" id="p-measure">
+    <div class="card">
+      <h3>量算 · 两点距离与方位角 <small>计算两点 heading.js / 距离量算贴地量算</small></h3>
+      <p class="note">
+        拖动 A、B 两个点。同一对点，三种算法给出三个数：<b>球面（Haversine）</b>快但偏，
+        <b>椭球（Vincenty）</b>准，<b>Cesium 的 EllipsoidGeodesic</b> 走的就是后者那一路。
+        海拔差大的时候，贴地距离还要再加高度剖面。
+      </p>
+      <div class="grid2">
+        <div>
+          <canvas id="measCv" height="300"></canvas>
+          <p class="note" style="margin:10px 0 0;font-size:11.5px">拖动绿点或橙点改变位置；这里是 0.6° × 0.4° 的一小块杭嘉湖（经纬度等距拉伸，不代表真实形状）。</p>
+        </div>
+        <div>
+          <dl class="kv">
+            <dt>椭球测地线</dt><dd class="big" id="mVin">—</dd>
+            <dt>球面近似</dt><dd id="mHav">—</dd>
+            <dt>两者差值</dt><dd id="mDiff">—</dd>
+            <dt>初始方位角</dt><dd id="mBear">—</dd>
+            <dt>终点方位角</dt><dd id="mBear2">—</dd>
+            <dt>A</dt><dd id="mA">—</dd>
+            <dt>B</dt><dd id="mB">—</dd>
+          </dl>
+          <pre class="code"><em>// Cesium 里量距离</em>
+const a = Cesium.Cartesian3.fromDegrees(lon1, lat1);
+const b = Cesium.Cartesian3.fromDegrees(lon2, lat2);
+Cesium.Cartesian3.distance(a, b);              <em>// 直线（穿过地壳的那条）</em>
+new Cesium.EllipsoidGeodesic(a, b).surfaceDistance;  <em>// 贴椭球面</em>
+Cesium.Ellipsoid.WGS84.geodesicSurfaceDistance(a, b);</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 3D Tiles ============ -->
+  <section class="panel" id="p-tiles">
+    <div class="card">
+      <h3>3D Tiles 解剖 <small>tileset.json → b3dm → glTF</small></h3>
+      <p class="note">
+        倾斜摄影那一堆文件夹为什么能按远近自动变清晰？答案全在 <b>geometricError</b> 这一个数上。
+        左边点节点看右边解释，下面是屏幕误差（SSE）的计算器 —— 它决定了当前这一帧到底加载到第几层。
+      </p>
+      <div class="grid2">
+        <div>
+          <div class="tree" id="tilesTree"></div>
+        </div>
+        <div>
+          <h3 style="margin:0 0 8px" id="tilesTitle">tileset.json</h3>
+          <p class="note" id="tilesDesc" style="margin-bottom:10px"></p>
+          <pre class="code" id="tilesCode" style="margin-top:0"></pre>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>屏幕误差计算器 <small>SSE = geometricError × 屏高 / (距离 × 2tan(fov/2))</small></h3>
+      <div class="grid3">
+        <div><label class="f">相机到瓦片距离 <span id="sseDistV">1200</span> m</label><input type="range" id="sseDist" min="100" max="20000" value="1200" step="50" /></div>
+        <div><label class="f">瓦片 geometricError <span id="sseGeV">100</span></label><input type="range" id="sseGe" min="1" max="500" value="100" step="1" /></div>
+        <div><label class="f">视口高度 <span id="sseHv">900</span> px</label><input type="range" id="sseH" min="300" max="2000" value="900" step="10" /></div>
+      </div>
+      <dl class="kv" style="margin-top:16px">
+        <dt>当前 SSE</dt><dd class="big" id="sseOut">—</dd>
+        <dt>判断</dt><dd id="sseVerdict">—</dd>
+        <dt>参考阈值</dt><dd>maximumScreenSpaceError 默认 16，越小越清晰也越吃显存</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ 5 天空盒 ============ -->
+  <section class="panel" id="p-sky">
+    <div class="card">
+      <h3>天空盒 <small>SkyBox · 六面贴图</small></h3>
+      <p class="note">
+        天空盒就是六个面。Cesium 里 <code>scene.skyBox = new Cesium.SkyBox({sources:{...}})</code>，六个面用立方体展开图，
+        <b>面与面接缝对不齐是返工最多的地方</b>。下面用 CSS 3D 把同一个立方体搭出来，拖一下就知道接缝长什么样。
+      </p>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn on" id="skyNight">夜</button>
+        <button class="btn ghost" id="skyDusk">黄昏</button>
+        <button class="btn ghost" id="skyDay">晴</button>
+        <button class="btn ghost" id="skySpin">自动旋转：开</button>
+      </div>
+      <div class="sky-stage" id="skyStage">
+        <div class="sky-cube" id="skyCube"></div>
+        <div class="sky-hint">拖动旋转 · 六个面 = 六张图</div>
+      </div>
+      <pre class="code"><em>// 六张图按方位命名，路径要对得上</em>
+scene.skyBox = new Cesium.SkyBox({
+  sources: {
+    positiveX: 'sky/px.jpg', negativeX: 'sky/nx.jpg',
+    positiveY: 'sky/py.jpg', negativeY: 'sky/ny.jpg',
+    positiveZ: 'sky/pz.jpg', negativeZ: 'sky/nz.jpg'
+  },
+  show: true
+});</pre>
+    </div>
+  </section>
+
+  <!-- ============ 6 特效 ============ -->
+  <section class="panel" id="p-fx">
+    <div class="card">
+      <h3>动态特效 <small>动态线 / 水淹 / 扫描线</small></h3>
+      <p class="note">
+        这三个在原来那套资料里是 png 和 gif（动态线.png、水淹动画.gif、雷达扫描线.png）。静态图只能看效果，看不出怎么动。
+        这里换成真跑的实现，思路都是同一件事：<b>每帧改一个参数</b> —— 虚线偏移、水面高度、扫描角度。
+      </p>
+      <div class="grid3">
+        <div class="eff-card">
+          <h4>动态线</h4>
+          <p>dashOffset 递减 → 视觉上光在跑；再挂一个沿路径移动的亮点。</p>
+          <canvas id="fxLine" height="190"></canvas>
+        </div>
+        <div class="eff-card">
+          <h4>水淹</h4>
+          <p>水面高度按正弦抬升，叠两层相位不同的波，做反光。</p>
+          <canvas id="fxWater" height="190"></canvas>
+        </div>
+        <div class="eff-card">
+          <h4>雷达扫描</h4>
+          <p>扇形随角度旋转，光点按"离扫描线多远"衰减亮度。</p>
+          <canvas id="fxRadar" height="190"></canvas>
+        </div>
+      </div>
+      <pre class="code"><em>// Cesium 里对应的是 Material，不是自己画 canvas</em>
+polyline.material = new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.2, color: Cesium.Color.CYAN });
+polygon.material = new Cesium.Material({
+  fabric: { type: 'Water', uniforms: { baseWaterColor: new Cesium.Color(0.1, 0.3, 0.5, 0.9),
+                                      normalMap: 'waterNormals.jpg', frequency: 800.0 } } });</pre>
+    </div>
+  </section>
+
+  <!-- ============ 7 真 Cesium ============ -->
+  <section class="panel" id="p-live">
+    <div class="card">
+      <h3>真 · Cesium <small>按需加载，约 3MB</small></h3>
+      <p class="note">
+        前面六个是原理，这个是实机。Cesium 本地包已随站点部署（不占 CDN），底图自动探测可达的瓦片源（高德 → Esri → OSM），
+        都连不上就退成纯色地球，引擎和交互照样能跑。
+      </p>
+      <div class="row">
+        <button class="btn" id="liveLoad">加载地球</button>
+        <button class="btn ghost" id="liveFly">飞回杭州</button>
+        <button class="btn ghost" id="liveBase">换个底图</button>
+        <span style="font-size:11.5px;color:#6f80a0">本地包已随站点部署，不联网也能起</span>
+      </div>
+      <div class="status" id="liveStatus">待加载。Cesium 1.119 · 底图自动探测（高德 → Esri → OSM）。</div>
+      <div id="cesiumBox"></div>
+      <pre class="code"><em>// 本地不要用 CDN，把 Build/Cesium 拷进 public，然后</em>
+window.CESIUM_BASE_URL = '../../cesium/';
+&lt;script src="../../cesium/Cesium.js"&gt;&lt;/script&gt;
+
+const viewer = new Cesium.Viewer('cesiumBox', {
+  baseLayer: false,   // 1.104 起 OpenStreetMapImageryProvider 已删除，别再 new 它
+  timeline: false, animation: false, geocoder: false, baseLayerPicker: false
+});
+// 底图用 URL 模板自己拼（高德 / Esri / OSM 任选）：
+viewer.imageryLayers.add(new Cesium.ImageryLayer(
+  new Cesium.UrlTemplateImageryProvider({
+    url: 'https://webrd0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+    subdomains: ['1','2','3','4'], credit: '© 高德地图', maximumLevel: 18,
+  })));
+viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(120.1551, 30.2741, 1800) });</pre>
+    </div>
+  </section>
+
+  <!-- ============ 8.5 Cesium × Three 融合 ============ -->
+  <section class="panel" id="p-fusion">
+    <div class="card">
+      <h3>Cesium × Three 融合 <small>方案 B · 单 Canvas 同上下文</small></h3>
+      <p class="note">
+        同一张 canvas、同一个 WebGL2 上下文：Cesium 先画地球，Three 不清颜色、只清深度，把精细模型叠上去。
+        相机每帧做一次 <b>syncCamera</b>：位置/视线/上方向三个点从 ECEF 转到 ENU 局部系，再经轴系变换 (e, u, -n) 重建 Three 相机。
+        模型放在以杭州为原点的 ENU 坐标系里，经纬度→局部的换算全在页面里手写。
+        <b>要联网</b>（拉 Cesium 引擎与 OSM 底图）；也可先本地跑：把 Build/Cesium 拷进 public/cesium，页面会优先用本地包。
+      </p>
+      <div class="row">
+        <button class="btn" id="fusionLoad">加载地球</button>
+        <button class="btn ghost" id="fusionToggle">开启融合渲染</button>
+        <button class="btn ghost" id="fusionFly">飞回杭州</button>
+        <button class="btn ghost" id="fusionSpin">自转：开</button>
+      </div>
+      <div class="status" id="fusionStatus">待加载。先「加载地球」，再「开启融合渲染」——一座 Three 发光城会叠在西湖边上。关掉融合可对比纯 Cesium 画面。</div>
+      <div id="fusionBox"><div class="fusion-tag" id="fusionTag" style="display:none">FUSED · three on cesium</div></div>
+      <pre class="code"><em>// 方案 B 核心：复用 Cesium 的 WebGL2 上下文，一帧内先后渲染</em>
+const canvas = viewer.canvas;
+const threeRenderer = new THREE.WebGLRenderer({
+  canvas, context: canvas.getContext('webgl2'), alpha: true,
+  logarithmicDepthBuffer: true,
+});
+threeRenderer.autoClear = false;   // 不清颜色——地球就是背景
+
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+  viewer.cesiumWidget.render();    // ① Cesium 画地球
+  syncCamera(threeCamera);         // ② ECEF→ENU→Three 逐帧同步
+  threeRenderer.clearDepth();      // ③ 只清深度，不清颜色
+  threeRenderer.render(threeScene, threeCamera);
+}
+
+<em>// ENU(东-北-天) → Three(右-上-后)：x=e, y=u, z=-n</em>
+const origin = Cesium.Cartesian3.fromDegrees(120.1551, 30.2741, 0);
+const enu = Cesium.Transforms.eastNorthUpToFixedFrame(origin);
+const worldToLocal = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());</pre>
+    </div>
+  </section>
+
+  <!-- ============ 8.6 积雪 CustomShader ============ -->
+  <section class="panel" id="p-snow">
+    <div class="card">
+      <h3>积雪 · CustomShader <small>天气特效的正规接口</small></h3>
+      <p class="note">
+        Cesium 给 3D Tiles 和 glTF 模型留了一个官方外挂口子：<b>CustomShader</b>。不用改引擎、不用改 glb，
+        只要挂一个 fragment shader，就能按<b>法线朝向</b>往朝上的面上糊雪 —— 立面留原色，屋面和地面盖白，
+        再叠一点高度加成（高处雪更厚）。这正是数字孪生里积雪、水淹、楼层剖切、热力染色共用的一套模式：
+        <b>拿位置/法线算出一个 mask，再 mix 材质</b>。
+        这里的场景是自己生成的 glb 小城（83 栋楼 + 地面，998 个三角形，无第三方资产、无许证问题）；
+        CustomShader 挂 <code>Cesium3DTileset</code> 和挂 <code>Model</code> 是同一套写法，区别只是数据源。
+        另外实测踩到一个 1.119 的坑：<b>uniforms 和 varyings 一旦共存，uniform 就不上传</b>——所以这个 demo 把参数直接烘进 shader 源码（见下方代码注释）。
+        <b>要联网</b>拉 Cesium 引擎和底图。
+      </p>
+      <div class="row">
+        <button class="btn" id="snowLoad">加载场景</button>
+        <button class="btn ghost" id="snowToggle">积雪：开</button>
+        <button class="btn ghost" id="snowFly">拉近看</button>
+      </div>
+      <div class="row">
+        <label class="mini">积雪厚度 <input id="snowLevel" type="range" min="0" max="1" step="0.05" value="0.45"></label>
+        <label class="mini">积雪颜色 <input id="snowColor" type="color" value="#eef4ff"></label>
+      </div>
+      <div class="status" id="snowStatus">待加载。点「加载场景」→ 一座小城飞到杭州上空，然后拖厚度滑杆看积雪从「只盖屋顶」到「立面也白」。</div>
+      <div id="snowBox"></div>
+      <pre class="code"><em>// 挂到 3D Tiles / glTF 模型上：一份 shader 搞定天气与专题</em>
+<em>// ⚠️ 实测坑（Cesium 1.119 + Model）：uniforms 和 varyings 一旦共存，uniform 就不上传。
+// 所以把厚度阈值/颜色直接烘进 shader 源码，参数变了重建 shader（小 shader，重建很便宜）</em>
+const shader = new Cesium.CustomShader({
+  varyings: { v_upMC: Cesium.VaryingType.VEC3 },
+  vertexShaderText: `
+    void vertexMain(VertexInput vsInput, inout czm_modelVertexOutput vsOutput) {
+      v_upMC = vsInput.attributes.normalMC;  // fragment 拿不到 normalMC，只能自己传
+    }`,
+  fragmentShaderText: `
+    void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+      float up = normalize(v_upMC).y;                  // glTF 是 Y 轴朝上：1=屋顶 0=立面
+      float th = 0.48;                                 // 由「厚度」滑杆烘进来：厚度↑ th↓
+      float mask = smoothstep(th, th + 0.10, up);
+      material.diffuse  = mix(material.diffuse, vec3(0.93, 0.96, 1.0), mask);
+      material.emissive = mix(material.emissive, vec3(0.93, 0.96, 1.0) * 0.22, mask);
+    }`,
+});
+
+tileset.customShader = shader;   // 或 model.customShader = shader
+// 参数变了就重建一个 CustomShader 挂回去（uniform 路线在新版本里再换回来）</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   0. 工具
+   ========================================================= */
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const WGS84 = { a: 6378137.0, e2: 0.0066943799901975 };
+const MEAN_R = 6371008.8;
+
+function c3FromDegrees(lon, lat, h) {
+  const la = lat * D2R, lo = lon * D2R;
+  const N = WGS84.a / Math.sqrt(1 - WGS84.e2 * Math.sin(la) ** 2);
+  return {
+    x: (N + h) * Math.cos(la) * Math.cos(lo),
+    y: (N + h) * Math.cos(la) * Math.sin(lo),
+    z: (N * (1 - WGS84.e2) + h) * Math.sin(la),
+  };
+}
+function c3ToDegrees(x, y, z) {
+  const a = WGS84.a, e2 = WGS84.e2, b = a * Math.sqrt(1 - e2);
+  const ep2 = (a * a - b * b) / (b * b);
+  const p = Math.hypot(x, y);
+  const th = Math.atan2(a * z, b * p);
+  const lon = Math.atan2(y, x);
+  const lat = Math.atan2(z + ep2 * b * Math.sin(th) ** 3, p - e2 * a * Math.cos(th) ** 3);
+  const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
+  const h = p / Math.cos(lat) - N;
+  return { lon: lon * R2D, lat: lat * R2D, h };
+}
+function haversine(lat1, lon1, lat2, lon2) {
+  const dLat = (lat2 - lat1) * D2R, dLon = (lon2 - lon1) * D2R;
+  const s = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * D2R) * Math.cos(lat2 * D2R) * Math.sin(dLon / 2) ** 2;
+  return 2 * MEAN_R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+function vincenty(lat1, lon1, lat2, lon2) {
+  const a = 6378137, f = 1 / 298.257223563, b = (1 - f) * a;
+  const L = (lon2 - lon1) * D2R;
+  const U1 = Math.atan((1 - f) * Math.tan(lat1 * D2R));
+  const U2 = Math.atan((1 - f) * Math.tan(lat2 * D2R));
+  const sU1 = Math.sin(U1), cU1 = Math.cos(U1), sU2 = Math.sin(U2), cU2 = Math.cos(U2);
+  let lam = L, lamP, it = 0, sinSig, cosSig, sig, sinA, cos2a, cos2Sm, C;
+  do {
+    sinSig = Math.hypot(cU2 * Math.sin(lam), cU1 * sU2 - sU1 * cU2 * Math.cos(lam));
+    if (sinSig === 0) return 0;
+    cosSig = sU1 * sU2 + cU1 * cU2 * Math.cos(lam);
+    sig = Math.atan2(sinSig, cosSig);
+    sinA = cU1 * cU2 * Math.sin(lam) / sinSig;
+    cos2a = 1 - sinA * sinA;
+    cos2Sm = cos2a === 0 ? 0 : cosSig - 2 * sU1 * sU2 / cos2a;
+    C = f / 16 * cos2a * (4 + f * (4 - 3 * cos2a));
+    lamP = lam;
+    lam = L + (1 - C) * f * sinA * (sig + C * sinSig * (cos2Sm + C * cosSig * (-1 + 2 * cos2Sm * cos2Sm)));
+  } while (Math.abs(lam - lamP) > 1e-12 && ++it < 200);
+  const u2 = cos2a * (a * a - b * b) / (b * b);
+  const A = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)));
+  const B = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+  const dSig = B * sinSig * (cos2Sm + B / 4 * (cosSig * (-1 + 2 * cos2Sm * cos2Sm) -
+    B / 6 * cos2Sm * (-3 + 4 * sinSig * sinSig) * (-3 + 4 * cos2Sm * cos2Sm)));
+  return b * A * (sig - dSig);
+}
+function bearing(lat1, lon1, lat2, lon2) {
+  const p1 = lat1 * D2R, p2 = lat2 * D2R, dl = (lon2 - lon1) * D2R;
+  const y = Math.sin(dl) * Math.cos(p2);
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.atan2(y, x) * R2D + 360) % 360;
+}
+function polyArea(pts) {
+  if (pts.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p1 = pts[i], p2 = pts[(i + 1) % pts.length];
+    sum += (p2.lon - p1.lon) * D2R * (2 + Math.sin(p1.lat * D2R) + Math.sin(p2.lat * D2R));
+  }
+  return Math.abs(sum * MEAN_R * MEAN_R / 2);
+}
+const sizeCache = new WeakMap();
+function fitCanvas(cv, cssH) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const rect = cv.getBoundingClientRect();
+  const w = Math.max(40, Math.round(rect.width));
+  const h = Math.round(cssH || rect.height || 180);
+  const c = sizeCache.get(cv);
+  if (!c || c.w !== w || c.h !== h || c.dpr !== dpr) {
+    cv.style.height = h + 'px';
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    sizeCache.set(cv, { w, h, dpr });
+  }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+const fmt = (n, d = 0) => n.toLocaleString('zh-CN', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/* =========================================================
+   1. Tab 切换
+   ========================================================= */
+const tabs = document.getElementById('tabs');
+tabs.addEventListener('click', (e) => {
+  const t = e.target.closest('.tab');
+  if (!t) return;
+  tabs.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
+  document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('on', p.id === 'p-' + t.dataset.p));
+  if (t.dataset.p === 'draw' || t.dataset.p === 'measure') setTimeout(resizeCanvases, 20);
+});
+
+/* =========================================================
+   2. 坐标转换
+   ========================================================= */
+const cLon = document.getElementById('cLon');
+const cLat = document.getElementById('cLat');
+const cH = document.getElementById('cH');
+
+function renderCoord() {
+  const lon = parseFloat(cLon.value) || 0;
+  const lat = Math.max(-89.9, Math.min(89.9, parseFloat(cLat.value) || 0));
+  const h = parseFloat(cH.value) || 0;
+  const p = c3FromDegrees(lon, lat, h);
+  document.getElementById('cX').textContent = fmt(p.x, 2) + ' m';
+  document.getElementById('cY').textContent = fmt(p.y, 2) + ' m';
+  document.getElementById('cZ').textContent = fmt(p.z, 2) + ' m';
+  document.getElementById('cR').textContent = fmt(Math.hypot(p.x, p.y, p.z), 2) + ' m';
+  document.getElementById('cRad').textContent =
+    (lon * D2R).toFixed(6) + ' , ' + (lat * D2R).toFixed(6) + ' , ' + h.toFixed(1);
+  const back = c3ToDegrees(p.x, p.y, p.z);
+  document.getElementById('cBack').textContent =
+    back.lon.toFixed(6) + '°, ' + back.lat.toFixed(6) + '°, ' + back.h.toFixed(2) + ' m';
+
+  // 剖面图：表面点 + 法线
+  const rx = 86, ry = 85.7, cx = 150, cy = 120;
+  const px = cx + rx * Math.cos(lat * D2R);
+  const py = cy - ry * Math.sin(lat * D2R);
+  const nx = -Math.sin(lat * D2R), ny = -Math.cos(lat * D2R); // 屏幕坐标下的外法线
+  const pt = document.getElementById('earthPt');
+  const line = document.getElementById('normalLine');
+  pt.setAttribute('cx', px.toFixed(1));
+  pt.setAttribute('cy', py.toFixed(1));
+  line.setAttribute('x1', px.toFixed(1));
+  line.setAttribute('y1', py.toFixed(1));
+  line.setAttribute('x2', (px - nx * 34).toFixed(1));
+  line.setAttribute('y2', (py - ny * 34).toFixed(1));
+  document.getElementById('earthLbl').textContent = 'φ = ' + lat.toFixed(2) + '°';
+}
+[cLon, cLat, cH].forEach((el) => el.addEventListener('input', renderCoord));
+document.getElementById('cityChips').addEventListener('click', (e) => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  cLon.value = c.dataset.lon;
+  cLat.value = c.dataset.lat;
+  renderCoord();
+});
+renderCoord();
+
+/* =========================================================
+   3. 标绘
+   ========================================================= */
+const BBOX = { lon0: 119.90, lon1: 120.50, lat0: 30.10, lat1: 30.50 };
+const drawCv = document.getElementById('drawCv');
+let drawShape = 'line';
+let drawPts = [];
+let cursor = null;
+let pending = false;
+
+function mapToPx(lon, lat, w, h) {
+  return {
+    x: (lon - BBOX.lon0) / (BBOX.lon1 - BBOX.lon0) * w,
+    y: (BBOX.lat1 - lat) / (BBOX.lat1 - BBOX.lat0) * h,
+  };
+}
+function pxToGeo(x, y, w, h) {
+  return {
+    lon: BBOX.lon0 + (x / w) * (BBOX.lon1 - BBOX.lon0),
+    lat: BBOX.lat1 - (y / h) * (BBOX.lat1 - BBOX.lat0),
+  };
+}
+
+function paintBasemap(ctx, w, h) {
+  ctx.clearRect(0, 0, w, h);
+  const bg = ctx.createLinearGradient(0, 0, w, h);
+  bg.addColorStop(0, '#08131c');
+  bg.addColorStop(1, '#060a12');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // 网格
+  ctx.strokeStyle = 'rgba(120,190,200,0.09)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 6; i++) {
+    const x = (w / 6) * i;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  // 假城市街区
+  ctx.fillStyle = 'rgba(120,170,200,0.055)';
+  const blocks = [[0.08,0.10,0.09,0.06],[0.22,0.14,0.12,0.05],[0.40,0.08,0.10,0.07],
+                  [0.12,0.52,0.14,0.08],[0.55,0.60,0.11,0.09],[0.74,0.22,0.10,0.06],
+                  [0.30,0.72,0.16,0.07],[0.82,0.70,0.12,0.08]];
+  blocks.forEach(([x, y, bw, bh]) => {
+    ctx.fillRect(x * w, y * h, bw * w, bh * h);
+  });
+  // 假河道
+  ctx.strokeStyle = 'rgba(90,150,200,0.18)';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(-10, h * 0.42);
+  ctx.bezierCurveTo(w * 0.3, h * 0.30, w * 0.55, h * 0.62, w + 10, h * 0.52);
+  ctx.stroke();
+}
+
+let drawGeom = { w: 0, h: 0 };
+function paintDraw() {
+  const { ctx, w, h } = fitCanvas(drawCv, 360);
+  drawGeom = { w, h };
+  paintBasemap(ctx, w, h);
+
+  const pts = drawPts.map((p) => mapToPx(p.lon, p.lat, w, h));
+  if (pts.length) {
+    ctx.strokeStyle = '#5fd8c4';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    if (drawShape === 'poly' && pts.length > 2) ctx.closePath();
+    ctx.stroke();
+
+    if (drawShape === 'poly' && pts.length > 2) {
+      ctx.fillStyle = 'rgba(95,216,196,0.16)';
+      ctx.fill();
+    }
+
+    // 预览段
+    if (cursor && !closedShape()) {
+      const last = pts[pts.length - 1];
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(255,190,110,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(cursor.x, cursor.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    pts.forEach((p) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0b1622';
+      ctx.fill();
+      ctx.strokeStyle = '#7cf0d0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+  updateDrawStats();
+}
+function closedShape() { return drawShape === 'line'; }
+
+function updateDrawStats() {
+  const n = drawPts.length;
+  document.getElementById('dCount').textContent = String(n);
+  let len = 0;
+  for (let i = 1; i < n; i++) {
+    len += vincenty(drawPts[i - 1].lat, drawPts[i - 1].lon, drawPts[i].lat, drawPts[i].lon);
+  }
+  if (drawShape === 'poly' && n > 2) {
+    len += vincenty(drawPts[n - 1].lat, drawPts[n - 1].lon, drawPts[0].lat, drawPts[0].lon);
+  }
+  document.getElementById('dLen').textContent = len ? (len >= 1000 ? (len / 1000).toFixed(2) + ' km' : len.toFixed(0) + ' m') : '—';
+  const area = drawShape === 'poly' ? polyArea(drawPts) : 0;
+  document.getElementById('dArea').textContent =
+    area ? (area > 1e6 ? (area / 1e6).toFixed(2) + ' km²' : area.toFixed(0) + ' m²') : '—';
+  document.getElementById('dState').textContent =
+    n === 0 ? '待落点' : (drawShape === 'poly' ? '画多边形中' : '画折线中');
+}
+
+drawCv.addEventListener('pointermove', (e) => {
+  const r = drawCv.getBoundingClientRect();
+  cursor = { x: e.clientX - r.left, y: e.clientY - r.top };
+  paintDraw();
+});
+drawCv.addEventListener('pointerleave', () => { cursor = null; paintDraw(); });
+drawCv.addEventListener('pointerdown', (e) => {
+  if (e.detail > 1) return; // 双击的第二下不落点
+  const r = drawCv.getBoundingClientRect();
+  const g = pxToGeo(e.clientX - r.left, e.clientY - r.top, drawGeom.w, drawGeom.h);
+  drawPts.push(g);
+  paintDraw();
+});
+drawCv.addEventListener('dblclick', () => {
+  drawPts = drawPts.slice(0, -1); // 双击会多落一个点，去掉
+  paintDraw();
+});
+document.getElementById('dModeLine').addEventListener('click', (e) => {
+  drawShape = 'line';
+  e.target.classList.add('on');
+  document.getElementById('dModePoly').classList.remove('on');
+  paintDraw();
+});
+document.getElementById('dModePoly').addEventListener('click', (e) => {
+  drawShape = 'poly';
+  e.target.classList.add('on');
+  document.getElementById('dModeLine').classList.remove('on');
+  paintDraw();
+});
+document.getElementById('dUndo').addEventListener('click', () => { drawPts.pop(); paintDraw(); });
+document.getElementById('dClear').addEventListener('click', () => { drawPts = []; paintDraw(); });
+
+/* =========================================================
+   4. 量算
+   ========================================================= */
+const measCv = document.getElementById('measCv');
+let mA = { lon: 120.06, lat: 30.22 };
+let mB = { lon: 120.40, lat: 30.36 };
+let dragTarget = null;
+let measGeom = { w: 0, h: 0 };
+
+function paintMeasure() {
+  const { ctx, w, h } = fitCanvas(measCv, 300);
+  measGeom = { w, h };
+  paintBasemap(ctx, w, h);
+
+  const a = mapToPx(mA.lon, mA.lat, w, h);
+  const b = mapToPx(mB.lon, mB.lat, w, h);
+
+  ctx.strokeStyle = 'rgba(255,190,110,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+  // 箭头
+  const ang = Math.atan2(b.y - a.y, b.x - a.x);
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  ctx.save();
+  ctx.translate(mid.x, mid.y);
+  ctx.rotate(ang);
+  ctx.fillStyle = 'rgba(255,190,110,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(7, 0); ctx.lineTo(-4, 5); ctx.lineTo(-4, -5);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  [[a, '#7cf0d0'], [b, '#ffb066']].forEach(([p, color]) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  const v = vincenty(mA.lat, mA.lon, mB.lat, mB.lon);
+  const hv = haversine(mA.lat, mA.lon, mB.lat, mB.lon);
+  document.getElementById('mVin').textContent = (v / 1000).toFixed(3) + ' km';
+  document.getElementById('mHav').textContent = (hv / 1000).toFixed(3) + ' km';
+  document.getElementById('mDiff').textContent = (Math.abs(v - hv)).toFixed(2) + ' m（' + ((Math.abs(v - hv) / v) * 100).toFixed(3) + '%）';
+  document.getElementById('mBear').textContent = bearing(mA.lat, mA.lon, mB.lat, mB.lon).toFixed(2) + '°';
+  document.getElementById('mBear2').textContent = bearing(mB.lat, mB.lon, mA.lat, mA.lon).toFixed(2) + '°（反方向）';
+  document.getElementById('mA').textContent = mA.lon.toFixed(5) + ', ' + mA.lat.toFixed(5);
+  document.getElementById('mB').textContent = mB.lon.toFixed(5) + ', ' + mB.lat.toFixed(5);
+}
+
+function nearestHandle(e) {
+  const r = measCv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const a = mapToPx(mA.lon, mA.lat, measGeom.w, measGeom.h);
+  const b = mapToPx(mB.lon, mB.lat, measGeom.w, measGeom.h);
+  const da = Math.hypot(x - a.x, y - a.y), db = Math.hypot(x - b.x, y - b.y);
+  if (Math.min(da, db) > 22) return null;
+  return da < db ? 'a' : 'b';
+}
+measCv.addEventListener('pointerdown', (e) => {
+  dragTarget = nearestHandle(e) || 'a';
+  measCv.setPointerCapture(e.pointerId);
+});
+measCv.addEventListener('pointermove', (e) => {
+  if (!dragTarget) return;
+  const r = measCv.getBoundingClientRect();
+  const g = pxToGeo(e.clientX - r.left, e.clientY - r.top, measGeom.w, measGeom.h);
+  const t = { lon: Math.min(BBOX.lon1, Math.max(BBOX.lon0, g.lon)), lat: Math.min(BBOX.lat1, Math.max(BBOX.lat0, g.lat)) };
+  if (dragTarget === 'a') mA = t; else mB = t;
+  paintMeasure();
+});
+measCv.addEventListener('pointerup', () => { dragTarget = null; });
+
+/* =========================================================
+   5. 3D Tiles 树
+   ========================================================= */
+const TILES = {
+  label: 'tileset.json', kind: 'tileset', badge: 'asset 1.0',
+  info: {
+    title: 'tileset.json · 入口文件',
+    desc: '整个数据集的说明书。asset.version 固定 1.0；根级 geometricError 是"退到最远时允许的误差"，refine 决定父子瓦片是叠加（ADD）还是替换（REPLACE）。倾斜摄影一般 REPLACE。',
+    code: '{\n  "asset": { "version": "1.0" },\n  "geometricError": 500,\n  "root": { ... }\n}'
+  },
+  kids: [{
+    label: 'root', kind: 'tile', badge: 'ge 500',
+    info: {
+      title: 'root · 根瓦片',
+      desc: '每一层瓦片都带两样东西：boundingVolume（用 region 或 box 圈出范围）和 geometricError。相机远时只画这一层的低模；走近了才继续往下钻，钻到误差小于阈值为止。',
+      code: '"boundingVolume": { "box": [\n  0, 0, 0,\n  50, 0, 0, 0, 50, 0, 0, 0, 30\n]},\n"geometricError": 500,\n"refine": "REPLACE"'
+    },
+    kids: [
+      {
+        label: 'content 0/0/0.b3dm', kind: 'content', badge: '0.8 MB',
+        info: {
+          title: 'b3dm · 一批建筑的容器',
+          desc: 'b3dm = Batched 3D Model。文件头之后是三段 JSON：FeatureTable（BATCH_LENGTH 告诉你有多少个要素、RTC_CENTER 是相对中心，避免大数精度丢失）、BatchTable（每个要素的属性）、以及里面的 glTF。单体化点选就靠 BATCH_LENGTH 的 id 反查。',
+          code: 'magic    "b3dm"\nversion  1\nbyteLength  ...\nfeatureTableJSONByteLength ...\nbatchTableJSONByteLength   ...\nglTF      ...'
+        }
+      },
+      {
+        label: 'children[0] · ge 100', kind: 'tile', badge: 'ge 100',
+        info: {
+          title: '第二层 · ge 100',
+          desc: '误差降到 100。倾斜摄影一般切 4~5 层，每层 4 叉，所以目录一定是 0/0/0、0/0/1 这种金字塔形状。s3c 索引（cesiumlab 生成）就是给这一堆文件写了个清单。',
+          code: '"children": [\n  { "geometricError": 100, "content": {"uri": "tiles/1/0/0.b3dm"} },\n  { "geometricError": 100, "content": {"uri": "tiles/1/0/1.b3dm"} }\n]'
+        },
+        kids: [
+          {
+            label: 'children[0] · ge 20', kind: 'tile', badge: 'ge 20',
+            info: {
+              title: '第三层 · ge 20',
+              desc: '20 米误差，通常是最后一层。再往下切文件数量会爆炸，收益却很小 —— 这就是为什么"切到 18 级"往往不如"相机别飞太低"。',
+              code: '"geometricError": 20,\n"content": { "uri": "tiles/2/0/0.b3dm" }'
+            }
+          },
+          {
+            label: 'children[1] · ge 20', kind: 'tile', badge: 'ge 20',
+            info: {
+              title: '第三层 · 相邻瓦片',
+              desc: '同一个父节点下的兄弟瓦片。它们共用父级的包围体，所以父级一旦可见，兄弟几个通常会一起请求 —— 这也是首屏"一下子掉 8 个 b3dm"的原因。',
+              code: '"geometricError": 20,\n"content": { "uri": "tiles/2/0/1.b3dm" }'
+            }
+          }
+        ]
+      },
+      {
+        label: 'children[1] · ge 100', kind: 'tile', badge: 'ge 100',
+        info: {
+          title: '第二层 · 另一半',
+          desc: 'REPLACE 策略下，父瓦片在子瓦片加载完成后才会被卸载；ADD 策略则一直保留父级。地表建筑常用 ADD 补洞，倾斜摄影用 REPLACE 省显存。',
+          code: '"refine": "ADD"   // 父子同时存在\n"refine": "REPLACE"  // 子级就位后父级退出'
+        }
+      }
+    ]
+  }]
+};
+
+const treeEl = document.getElementById('tilesTree');
+let firstNode = null;
+function buildTree(node, depth) {
+  const wrap = document.createElement('div');
+  const el = document.createElement('div');
+  el.className = 'node ' + node.kind;
+  el.style.paddingLeft = (depth * 14 + 6) + 'px';
+  el.innerHTML = (depth ? '└ ' : '') + node.label + '<span class="badge">' + node.badge + '</span>';
+  el.addEventListener('click', () => selectNode(node, el));
+  wrap.appendChild(el);
+  if (!firstNode) firstNode = { node, el };
+  (node.kids || []).forEach((k) => wrap.appendChild(buildTree(k, depth + 1)));
+  return wrap;
+}
+treeEl.appendChild(buildTree(TILES, 0));
+function selectNode(node, el) {
+  treeEl.querySelectorAll('.node').forEach((n) => n.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('tilesTitle').textContent = node.info.title;
+  document.getElementById('tilesDesc').textContent = node.info.desc;
+  document.getElementById('tilesCode').textContent = node.info.code;
+}
+if (firstNode) selectNode(firstNode.node, firstNode.el);
+
+const sseDist = document.getElementById('sseDist');
+const sseGe = document.getElementById('sseGe');
+const sseH = document.getElementById('sseH');
+function renderSSE() {
+  const d = +sseDist.value, ge = +sseGe.value, ph = +sseH.value;
+  document.getElementById('sseDistV').textContent = d;
+  document.getElementById('sseGeV').textContent = ge;
+  document.getElementById('sseHv').textContent = ph;
+  const fov = 60 * D2R;
+  const sse = (ge * ph) / (d * 2 * Math.tan(fov / 2));
+  document.getElementById('sseOut').textContent = sse.toFixed(2);
+  const v = document.getElementById('sseVerdict');
+  if (sse > 16) {
+    v.textContent = '超过阈值 → 会继续请求子瓦片（更清晰，也更吃网速和显存）';
+    v.style.color = '#ffc978';
+  } else {
+    v.textContent = '低于阈值 → 停在这一层，不再往下钻';
+    v.style.color = '#7cf0d0';
+  }
+}
+[sseDist, sseGe, sseH].forEach((el) => el.addEventListener('input', renderSSE));
+renderSSE();
+
+/* =========================================================
+   6. 天空盒
+   ========================================================= */
+const cube = document.getElementById('skyCube');
+const stage = document.getElementById('skyStage');
+
+const SKY_PRESETS = {
+  night: ['#0a1428', '#0b1830', '#060d1c', '#08111f', '#0d1b34', '#050a14'],
+  dusk: ['#3a2148', '#4a2440', '#2a1830', '#33203c', '#5a2c44', '#1c1220'],
+  day: ['#4a8fd0', '#3f82c4', '#59a0da', '#4a8fd0', '#7fc0ec', '#2f6ba0'],
+};
+let skyMode = 'night';
+let skyRx = -18, skyRy = 24;
+let skySpin = true;
+
+function stars(n, seed) {
+  let out = [];
+  let s = seed;
+  for (let i = 0; i < n; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    const x = (s / 233280) * 100;
+    s = (s * 9301 + 49297) % 233280;
+    const y = (s / 233280) * 100;
+    s = (s * 9301 + 49297) % 233280;
+    const a = (0.25 + (s / 233280) * 0.7).toFixed(2);
+    out.push(`radial-gradient(circle at ${x.toFixed(1)}% ${y.toFixed(1)}%, rgba(255,255,255,${a}) 0 0.7px, transparent 1.4px)`);
+  }
+  return out.join(',');
+}
+const FACE_TRANSFORM = [
+  'translateZ(130px)',
+  'rotateY(180deg) translateZ(130px)',
+  'rotateY(-90deg) translateZ(130px)',
+  'rotateY(90deg) translateZ(130px)',
+  'rotateX(90deg) translateZ(130px)',
+  'rotateX(-90deg) translateZ(130px)',
+];
+function buildSky() {
+  cube.innerHTML = '';
+  const colors = SKY_PRESETS[skyMode];
+  colors.forEach((c, i) => {
+    const f = document.createElement('div');
+    f.className = 'sky-face';
+    f.style.transform = FACE_TRANSFORM[i];
+    const glow = skyMode === 'day'
+      ? `radial-gradient(circle at 70% 30%, rgba(255,245,200,0.85) 0, rgba(255,240,180,0.25) 12%, transparent 40%)`
+      : skyMode === 'dusk'
+        ? `radial-gradient(circle at 30% 78%, rgba(255,170,110,0.55) 0, transparent 46%)`
+        : `radial-gradient(circle at 50% 70%, rgba(80,120,200,0.35) 0, transparent 55%)`;
+    const st = skyMode === 'day' ? stars(16, 77 + i) : stars(40, 31 * (i + 3));
+    f.style.background = `linear-gradient(160deg, ${c} 0%, ${shade(c, -14)} 100%)`;
+    f.style.backgroundImage = `${glow}, ${st}, linear-gradient(160deg, ${c} 0%, ${shade(c, -18)} 100%)`;
+    cube.appendChild(f);
+  });
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+let skyDown = false, skyLast = null;
+stage.addEventListener('pointerdown', (e) => {
+  skyDown = true;
+  skyLast = { x: e.clientX, y: e.clientY };
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove', (e) => {
+  if (!skyDown) return;
+  skyRy += (e.clientX - skyLast.x) * 0.4;
+  skyRx -= (e.clientY - skyLast.y) * 0.35;
+  skyRx = Math.max(-80, Math.min(80, skyRx));
+  skyLast = { x: e.clientX, y: e.clientY };
+});
+stage.addEventListener('pointerup', () => { skyDown = false; });
+document.querySelectorAll('#skyNight, #skyDusk, #skyDay').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#skyNight, #skyDusk, #skyDay').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    skyMode = b.id === 'skyNight' ? 'night' : b.id === 'skyDusk' ? 'dusk' : 'day';
+    buildSky();
+  });
+});
+document.getElementById('skySpin').addEventListener('click', (e) => {
+  skySpin = !skySpin;
+  e.target.textContent = '自动旋转：' + (skySpin ? '开' : '关');
+  e.target.classList.toggle('on', skySpin);
+  e.target.classList.toggle('ghost', !skySpin);
+});
+buildSky();
+(function skyLoop() {
+  if (skySpin) skyRy += 0.12;
+  cube.style.transform = `rotateX(${skyRx}deg) rotateY(${skyRy}deg)`;
+  requestAnimationFrame(skyLoop);
+})();
+
+/* =========================================================
+   7. 特效三宫格
+   ========================================================= */
+const fxLine = document.getElementById('fxLine');
+const fxWater = document.getElementById('fxWater');
+const fxRadar = document.getElementById('fxRadar');
+
+function drawLineFx(t) {
+  const { ctx, w, h } = fitCanvas(fxLine, 190);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#050a12';
+  ctx.fillRect(0, 0, w, h);
+  const pts = [];
+  for (let i = 0; i <= 40; i++) {
+    const x = 10 + (w - 20) * (i / 40);
+    const y = h * 0.55 + Math.sin(i * 0.42) * h * 0.22;
+    pts.push({ x, y });
+  }
+  // 底轨
+  ctx.strokeStyle = 'rgba(95,216,196,0.18)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.stroke();
+
+  // 流动虚线
+  const off = -((t * 0.09) % 24);
+  ctx.setLineDash([12, 12]);
+  ctx.lineDashOffset = off;
+  ctx.strokeStyle = 'rgba(124,240,208,0.95)';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(124,240,208,0.7)';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([]);
+
+  // 光点
+  const prog = ((t * 0.00035) % 1 + 1) % 1;
+  const idx = prog * (pts.length - 1);
+  const i0 = Math.floor(idx), frac = idx - i0;
+  const p0 = pts[i0], p1 = pts[Math.min(pts.length - 1, i0 + 1)];
+  const px = p0.x + (p1.x - p0.x) * frac;
+  const py = p0.y + (p1.y - p0.y) * frac;
+  const grd = ctx.createRadialGradient(px, py, 0, px, py, 14);
+  grd.addColorStop(0, 'rgba(255,255,255,0.95)');
+  grd.addColorStop(0.35, 'rgba(124,240,208,0.7)');
+  grd.addColorStop(1, 'rgba(124,240,208,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawWaterFx(t) {
+  const { ctx, w, h } = fitCanvas(fxWater, 190);
+  ctx.clearRect(0, 0, w, h);
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#0a1622');
+  sky.addColorStop(1, '#0b2436');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+
+  // 楼群
+  const base = h * 0.92;
+  const buildings = [
+    [0.06, 0.34, 0.10], [0.18, 0.52, 0.08], [0.28, 0.26, 0.09],
+    [0.38, 0.62, 0.11], [0.51, 0.40, 0.08], [0.62, 0.70, 0.12],
+    [0.76, 0.30, 0.09], [0.86, 0.46, 0.10],
+  ];
+  const level = h * (0.58 + 0.16 * Math.sin(t * 0.00045));
+  buildings.forEach(([bx, bh, bw], i) => {
+    const x = bx * w, bwid = bw * w, bhei = bh * h * 0.8;
+    ctx.fillStyle = i % 2 ? '#14212e' : '#101b26';
+    ctx.fillRect(x, base - bhei, bwid, bhei);
+    // 窗
+    ctx.fillStyle = 'rgba(255,210,140,0.5)';
+    for (let wy = base - bhei + 8; wy < base - 6; wy += 12) {
+      for (let wx = x + 5; wx < x + bwid - 6; wx += 11) {
+        if ((Math.floor(wx) + Math.floor(wy) + i) % 3 === 0) ctx.fillRect(wx, wy, 4, 5);
+      }
+    }
+  });
+
+  // 水面
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, level);
+  for (let x = 0; x <= w; x += 6) {
+    const y = level + Math.sin(x * 0.035 + t * 0.0022) * 4 + Math.sin(x * 0.012 - t * 0.0013) * 3;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  const water = ctx.createLinearGradient(0, level, 0, h);
+  water.addColorStop(0, 'rgba(76,170,215,0.55)');
+  water.addColorStop(1, 'rgba(18,60,100,0.9)');
+  ctx.fillStyle = water;
+  ctx.fill();
+  ctx.clip();
+
+  // 反光条纹
+  ctx.strokeStyle = 'rgba(200,240,255,0.22)';
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 9; i++) {
+    const y = level + 8 + i * 10;
+    const off = Math.sin(t * 0.0016 + i) * 16;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.1 + off, y);
+    ctx.lineTo(w * 0.34 + off, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 水位线
+  ctx.strokeStyle = 'rgba(160,230,255,0.65)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += 6) {
+    const y = level + Math.sin(x * 0.035 + t * 0.0022) * 4 + Math.sin(x * 0.012 - t * 0.0013) * 3;
+    x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+}
+
+const radarBlips = [
+  { a: 0.6, r: 0.42, s: 1.0 }, { a: 2.2, r: 0.66, s: 0.8 },
+  { a: 3.9, r: 0.55, s: 1.2 }, { a: 5.1, r: 0.32, s: 0.9 },
+  { a: 1.4, r: 0.76, s: 0.7 }, { a: 4.6, r: 0.72, s: 1.1 },
+];
+function drawRadarFx(t) {
+  const { ctx, w, h } = fitCanvas(fxRadar, 190);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#040d0b';
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.42;
+  const sweep = (t * 0.0011) % (Math.PI * 2);
+
+  // 同心圆 + 十字
+  ctx.strokeStyle = 'rgba(95,216,196,0.22)';
+  ctx.lineWidth = 1;
+  [0.33, 0.66, 1].forEach((k) => {
+    ctx.beginPath(); ctx.arc(cx, cy, R * k, 0, Math.PI * 2); ctx.stroke();
+  });
+  ctx.beginPath();
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.stroke();
+
+  // 扇形（用多段渐隐扇形模拟拖尾）
+  const seg = 34;
+  for (let i = 0; i < seg; i++) {
+    const a0 = sweep - (i + 1) * 0.045;
+    const a1 = sweep - i * 0.045;
+    const alpha = 0.30 * (1 - i / seg);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, a0, a1);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(95,216,196,${alpha.toFixed(3)})`;
+    ctx.fill();
+  }
+
+  // 光点
+  radarBlips.forEach((b) => {
+    let d = (sweep - b.a) % (Math.PI * 2);
+    if (d < 0) d += Math.PI * 2;
+    const glow = Math.max(0, 1 - d / (Math.PI * 0.9));
+    if (glow < 0.02) return;
+    const x = cx + Math.cos(b.a) * R * b.r;
+    const y = cy - Math.sin(b.a) * R * b.r;
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, 9 * b.s);
+    grd.addColorStop(0, `rgba(180,255,235,${(glow * 0.95).toFixed(2)})`);
+    grd.addColorStop(1, 'rgba(95,216,196,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(x, y, 9 * b.s, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // 中心
+  ctx.fillStyle = 'rgba(124,240,208,0.9)';
+  ctx.beginPath(); ctx.arc(cx, cy, 2.6, 0, Math.PI * 2); ctx.fill();
+}
+
+(function fxLoop(ts) {
+  drawLineFx(ts || 0);
+  drawWaterFx(ts || 0);
+  drawRadarFx(ts || 0);
+  requestAnimationFrame(fxLoop);
+})(0);
+
+/* =========================================================
+   8. 真 Cesium
+   ========================================================= */
+const CESIUM_VER = '1.119';
+
+/* 取 Cesium 命名空间。三种来源，按可靠性排：
+   ① 自己 window 上已有（单独打开本页 / 主站已注入的情况）
+   ② 宿主通过 wujie props 传进来的（apphost 预载后 props.Cesium）
+   ③ window.parent.Cesium —— wujie 沙箱里子应用的 window 是代理对象，
+      宿主 window 上的全局拿不到，但 parent 指向真实主 window，同源可直接读。
+   为什么必须由宿主加载：wujie 在沙箱里执行动态 <script> 时，UMD 的
+   `global.Cesium = {}` 落在一次性的作用域代理上，脚本 onload 了但 window 上什么都没有，
+   于是 new Cesium.Viewer 就报 Cannot read properties of undefined (reading 'Viewer')。 */
+function resolveCesium() {
+  if (window.Cesium) return window.Cesium;
+  const fromProps = window.$wujie && window.$wujie.props && window.$wujie.props.Cesium;
+  if (fromProps) { try { window.Cesium = fromProps; } catch (e) {} return fromProps; }
+  try {
+    if (window.parent && window.parent !== window && window.parent.Cesium) {
+      window.Cesium = window.parent.Cesium;
+      return window.Cesium;
+    }
+  } catch (e) { /* 跨域打开时读 parent 会抛，忽略 */ }
+  return null;
+}
+
+/* 统一加载入口：宿主已给就同步返回，否则自己注入并校验（onload ≠ 成功，
+   路径 404 时 dev server 会兜底返回 index.html，脚本照样 onload） */
+function ensureCesium(onReady, onFail) {
+  const have = resolveCesium();
+  if (have) { onReady(); return; }
+  const cdn = `https://unpkg.com/cesium@${CESIUM_VER}/Build/Cesium/`;
+  const inject = (src, base, fail) => {
+    const s = document.createElement('script');
+    s.src = src;
+    if (base) window.CESIUM_BASE_URL = base;
+    s.onload = () => { if (resolveCesium()) onReady(); else fail(); };
+    s.onerror = fail;
+    document.head.appendChild(s);
+  };
+  inject('../../cesium/Cesium.js', '../../cesium/', () => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = cdn + 'Widgets/widgets.css';
+    document.head.appendChild(css);
+    inject(cdn + 'Cesium.js', cdn, () => onFail && onFail('Cesium 引擎加载失败：本地包和 CDN 都不可用'));
+  });
+}
+
+/* 底图源。注意：OpenStreetMapImageryProvider 在 Cesium 1.104 被标记废弃、后续版本直接删除，
+   1.119 里已经是 undefined，再 new 它就是「Cannot read properties of undefined」。
+   统一改用 UrlTemplateImageryProvider（纯 URL 拼接，不依赖任何被删的类）；
+   一个源大面积报错就自动换下一个，全挂则退成纯色地球，保证 Viewer 一定能跑起来。 */
+const BASE_TILE_SOURCES = [
+  { name: '高德矢量', url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', probe: 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=6&y=3&z=3', credit: '© 高德地图', subdomains: ['1', '2', '3', '4'] },
+  { name: 'Esri 卫星影像', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', probe: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/3/6', credit: 'Esri · Maxar · Earthstar Geographics' },
+  { name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', probe: 'https://tile.openstreetmap.org/3/6/3.png', credit: '© OpenStreetMap contributors' },
+];
+
+/* 先用一张固定瓦片 <img> 探活（img 不受 CORS 限制，比 fetch 靠谱），
+   探通了再建图层；运行中瓦片大面积报错也会自动往后换，全挂就退纯色地球。
+   这样网络慢/被墙时最多等 4 秒，不会出现"点了没反应"。 */
+function attachBaseImagery(C, viewer, note) {
+  viewer.scene.globe.baseColor = C.Color.fromCssColorString('#08161f');
+  if (!C.UrlTemplateImageryProvider) {
+    note && note('当前 Cesium 版本缺少 UrlTemplateImageryProvider，底图已跳过。');
+    return { next() {} };
+  }
+  let current = -1;
+  let layer = null;
+
+  const probe = (url) => new Promise((resolve) => {
+    const img = new Image();
+    const timer = setTimeout(() => resolve(false), 4000);
+    img.onload = () => { clearTimeout(timer); resolve(true); };
+    img.onerror = () => { clearTimeout(timer); resolve(false); };
+    img.src = url;
+  });
+
+  const tryFrom = async (start) => {
+    if (layer) { try { viewer.imageryLayers.remove(layer, true); } catch (e) {} layer = null; }
+    for (let i = start; i < BASE_TILE_SOURCES.length; i++) {
+      const src = BASE_TILE_SOURCES[i];
+      // 成功时不写状态栏——把版面留给各面板自己的提示；失败了才说明原因
+      if (!(await probe(src.probe))) continue;
+      current = i;
+      const provider = new C.UrlTemplateImageryProvider({
+        url: src.url,
+        credit: src.credit,
+        maximumLevel: 19,
+        subdomains: src.subdomains || [],
+      });
+      layer = new C.ImageryLayer(provider);
+      viewer.imageryLayers.add(layer);
+      let errs = 0;
+      provider.errorEvent.addEventListener(() => {
+        if (++errs < 8) return;           // 偶发瓦片失败不当回事
+        note && note(`底图「${src.name}」加载异常，正在换下一个…`);
+        tryFrom(i + 1);
+      });
+      return;
+    }
+    viewer.scene.globe.baseColor = C.Color.fromCssColorString('#08161f');
+    note && note('外部瓦片全部不可达，已退成纯色地球（拖动、标定、量算照样能用）。');
+  };
+
+  tryFrom(0);
+  return { next: () => tryFrom((current + 1) % BASE_TILE_SOURCES.length) };
+}
+
+let cesiumViewer = null;
+const liveStatus = document.getElementById('liveStatus');
+function liveLog(msg) { liveStatus.textContent = msg; }
+
+document.getElementById('liveLoad').addEventListener('click', () => {
+  if (resolveCesium()) { initViewer(); return; }
+  liveLog('正在加载 Cesium 引擎（约 5MB，本地包优先）…');
+  ensureCesium(
+    () => initViewer(),
+    (msg) => liveLog(msg + '，检查网络或 public/cesium/ 是否存在。')
+  );
+});
+
+function initViewer() {
+  const C = resolveCesium();
+  if (!C) return;
+  try {
+    if (!cesiumViewer) {
+      cesiumViewer = new C.Viewer('cesiumBox', {
+        baseLayer: false,
+        timeline: false, animation: false, geocoder: false,
+        baseLayerPicker: false, homeButton: false, sceneModePicker: false,
+        navigationHelpButton: false, fullscreenButton: false, infoBox: false,
+        selectionIndicator: false,
+      });
+      const viewer = cesiumViewer;
+      liveBase = attachBaseImagery(C, viewer, liveLog);
+      viewer.scene.globe.enableLighting = false;
+      viewer.entities.add({
+        position: C.Cartesian3.fromDegrees(120.1551, 30.2741, 0),
+        point: { pixelSize: 10, color: C.Color.fromCssColorString('#7cf0d0'), outlineColor: C.Color.WHITE, outlineWidth: 2 },
+        label: {
+          text: '杭州 · 120.1551, 30.2741',
+          font: '13px monospace',
+          fillColor: C.Color.fromCssColorString('#dff7f2'),
+          showBackground: true,
+          backgroundColor: C.Color.fromCssColorString('#08131c').withAlpha(0.8),
+          pixelOffset: new C.Cartesian2(0, -22),
+        },
+      });
+      viewer.entities.add({
+        polyline: {
+          positions: C.Cartesian3.fromDegreesArray([120.1551, 30.2741, 120.4737, 31.2304]),
+          width: 2.5,
+          material: new C.PolylineGlowMaterialProperty({ glowPower: 0.25, color: C.Color.fromCssColorString('#5fd8c4') }),
+          clampToGround: true,
+        },
+      });
+    }
+    flyHangzhou();
+    liveStatus.textContent = '已就绪：Cesium ' + CESIUM_VER + ' · 杭州标记 + 杭州→上海贴地线。可拖动、滚轮缩放。';
+  } catch (err) {
+    liveLog('初始化失败：' + err.message + '\n可能是 WebGL 不可用，或 CDN 资源 403。');
+  }
+}
+function flyHangzhou() {
+  const C0 = resolveCesium();
+  if (!cesiumViewer || !C0) return;
+  cesiumViewer.camera.flyTo({
+    destination: C0.Cartesian3.fromDegrees(120.1551, 30.2741, 240000),
+    duration: 2.0,
+  });
+}
+document.getElementById('liveFly').addEventListener('click', flyHangzhou);
+let liveBase = null;
+document.getElementById('liveBase').addEventListener('click', () => {
+  if (!liveBase) { liveLog('先点「加载地球」'); return; }
+  liveBase.next();
+});
+
+/* =========================================================
+   9.5 Cesium × Three 融合（方案 B 单 Canvas）
+   ========================================================= */
+let fusionViewer = null;
+let threeRenderer = null;
+let threeScene = null;
+let threeCamera = null;
+let THREE_MOD = null;
+let fusionOn = false;
+let fusionSpinning = true;
+let fusionRaf = 0;
+let fusionCity = null;
+let fusionData = null; // { C, origin, worldToLocal }
+const fusionStatus = document.getElementById('fusionStatus');
+const fusionTag = document.getElementById('fusionTag');
+function fusLog(msg) { fusionStatus.textContent = msg; }
+
+// 走统一入口：宿主已注入就直接用，否则自己加载并校验
+function loadCesiumScript(cb, note) {
+  ensureCesium(cb, (msg) => (note || fusLog)(msg));
+}
+
+document.getElementById('fusionLoad').addEventListener('click', () => {
+  fusLog('正在加载引擎…');
+  loadCesiumScript(async () => {
+    try {
+      if (!THREE_MOD) THREE_MOD = await import('../three/vendor/three.module.min.js');
+      initFusion();
+    } catch (err) {
+      fusLog('模块加载失败：' + err.message);
+    }
+  });
+});
+
+function initFusion() {
+  const C = resolveCesium();
+  if (fusionViewer) { flyFusion(); return; }
+
+  fusionViewer = new C.Viewer('fusionBox', {
+    useDefaultRenderLoop: false, // 帧循环自己驱动：一帧内先地球后模型
+    baseLayer: false,
+    timeline: false, animation: false, geocoder: false,
+    baseLayerPicker: false, homeButton: false, sceneModePicker: false,
+    navigationHelpButton: false, fullscreenButton: false, infoBox: false,
+    selectionIndicator: false,
+  });
+  attachBaseImagery(C, fusionViewer, fusLog);
+
+  // ENU 局部坐标系：原点 = 杭州点，避开赤道防浮点偏移过大
+  const origin = C.Cartesian3.fromDegrees(120.1551, 30.2741, 0);
+  const originENU = C.Transforms.eastNorthUpToFixedFrame(origin);
+  const worldToLocal = C.Matrix4.inverse(originENU, new C.Matrix4());
+  fusionData = { C, origin, worldToLocal };
+
+  buildThreeCity();
+  flyFusion();
+  startFusionLoop();
+  fusLog('引擎就绪：点「开启融合渲染」把 Three 城市叠上地球。也可以先拖动地球看看（纯 Cesium）。');
+}
+
+function buildThreeCity() {
+  const T = THREE_MOD;
+  threeScene = new T.Scene();
+  threeCamera = new T.PerspectiveCamera(60, 1, 1, 80000);
+
+  threeScene.add(new T.AmbientLight(0x33405e, 2.2));
+  const sun = new T.DirectionalLight(0xffe2b8, 2.4);
+  sun.position.set(600, 900, 300);
+  threeScene.add(sun);
+  const neon = new T.PointLight(0x5fd8c4, 3, 1200, 2);
+  neon.position.set(-180, 220, -160);
+  threeScene.add(neon);
+
+  fusionCity = new T.Group();
+  threeScene.add(fusionCity);
+
+  // 一座发光小城：确定性伪随机，大小从 40m 到 150m
+  const rng = (n) => Math.abs(Math.sin(n * 127.1 + 311.7) * 43758.5453) % 1;
+  const geo = new T.BoxGeometry(1, 1, 1);
+  for (let i = 0; i < 42; i++) {
+    const h = 40 + rng(i) * 110;
+    const w = 24 + rng(i + 40) * 26;
+    const m = new T.MeshStandardMaterial({
+      color: new T.Color().setHSL(0.45 + rng(i + 80) * 0.25, 0.65, 0.55),
+      emissive: new T.Color().setHSL(0.5 + rng(i + 120) * 0.2, 0.9, 0.12),
+      roughness: 0.5, metalness: 0.3,
+    });
+    const b = new T.Mesh(geo, m);
+    b.scale.set(w, h, w);
+    b.position.set((rng(i + 160) - 0.5) * 620, h / 2, (rng(i + 200) - 0.5) * 620);
+    b.rotation.y = rng(i + 240) * Math.PI;
+    fusionCity.add(b);
+  }
+  // 中央发光塔 + 线框壳
+  const tower = new T.Mesh(
+    new T.CylinderGeometry(18, 30, 280, 10),
+    new T.MeshStandardMaterial({ color: 0x16233c, emissive: 0x1a5f52, roughness: 0.35, metalness: 0.6 })
+  );
+  tower.position.y = 140;
+  fusionCity.add(tower);
+  const halo = new T.Mesh(
+    new T.TorusGeometry(60, 3, 8, 40),
+    new T.MeshBasicMaterial({ color: 0x7cf0d0 })
+  );
+  halo.rotation.x = Math.PI / 2;
+  halo.position.y = 285;
+  fusionCity.add(halo);
+  fusionCity.userData.halo = halo;
+}
+
+// ECEF(地心) → ENU(局部) → Three 轴系 (x=东, y=天, z=-北)
+function toLocal(cartesian, out) {
+  return fusionData.C.Matrix4.multiplyByPoint(fusionData.worldToLocal, cartesian, out);
+}
+let _p, _d, _u, _tmp;
+
+function syncCamera() {
+  const C = fusionData.C;
+  const cam = fusionViewer.camera;
+  if (!_p) { _p = new C.Cartesian3(); _d = new C.Cartesian3(); _u = new C.Cartesian3(); _tmp = new C.Cartesian3(); }
+  const canvas = fusionViewer.canvas;
+  const T = THREE_MOD;
+
+  // ① 投影参数对齐
+  threeCamera.fov = C.Math.toDegrees(cam.frustum.fovy);
+  threeCamera.near = Math.max(0.5, cam.frustum.near);
+  threeCamera.far = cam.frustum.far;
+  threeCamera.aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight);
+  threeCamera.updateProjectionMatrix();
+
+  // ② 位置 / 视线 / 上方向 三个点各自转到局部系
+  toLocal(cam.positionWC, _p);
+  toLocal(C.Cartesian3.add(cam.positionWC, cam.directionWC, _tmp), _d);
+  toLocal(C.Cartesian3.add(cam.positionWC, cam.upWC, _tmp), _u);
+  C.Cartesian3.subtract(_d, _p, _d);
+  C.Cartesian3.subtract(_u, _p, _u);
+
+  // ③ 轴系转换 ENU → Three
+  threeCamera.position.set(_p.x, _p.z, -_p.y);
+  const dir = new T.Vector3(_d.x, _d.z, -_d.y).normalize();
+  const up = new T.Vector3(_u.x, _u.z, -_u.y).normalize();
+  threeCamera.up.copy(up);
+  threeCamera.lookAt(threeCamera.position.clone().add(dir));
+  threeCamera.updateMatrixWorld(true);
+}
+
+function startFusionLoop() {
+  cancelAnimationFrame(fusionRaf);
+  const canvas = fusionViewer.canvas;
+  threeRenderer = new THREE_MOD.WebGLRenderer({
+    canvas, context: canvas.getContext('webgl2'), alpha: true,
+    logarithmicDepthBuffer: true,
+  });
+  threeRenderer.autoClear = false; // 不清颜色——地球就是背景
+  threeRenderer.setPixelRatio(window.devicePixelRatio || 1);
+
+  const loop = () => {
+    fusionRaf = requestAnimationFrame(loop);
+    if (!fusionViewer || fusionViewer.isDestroyed()) return;
+    fusionViewer.cesiumWidget.render(); // ① Cesium 画地球
+    if (!fusionOn) return;
+    syncCamera();                       // ② 相机逐帧同步
+    const c = canvas;
+    if (c.width !== threeRenderer.domElement.width || c.height !== threeRenderer.domElement.height) {
+      threeRenderer.setSize(c.width, c.height, false); // 跟随 cesium 的画布尺寸
+    }
+    if (fusionSpinning) {
+      fusionCity.rotation.y += 0.003;
+      fusionCity.userData.halo.rotation.z += 0.01;
+    }
+    threeRenderer.clearDepth();         // ③ 只清深度，颜色留给地球
+    threeRenderer.render(threeScene, threeCamera);
+  };
+  loop();
+}
+
+function flyFusion() {
+  if (!fusionViewer) return;
+  const C = fusionData ? fusionData.C : resolveCesium();
+  // 包住 Three 城取景：球心 = ENU 原点（杭州），半径 500m
+  fusionViewer.camera.flyToBoundingSphere(new C.BoundingSphere(fusionData.origin, 500), {
+    offset: new C.HeadingPitchRange(0.6, C.Math.toRadians(-32), 1700),
+    duration: 1.8,
+  });
+}
+
+document.getElementById('fusionToggle').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  if (!threeRenderer) { fusLog('先「加载地球」。'); return; }
+  fusionOn = !fusionOn;
+  btn.classList.toggle('on', fusionOn);
+  btn.textContent = fusionOn ? '关闭融合渲染' : '开启融合渲染';
+  fusionTag.style.display = fusionOn ? '' : 'none';
+  fusLog(fusionOn
+    ? '融合渲染中：同一上下文，一帧内先地球后 Three 城。拖动地球、滚轮缩放——Three 相机每帧在跟着 Cesium 同步。'
+    : '已切回纯 Cesium。再点一次可重新叠上 Three 城。');
+});
+document.getElementById('fusionFly').addEventListener('click', flyFusion);
+document.getElementById('fusionSpin').addEventListener('click', (e) => {
+  fusionSpinning = !fusionSpinning;
+  e.currentTarget.textContent = fusionSpinning ? '自转：开' : '自转：关';
+});
+
+/* =========================================================
+   8.6 积雪 CustomShader（3D Tiles / Model 的官方外挂口子）
+   ========================================================= */
+let snowViewer = null;
+let snowModel = null;
+let snowShaderOn = true;
+let snowLevelVal = 0.45;
+let snowTri = 0;
+const snowStatus = document.getElementById('snowStatus');
+const snowLevelInput = document.getElementById('snowLevel');
+const snowColorInput = document.getElementById('snowColor');
+function snowLog(msg) { snowStatus.textContent = msg; }
+
+function hexToVec(hex) {
+  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || '#eef4ff');
+  if (!m) return [0.93, 0.96, 1];
+  return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255];
+}
+
+// 核心：拿 normalMC 的 y 分量当「朝上程度」，厚度控制阈值
+// ⚠️ 实测坑（1.119 + Model）：CustomShader 一旦声明 varyings，uniforms 就不上传了
+// （uniform-only 和 varying-only 各自都好使，共存就灭）。所以这里不用 uniforms，
+// 把厚度阈值和颜色直接烘进 shader 源码，滑杆变动重建 shader（小 shader，重建成本可忽略）
+let snowRebuildTimer = 0;
+function applySnowShader() {
+  const C = resolveCesium();
+  if (!snowModel || !C) return;
+  if (!snowShaderOn) { snowModel.customShader = undefined; return; }
+
+  const rgb = hexToVec(snowColorInput.value);
+  const col = `vec3(${rgb.map((v) => v.toFixed(3)).join(', ')})`;
+  const th = 0.99 - 1.14 * snowLevelVal;   // 厚度↑ → 阈值↓ → 立面也挂雪
+  snowModel.customShader = new C.CustomShader({
+    varyings: { v_upMC: C.VaryingType.VEC3 },
+    vertexShaderText: `
+      void vertexMain(VertexInput vsInput, inout czm_modelVertexOutput vsOutput) {
+        v_upMC = vsInput.attributes.normalMC;   // fragment 拿不到 normalMC，只能自己传
+      }`,
+    fragmentShaderText: `
+      void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+        float up = normalize(v_upMC).y;              // 1 = 正朝上，0 = 立面，负数 = 朝下
+        float mask = smoothstep(${th.toFixed(3)}, ${(th + 0.10).toFixed(3)}, up);
+        float h = clamp(fsInput.attributes.positionMC.y / 220.0, 0.0, 1.0);
+        mask = clamp(mask * (0.86 + 0.28 * h), 0.0, 1.0);  // 高处雪更厚一点
+        material.diffuse  = mix(material.diffuse, ${col}, mask);
+        material.emissive = mix(material.emissive, ${col} * 0.22, mask);  // 雪微微发亮，弱光下也读得清
+      }`,
+  });
+}
+
+function snowStats() {
+  const pct = (snowLevelVal * 100).toFixed(0);
+  snowLog(
+    `小城 83 栋 + 地面 · ${snowTri} 三角形 · 积雪 ${snowShaderOn ? '开' : '关'} · 厚度 ${pct}% · ` +
+    `阈值 normalMC.y ≥ ${(0.99 - 1.14 * snowLevelVal).toFixed(2)} · 拖滑杆看立面变白`
+  );
+}
+
+document.getElementById('snowLoad').addEventListener('click', () => {
+  if (snowViewer) { flySnow(); return; }
+  snowLog('正在加载 Cesium 引擎（本地包优先，约 5MB）…');
+  loadCesiumScript(() => {
+    initSnowViewer().catch((err) => {
+      snowLog('初始化失败：' + (err && err.message ? err.message : err));
+      console.error('[snow]', err && err.stack ? err.stack : err);
+    });
+  }, snowLog);
+});
+
+async function initSnowViewer() {
+  const C = resolveCesium();
+  if (snowViewer) return;
+  if (!C) { snowLog('引擎未就绪：再点一次「加载场景」'); return; }
+  snowLog('引擎就绪，正在建场景并加载 glb…');
+
+  snowViewer = new C.Viewer('snowBox', {
+    baseLayer: false,
+    timeline: false, animation: false, geocoder: false,
+    baseLayerPicker: false, homeButton: false, sceneModePicker: false,
+    navigationHelpButton: false, fullscreenButton: false, infoBox: false,
+    selectionIndicator: false,
+  });
+  attachBaseImagery(C, snowViewer, snowLog);
+
+  const origin = C.Cartesian3.fromDegrees(120.1551, 30.2741, 0);
+  snowModel = await C.Model.fromGltfAsync({
+    url: './assets/snow-city.glb',
+    modelMatrix: C.Transforms.eastNorthUpToFixedFrame(origin),
+    shadows: C.ShadowMode.ENABLED,
+  });
+  snowViewer.scene.primitives.add(snowModel);
+  snowTri = Math.round(998);
+
+  // 默认光源是真太阳——傍晚太阳在地平线下，模型会被压得灰暗。
+  // 换一盏固定方向的「棚灯」：DirectionalLight.direction 是光的传播方向，
+  // 要从天上往下照就得给「向下」的向量（ENU 的 -Z），东偏北一点制造立面明暗
+  const snowOrigin = C.Cartesian3.fromDegrees(120.1551, 30.2741, 0);
+  const snowEnu = C.Transforms.eastNorthUpToFixedFrame(snowOrigin);
+  const lampDir = C.Matrix4.multiplyByPointAsVector(
+    snowEnu,
+    new C.Cartesian3(-0.35, -0.2, -0.9),   // ENU：从东南上方往地下照
+    new C.Cartesian3()
+  );
+  C.Cartesian3.normalize(lampDir, lampDir);
+  snowViewer.scene.light = new C.DirectionalLight({ direction: lampDir, intensity: 2.6 });
+
+  applySnowShader();
+  snowStats();
+  // 刚 fromGltfAsync 回来时内部场景图还没算完，boundingSphere 会抛；等一两帧再取景
+  flySnowWhenReady();
+}
+
+function flySnowWhenReady(n = 0) {
+  try {
+    flySnow();
+  } catch (e) {
+    if (n < 12) setTimeout(() => flySnowWhenReady(n + 1), 250);
+  }
+}
+
+function flySnow() {
+  const C = resolveCesium();
+  if (!snowViewer || !snowModel || !C) return;
+  // 用包围球取景（flyTo 直接给经纬度+俯角容易把目标放到画面外，fusion 面板踩过）
+  // 俯角给足，让屋顶占画面主体——雪主要落在朝上的面上
+  snowViewer.camera.flyToBoundingSphere(snowModel.boundingSphere, {
+    offset: new C.HeadingPitchRange(0.85, -0.85, 1500),
+    duration: 1.5,
+  });
+}
+document.getElementById('snowFly').addEventListener('click', flySnow);
+
+document.getElementById('snowToggle').addEventListener('click', (e) => {
+  snowShaderOn = !snowShaderOn;
+  e.currentTarget.textContent = snowShaderOn ? '积雪：开' : '积雪：关';
+  applySnowShader();
+  snowStats();
+});
+
+snowLevelInput.addEventListener('input', () => {
+  snowLevelVal = parseFloat(snowLevelInput.value);
+  // uniforms 和 varyings 共存时 uniform 会失效（1.119 实测坑），所以直接重建 shader；
+  // 输入事件很密，防抖 120ms，避免疯狂重编译
+  clearTimeout(snowRebuildTimer);
+  snowRebuildTimer = setTimeout(applySnowShader, 120);
+  snowStats();
+});
+
+snowColorInput.addEventListener('input', () => {
+  clearTimeout(snowRebuildTimer);
+  snowRebuildTimer = setTimeout(applySnowShader, 120);
+});
+
+/* =========================================================
+   9. 尺寸自适应：所有 canvas 重绘
+   ========================================================= */
+function resizeCanvases() {
+  paintDraw();
+  paintMeasure();
+}
+let rzTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(resizeCanvases, 150);
+});
+paintDraw();
+paintMeasure();
+</script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SSR 解剖台 · NestJS 一个进程两个身份</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 620px at 18% -10%, #121b34 0%, #070a14 56%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 22px 90px; }
+  header h1 { font-size: 26px; margin: 0 0 10px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.9; margin: 0 0 26px; max-width: 800px; }
+  header p b { color: #b9c6f5; font-weight: 600; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-bottom: 20px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card h3 i { font-style: normal; color: #7c9dff; margin-right: 8px; font-family: ui-monospace, monospace; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.9; margin: 0 0 16px; }
+  .card .note code, .hint code { color: #a8c6ff; background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 12px; }
+
+  .ctl-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .btn {
+    padding: 7px 15px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(124,157,255,0.14); color: #cfd8ff;
+    border: 1px solid rgba(140,165,255,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(124,157,255,0.26); }
+  .btn.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+  .btn.warn.on { background: linear-gradient(135deg, #f87171, #fb923c); }
+  .seg { display: inline-flex; background: rgba(0,0,0,0.3); border: 1px solid rgba(140,165,255,0.18); border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg .btn { border: 0; background: transparent; padding: 6px 13px; }
+  .seg .btn.on { background: rgba(124,157,255,0.28); color: #e7ecff; }
+  .spacer { flex: 1; }
+
+  /* 流水线 */
+  .pipe { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .stage {
+    flex: 1; min-width: 140px; padding: 11px 12px; border-radius: 11px;
+    background: rgba(0,0,0,0.26); border: 1px solid rgba(140,165,255,0.14);
+    transition: border-color .3s, background .3s, transform .3s;
+  }
+  .stage .sn { font-family: ui-monospace, monospace; font-size: 10.5px; color: #5f6c96; letter-spacing: 1px; }
+  .stage .st { font-size: 12.5px; margin-top: 5px; color: #cfd8ff; }
+  .stage .sv { font-size: 10.5px; margin-top: 6px; color: #6f7ba4; font-family: ui-monospace, monospace; word-break: break-all; line-height: 1.5; }
+  .stage.lit { border-color: rgba(124,157,255,0.7); background: rgba(124,157,255,0.13); transform: translateY(-2px); }
+  .stage.lit .sn { color: #9db4ff; }
+  .stage.done { border-color: rgba(52,211,153,0.45); }
+  .stage.done .sv { color: #34d399; }
+
+  /* 分段代码 */
+  .parts { display: grid; gap: 10px; margin-top: 16px; }
+  .part { border: 1px solid rgba(140,165,255,0.13); border-radius: 11px; background: rgba(0,0,0,0.3); overflow: hidden; }
+  .part-h { display: flex; align-items: center; gap: 9px; padding: 8px 12px; background: rgba(255,255,255,0.025); }
+  .part-h .b { font-size: 10px; letter-spacing: 1px; padding: 2px 7px; border-radius: 999px; color: #0a1020; font-weight: 700; }
+  .part-h .n { font-size: 10.5px; color: #6f7ba4; font-family: ui-monospace, monospace; margin-left: auto; }
+  .part pre {
+    margin: 0; padding: 11px 13px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11.5px; line-height: 1.7; color: #b9c6f5; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .part pre.clip { max-height: 92px; overflow: hidden; position: relative; cursor: pointer; }
+  .part pre.clip::after {
+    content: '展开全文 ▾'; position: absolute; right: 10px; bottom: 4px;
+    font-size: 10.5px; color: #7c9dff; background: rgba(5,8,16,0.9); padding: 2px 8px; border-radius: 6px;
+  }
+  .part pre.expanded { max-height: none; }
+  .part pre.expanded::after { content: '收起 ▴'; }
+  .b-seo { background: #7c9dff; } .b-style { background: #22d3ee; }
+  .b-js { background: #b98bff; } .b-render { background: #34d399; } .b-state { background: #fbbf24; }
+
+  /* 三色标记 */
+  .t { color: #8fd0ff; } .a { color: #c3a6ff; } .s { color: #86e0b0; } .k { color: #f0a6d8; }
+  .cm { color: #4f5b80; font-style: italic; }
+
+  /* 双栏 */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  .pane { border: 1px solid rgba(140,165,255,0.16); border-radius: 13px; overflow: hidden; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+  .pane-h {
+    display: flex; align-items: center; gap: 8px; padding: 9px 13px; font-size: 11.5px; color: #8b96bd;
+    background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(140,165,255,0.12);
+  }
+  .pane-h .dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; }
+  .pane-h .dot.off { background: #f87171; }
+  .pane-h .rt { margin-left: auto; font-family: ui-monospace, monospace; font-size: 10.5px; color: #5f6c96; }
+  .pane pre {
+    margin: 0; padding: 13px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px; line-height: 1.75; color: #b9c6f5; overflow: auto; max-height: 470px; white-space: pre-wrap; word-break: break-all;
+  }
+  #prev { width: 100%; height: 470px; border: 0; background: #06080f; display: block; }
+
+  .hint { color: #6f7ba4; font-size: 11.5px; line-height: 1.85; margin: 12px 0 0; }
+  .state { font-size: 11.5px; font-family: ui-monospace, monospace; margin-top: 10px; }
+  .state .on { color: #34d399; } .state .off { color: #f87171; }
+
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kv div { background: rgba(0,0,0,0.28); border: 1px solid rgba(140,165,255,0.13); border-radius: 11px; padding: 12px 14px; }
+  .kv span { display: block; font-size: 10.5px; color: #6f7ba4; letter-spacing: .5px; }
+  .kv b { font-size: 19px; font-variant-numeric: tabular-nums; }
+  .kv b small { font-size: 11px; color: #6f7ba4; font-weight: 400; margin-left: 3px; }
+  .kv .sub { font-size: 10.5px; color: #5f6c96; margin-top: 5px; line-height: 1.5; }
+
+  .cost { display: grid; gap: 10px; }
+  .cost li { list-style: none; display: flex; gap: 10px; font-size: 12.5px; color: #a9b4d8; line-height: 1.85; }
+  .cost { margin: 0; padding: 0; }
+  .cost .x { color: #f87171; flex: none; font-weight: 700; }
+  .cost .v { color: #34d399; flex: none; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">NESTJS · SSR LAB</div>
+    <h1>SSR 解剖台</h1>
+    <p>
+      掘金那篇《用 NestJS 构建的 SSR 混合渲染方案》的落地版：<b>一个 Node 进程同时当 BFF 和渲染器</b>。
+      Controller 只返数据，拦截器把 React 组件 <code>renderToString</code> 塞进模板字符串，浏览器再 <code>hydrateRoot</code> 接管。
+      下面的 HTML、状态、耗时全部来自真实运行的服务端，不是手写的示意。
+    </p>
+  </header>
+
+  <!-- 01 流水线 -->
+  <div class="card">
+    <h3><i>01</i> 一次请求，四段拼装</h3>
+    <p class="note">拦截器用 <code>map</code> 把四件事串成管道：样式 → hydrate 脚本 → SEO → 渲染。点一下走一遍，每段的真实产出会依次点亮。</p>
+    <div class="ctl-row">
+      <div class="seg" id="pageSeg">
+        <button class="btn on" data-page="home">GET /</button>
+        <button class="btn" data-page="news">GET /news</button>
+      </div>
+      <button class="btn" id="run">▶ 走一遍流水线</button>
+      <span class="spacer"></span>
+      <span class="hint" id="pipeMeta" style="margin:0"></span>
+    </div>
+    <div class="pipe" id="pipe"></div>
+    <div class="parts" id="parts"></div>
+  </div>
+
+  <!-- 02 源代码 vs 浏览器 -->
+  <div class="card">
+    <h3><i>02</i> 爬虫看到的 / 用户看到的</h3>
+    <p class="note">
+      左边是服务器返回的原始 HTML（<code>view-source</code> 里能一字不差读到），右边是浏览器里的真实页面——它带着真正的 React hydrate bundle 在跑。
+      关掉 JS，内容照样在；关掉转义，脚本被截断，页面会当场变空。
+    </p>
+    <div class="ctl-row">
+      <div class="seg" id="jsSeg">
+        <button class="btn on" data-js="1">JS 开</button>
+        <button class="btn" data-js="0">JS 关</button>
+      </div>
+      <div class="seg" id="escSeg">
+        <button class="btn on" data-unsafe="0">正确转义</button>
+        <button class="btn warn" data-unsafe="1">不转义 (?unsafe=1)</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="hint" id="frameMeta" style="margin:0"></span>
+    </div>
+    <div class="split">
+      <div class="pane">
+        <div class="pane-h"><span class="dot"></span>服务器返回的 HTML<span class="rt" id="srcMeta"></span></div>
+        <pre id="src"></pre>
+      </div>
+      <div class="pane">
+        <div class="pane-h"><span class="dot" id="runDot"></span>浏览器里<span class="rt" id="prevMeta"></span></div>
+        <iframe id="prev" title="SSR 预览"></iframe>
+      </div>
+    </div>
+    <p class="state" id="frameState"></p>
+  </div>
+
+  <!-- 03 装饰器 -->
+  <div class="card">
+    <h3><i>03</i> 装饰器：Controller 里没有一行渲染代码</h3>
+    <p class="note">组件跟着路由走。<code>@RenderReact(Home)</code> 只是往 handler 上挂一条 metadata，拦截器再把它取出来。业务代码只关心"这页要什么数据"。</p>
+    <pre class="part" style="border:0;background:rgba(0,0,0,.3);border-radius:11px;padding:13px" id="codeCtrl"></pre>
+  </div>
+
+  <!-- 04 命名约定 -->
+  <div class="card">
+    <h3><i>04</i> 命名约定：加一个页面 = 加一个目录</h3>
+    <p class="note">
+      <code>NewsController</code> 去掉 <code>Controller</code> 小写 = <code>news.client.tsx</code> = <code>/webSource/scripts/news.js</code>。
+      构建侧用 glob 扫 <code>modules/**/*.client.tsx</code> 生成入口，没有路由表、没有手写 entry。
+    </p>
+    <pre class="part" style="border:0;background:rgba(0,0,0,.3);border-radius:11px;padding:13px" id="codeTree"></pre>
+  </div>
+
+  <!-- 05 账单 -->
+  <div class="card">
+    <h3><i>05</i> 这套方案的账单</h3>
+    <p class="note">实测数字来自这台机器上真实跑的服务；下面四条是它的隐性成本，选型前最好先认下来。</p>
+    <div class="kv" id="metrics"></div>
+    <ul class="cost" style="margin-top:18px">
+      <li><span class="x">✖</span><span><b>renderToString 是同步的</b>，会占住事件循环。首页 10ms 不算事，页面一大就到几十毫秒，并发上来直接排队。上量要么缓存渲染结果，要么换 <code>renderToPipeableStream</code> 流式输出。</span></li>
+      <li><span class="x">✖</span><span><b>CSS 得手写 link 列表</b>。没有构建器帮你收集依赖图，哪页要哪些样式自己报（上面 Controller 里的 <code>links</code> 字段）。等于把自动化的活接回手上，这是省掉 Vite 的隐性成本。</span></li>
+      <li><span class="x">✖</span><span><b>状态注入必须转义</b>。数据里出现 <code>&lt;/script&gt;</code> 就会提前关标签，后面的 hydrate 脚本一起废（点上面「不转义」看现场）。</span></li>
+      <li><span class="v">✓</span><span><b>但收益也实在</b>：首屏就是完整 HTML，SEO 与社交分享直接可用；BFF 和页面同进程，取数少一跳；两个文件的体积就能起一个站点，没有 Vite/Next 那套基建。</span></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  "home": {
+    "name": "home",
+    "renderMs": "0.34",
+    "bytes": 3435,
+    "bundle": "144",
+    "rootLen": 1715,
+    "html": "\u003c!DOCTYPE html>\n\u003chtml lang=\"zh-CN\">\n\u003chead>\n  \u003cmeta charset=\"utf-8\" />\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  \u003ctitle>NestJS + React SSR · 一个进程两个身份\u003c/title>\n  \u003cmeta name=\"description\" content=\"BFF 与 SSR 同构：Controller 返数据，拦截器拼 HTML，客户端 hydrate 接管。\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/home.css\" />\n\u003c/head>\n\u003cbody>\n  \u003cdiv id=\"root\">\u003cmain class=\"page\">\u003cdiv class=\"kicker\">NESTJS · BFF + SSR 同构\u003c/div>\u003ch1>一个进程，两个身份\u003c/h1>\u003cp class=\"lede\">这一页的 HTML 是服务端 \u003ccode>renderToString\u003c/code> 出来的，你在「查看源代码」里能直接读到下面这些文字和数字； 页面到手之后 \u003ccode>hydrateRoot\u003c/code> 接管，按钮才有反应。关掉 JS 刷新一次，内容还在——这就是 SEO 要的东西。\u003c/p>\u003csection class=\"grid\">\u003carticle class=\"card\">\u003ch2>同构计数器\u003c/h2>\u003cp class=\"note\">初始值来自 BFF 注入的 \u003ccode>window.__INIT_STATE__\u003c/code>，不是写死在组件里。\u003c/p>\u003cdiv class=\"counter\">\u003cbutton>−\u003c/button>\u003cstrong data-testid=\"count\">666\u003c/strong>\u003cbutton>＋\u003c/button>\u003c/div>\u003cp class=\"hint\">服务端直出的初值：\u003cb>666\u003c/b> · 当前：\u003cb>666\u003c/b>\u003c/p>\u003c/article>\u003carticle class=\"card\">\u003ch2>直出的证据\u003c/h2>\u003cp class=\"note\">这些值在服务端生成，随 HTML 一起到达，不用等 JS。\u003c/p>\u003cdl class=\"stats\">\u003cdt>渲染时间\u003c/dt>\u003cdd>2026-11-13 07:44:07 (UTC)\u003c/dd>\u003cdt>每次请求的随机数\u003c/dt>\u003cdd>95qaduy7\u003c/dd>\u003cdt>hydrate 状态\u003c/dt>\u003cdd>未接管（这段是服务端渲染的结果）\u003c/dd>\u003cdt>BFF 再取数\u003c/dt>\u003cdd>\u003cbutton class=\"ghost\">调一次 /api/home/now\u003c/button>\u003cspan class=\"mono\">\u003c/span>\u003c/dd>\u003c/dl>\u003c/article>\u003carticle class=\"card\">\u003ch2>脚本截断实验\u003c/h2>\u003cp class=\"note\">BFF 注入的状态里塞了个 \u003ccode>&lt;/script&gt;\u003c/code>。不加转义，HTML 解析器会在那里把脚本关掉，后面的 hydrate bundle 全废。\u003c/p>\u003cpre class=\"payload\">&lt;/script&gt;&lt;script&gt;window.__PWNED__=1&lt;/script&gt;\u003c/pre>\u003cp class=\"ok\">检测中…\u003c/p>\u003cp class=\"hint\">换个地址试试：\u003ccode>/?unsafe=1\u003c/code> 走不转义版本，能亲眼看到截断。\u003c/p>\u003c/article>\u003carticle class=\"card\">\u003ch2>列表也跟着直出\u003c/h2>\u003cp class=\"note\">交互（勾选）只有 hydrate 之后才生效；但列表本身，爬虫看到的就是完整内容。\u003c/p>\u003cul class=\"todos\">\u003cli class=\"done\">\u003cspan class=\"box\">✓\u003c/span>Nest 进程里跑 renderToString\u003c/li>\u003cli class=\"done\">\u003cspan class=\"box\">✓\u003c/span>把 initState 序列化进 HTML\u003c/li>\u003cli class=\"\">\u003cspan class=\"box\">\u003c/span>浏览器 hydrateRoot 接管\u003c/li>\u003cli class=\"\">\u003cspan class=\"box\">\u003c/span>同一个进程顺手提供 BFF 接口\u003c/li>\u003c/ul>\u003c/article>\u003c/section>\u003cfooter class=\"foot\">\u003ca href=\"/news\">→ 第二个入口 /news（验证命名约定与每页 SEO）\u003c/a>\u003c/footer>\u003c/main>\u003c/div>\n  \u003cscript>window.__INIT_STATE__ = {\"count\":666,\"greeting\":\"Hello from Nest\",\"renderedAt\":\"2026-11-13 07:44:07 (UTC)\",\"nonce\":\"95qaduy7\",\"danger\":\"\\u003c/script\\u003e\\u003cscript\\u003ewindow.__PWNED__=1\\u003c/script\\u003e\",\"todos\":[{\"id\":1,\"text\":\"Nest 进程里跑 renderToString\",\"done\":true},{\"id\":2,\"text\":\"把 initState 序列化进 HTML\",\"done\":true},{\"id\":3,\"text\":\"浏览器 hydrateRoot 接管\",\"done\":false},{\"id\":4,\"text\":\"同一个进程顺手提供 BFF 接口\",\"done\":false}]};\u003c/script>\n  \u003cscript src=\"{{BASE}}webSource/scripts/home.js\" defer>\u003c/script>\n\u003c/body>\n\u003c/html>",
+    "unsafeHtml": "\u003c!DOCTYPE html>\n\u003chtml lang=\"zh-CN\">\n\u003chead>\n  \u003cmeta charset=\"utf-8\" />\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  \u003ctitle>NestJS + React SSR · 一个进程两个身份\u003c/title>\n  \u003cmeta name=\"description\" content=\"BFF 与 SSR 同构：Controller 返数据，拦截器拼 HTML，客户端 hydrate 接管。\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/home.css\" />\n\u003c/head>\n\u003cbody>\n  \u003cdiv id=\"root\">\u003cmain class=\"page\">\u003cdiv class=\"kicker\">NESTJS · BFF + SSR 同构\u003c/div>\u003ch1>一个进程，两个身份\u003c/h1>\u003cp class=\"lede\">这一页的 HTML 是服务端 \u003ccode>renderToString\u003c/code> 出来的，你在「查看源代码」里能直接读到下面这些文字和数字； 页面到手之后 \u003ccode>hydrateRoot\u003c/code> 接管，按钮才有反应。关掉 JS 刷新一次，内容还在——这就是 SEO 要的东西。\u003c/p>\u003csection class=\"grid\">\u003carticle class=\"card\">\u003ch2>同构计数器\u003c/h2>\u003cp class=\"note\">初始值来自 BFF 注入的 \u003ccode>window.__INIT_STATE__\u003c/code>，不是写死在组件里。\u003c/p>\u003cdiv class=\"counter\">\u003cbutton>−\u003c/button>\u003cstrong data-testid=\"count\">666\u003c/strong>\u003cbutton>＋\u003c/button>\u003c/div>\u003cp class=\"hint\">服务端直出的初值：\u003cb>666\u003c/b> · 当前：\u003cb>666\u003c/b>\u003c/p>\u003c/article>\u003carticle class=\"card\">\u003ch2>直出的证据\u003c/h2>\u003cp class=\"note\">这些值在服务端生成，随 HTML 一起到达，不用等 JS。\u003c/p>\u003cdl class=\"stats\">\u003cdt>渲染时间\u003c/dt>\u003cdd>2026-11-13 07:44:07 (UTC)\u003c/dd>\u003cdt>每次请求的随机数\u003c/dt>\u003cdd>j4gr54ne\u003c/dd>\u003cdt>hydrate 状态\u003c/dt>\u003cdd>未接管（这段是服务端渲染的结果）\u003c/dd>\u003cdt>BFF 再取数\u003c/dt>\u003cdd>\u003cbutton class=\"ghost\">调一次 /api/home/now\u003c/button>\u003cspan class=\"mono\">\u003c/span>\u003c/dd>\u003c/dl>\u003c/article>\u003carticle class=\"card\">\u003ch2>脚本截断实验\u003c/h2>\u003cp class=\"note\">BFF 注入的状态里塞了个 \u003ccode>&lt;/script&gt;\u003c/code>。不加转义，HTML 解析器会在那里把脚本关掉，后面的 hydrate bundle 全废。\u003c/p>\u003cpre class=\"payload\">&lt;/script&gt;&lt;script&gt;window.__PWNED__=1&lt;/script&gt;\u003c/pre>\u003cp class=\"ok\">检测中…\u003c/p>\u003cp class=\"hint\">换个地址试试：\u003ccode>/?unsafe=1\u003c/code> 走不转义版本，能亲眼看到截断。\u003c/p>\u003c/article>\u003carticle class=\"card\">\u003ch2>列表也跟着直出\u003c/h2>\u003cp class=\"note\">交互（勾选）只有 hydrate 之后才生效；但列表本身，爬虫看到的就是完整内容。\u003c/p>\u003cul class=\"todos\">\u003cli class=\"done\">\u003cspan class=\"box\">✓\u003c/span>Nest 进程里跑 renderToString\u003c/li>\u003cli class=\"done\">\u003cspan class=\"box\">✓\u003c/span>把 initState 序列化进 HTML\u003c/li>\u003cli class=\"\">\u003cspan class=\"box\">\u003c/span>浏览器 hydrateRoot 接管\u003c/li>\u003cli class=\"\">\u003cspan class=\"box\">\u003c/span>同一个进程顺手提供 BFF 接口\u003c/li>\u003c/ul>\u003c/article>\u003c/section>\u003cfooter class=\"foot\">\u003ca href=\"/news\">→ 第二个入口 /news（验证命名约定与每页 SEO）\u003c/a>\u003c/footer>\u003c/main>\u003c/div>\n  \u003cscript>window.__INIT_STATE__ = {\"count\":666,\"greeting\":\"Hello from Nest\",\"renderedAt\":\"2026-11-13 07:44:07 (UTC)\",\"nonce\":\"j4gr54ne\",\"danger\":\"\u003c/script>\u003cscript>window.__PWNED__=1\u003c/script>\",\"todos\":[{\"id\":1,\"text\":\"Nest 进程里跑 renderToString\",\"done\":true},{\"id\":2,\"text\":\"把 initState 序列化进 HTML\",\"done\":true},{\"id\":3,\"text\":\"浏览器 hydrateRoot 接管\",\"done\":false},{\"id\":4,\"text\":\"同一个进程顺手提供 BFF 接口\",\"done\":false}]};\u003c/script>\n  \u003cscript src=\"{{BASE}}webSource/scripts/home.js\" defer>\u003c/script>\n\u003c/body>\n\u003c/html>",
+    "parts": [
+      {
+        "k": "style",
+        "label": "拦截器 ①：把 links 变成 \u003clink> 标签",
+        "code": "\u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n\u003clink rel=\"stylesheet\" href=\"{{BASE}}static/home.css\" />",
+        "bytes": 113
+      },
+      {
+        "k": "js",
+        "label": "拦截器 ②：按 HomeController → home.js 推断入口",
+        "code": "\u003cscript src=\"{{BASE}}webSource/scripts/home.js\" defer>\u003c/script>",
+        "bytes": 63
+      },
+      {
+        "k": "seo",
+        "label": "拦截器 ③：pageInfo 进 \u003chead>，爬虫与社交卡片直接可用",
+        "code": "\u003ctitle>NestJS + React SSR · 一个进程两个身份\u003c/title>\n\u003cmeta name=\"description\" content=\"BFF 与 SSR 同构：Controller 返数据，拦截器拼 HTML，客户端 hydrate 接管。\" />",
+        "bytes": 191
+      },
+      {
+        "k": "render",
+        "label": "拦截器 ④：renderToString 的产物，在 \u003cdiv id=\"root\"> 里等 hydrate",
+        "code": "\u003cmain class=\"page\">\u003cdiv class=\"kicker\">NESTJS · BFF + SSR 同构\u003c/div>\u003ch1>一个进程，两个身份\u003c/h1>\u003cp class=\"lede\">这一页的 HTML 是服务端 \u003ccode>renderToString\u003c/code> 出来的，你在「查看源代码」里能直接读到下面这些文字和数字； 页面到手之后 \u003ccode>hydrateRoot\u003c/code> 接管，按钮才有反应。关掉 JS 刷新一次，内容还在——这就是 SEO 要的东西。\u003c/p>\u003csection class=\"grid\">\u003carticle class=\"card\">\u003ch2>同构计数器\u003c/h2>\u003cp class=\"note\">初始值来自 BFF 注入的 \u003ccode>window.__INIT_STATE__\u003c/code>，不是写死在组件里。\u003c/p>\u003cdiv class=\"counter\">\u003cbutton>−\u003c/button>\u003cstrong data-testid=\"count\">666\u003c/strong>\u003cbutton>＋\u003c/button>\u003c/div>\u003cp class=\"hint\">服务端直出的初值：\u003cb>666\u003c/b> · 当前：\u003cb>666\u003c/b>\u003c/p>\u003c/article>\u003carticle class=\"card\">\u003ch2>直出的证据\u003c/h2>\u003cp class=\"note\">这些值在服务端生成，随 HTML 一起到达，不用等 JS。\u003c/p>\u003cdl class=\"stats\">\u003cdt>渲染时间\u003c/dt>\u003cdd>2026-11-13 07:44:07 (UTC)\u003c/dd>\u003cdt>每次请求的随机数\u003c/dt>\u003cdd>95qaduy7\u003c/dd>\u003cdt>hydrate 状态\u003c/dt>\u003cdd>未接管（这段是服务端渲染的结果）\u003c/dd>\u003cdt>BFF 再取数\u003c/dt>\u003cdd>\u003cbutton class=\"ghost\">调一次 /api/home/now\u003c/button>\u003cspan class=\"mono\">\u003c/span>\u003c/dd>\u003c/dl>\u003c/article>\u003carti…",
+        "bytes": 1271
+      },
+      {
+        "k": "state",
+        "label": "模板：状态序列化，\u003c 必须转成 \\u003c，否则 \u003c/script> 会截断脚本",
+        "code": "\u003cscript>window.__INIT_STATE__ = {\"count\":666,\"greeting\":\"Hello from Nest\",\"renderedAt\":\"2026-11-13 07:44:07 (UTC)\",\"nonce\":\"95qaduy7\",\"danger\":\"\\u003c/script\\u003e\\u003cscript\\u003ewindow.__PWNED__=1\\u003c/script\\u003e\",\"todos\":[{\"id\":1,\"text\":\"Nest 进程里跑 renderToString\",\"done\":true},{\"id\":2,\"text\":\"把 initState 序列化进 HTML\",\"done\":true},{\"id\":3,\"text\":\"浏览器 hydrateRoot 接管\",\"done\":false},{\"id\":4,\"text\":\"同一个进程顺手提供 BFF 接口\",\"done\":false}]};\u003c/script>",
+        "bytes": 495
+      }
+    ]
+  },
+  "news": {
+    "name": "news",
+    "renderMs": "0.20",
+    "bytes": 3526,
+    "bundle": "141",
+    "rootLen": 1239,
+    "html": "\u003c!DOCTYPE html>\n\u003chtml lang=\"zh-CN\">\n\u003chead>\n  \u003cmeta charset=\"utf-8\" />\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  \u003ctitle>第二入口 · 命名约定驱动的多页 SSR\u003c/title>\n  \u003cmeta name=\"description\" content=\"加一个页面 = 加一个目录。HomeController 对应 home.client.tsx，由类名推断客户端入口。\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/news.css\" />\n\u003c/head>\n\u003cbody>\n  \u003cdiv id=\"root\">\u003cmain class=\"page\">\u003cdiv class=\"kicker\">页面 02 · /news\u003c/div>\u003ch1>第二个入口，零配置\u003c/h1>\u003cp class=\"lede\">加一个页面只要加一个目录：\u003ccode>news.controller.ts\u003c/code> + \u003ccode>news.client.tsx\u003c/code>。 拦截器按类名推断 hydrate 脚本，构建按 glob 扫 \u003ccode>*.client.tsx\u003c/code> 生成入口，没有路由表要维护。\u003c/p>\u003cul class=\"news\">\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">约定\u003c/span>\u003ch2>NewsController → news.client.tsx → /webSource/scripts/news.js\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">SEO\u003c/span>\u003ch2>每页的 title / description 由 Controller 给\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>pageInfo 在拦截器的 injectSEO 段被塞进 &lt;head&gt;。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">代价\u003c/span>\u003ch2>renderToString 是同步的，会占住事件循环\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">代价\u003c/span>\u003ch2>CSS 要手写 link 列表\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。\u003c/p>\u003c/li>\u003c/ul>\u003cp class=\"hint\">当前路径由服务端读到并注入：\u003ccode>/news\u003c/code>。点开一条，这个是客户端状态——刷新就回到全收起。\u003c/p>\u003cfooter class=\"foot\">\u003ca href=\"/\">← 回首页\u003c/a>\u003c/footer>\u003c/main>\u003c/div>\n  \u003cscript>window.__INIT_STATE__ = {\"path\":\"/news\",\"items\":[{\"id\":1,\"tag\":\"约定\",\"title\":\"NewsController → news.client.tsx → /webSource/scripts/news.js\",\"summary\":\"类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\",\"date\":\"2026-11-13\"},{\"id\":2,\"tag\":\"SEO\",\"title\":\"每页的 title / description 由 Controller 给\",\"summary\":\"pageInfo 在拦截器的 injectSEO 段被塞进 \\u003chead\\u003e。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\",\"date\":\"2026-11-13\"},{\"id\":3,\"tag\":\"代价\",\"title\":\"renderToString 是同步的，会占住事件循环\",\"summary\":\"页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。\",\"date\":\"2026-11-13\"},{\"id\":4,\"tag\":\"代价\",\"title\":\"CSS 要手写 link 列表\",\"summary\":\"没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。\",\"date\":\"2026-11-13\"}]};\u003c/script>\n  \u003cscript src=\"{{BASE}}webSource/scripts/news.js\" defer>\u003c/script>\n\u003c/body>\n\u003c/html>",
+    "unsafeHtml": "\u003c!DOCTYPE html>\n\u003chtml lang=\"zh-CN\">\n\u003chead>\n  \u003cmeta charset=\"utf-8\" />\n  \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  \u003ctitle>第二入口 · 命名约定驱动的多页 SSR\u003c/title>\n  \u003cmeta name=\"description\" content=\"加一个页面 = 加一个目录。HomeController 对应 home.client.tsx，由类名推断客户端入口。\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n  \u003clink rel=\"stylesheet\" href=\"{{BASE}}static/news.css\" />\n\u003c/head>\n\u003cbody>\n  \u003cdiv id=\"root\">\u003cmain class=\"page\">\u003cdiv class=\"kicker\">页面 02 · /news\u003c/div>\u003ch1>第二个入口，零配置\u003c/h1>\u003cp class=\"lede\">加一个页面只要加一个目录：\u003ccode>news.controller.ts\u003c/code> + \u003ccode>news.client.tsx\u003c/code>。 拦截器按类名推断 hydrate 脚本，构建按 glob 扫 \u003ccode>*.client.tsx\u003c/code> 生成入口，没有路由表要维护。\u003c/p>\u003cul class=\"news\">\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">约定\u003c/span>\u003ch2>NewsController → news.client.tsx → /webSource/scripts/news.js\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">SEO\u003c/span>\u003ch2>每页的 title / description 由 Controller 给\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>pageInfo 在拦截器的 injectSEO 段被塞进 &lt;head&gt;。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">代价\u003c/span>\u003ch2>renderToString 是同步的，会占住事件循环\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">代价\u003c/span>\u003ch2>CSS 要手写 link 列表\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。\u003c/p>\u003c/li>\u003c/ul>\u003cp class=\"hint\">当前路径由服务端读到并注入：\u003ccode>/news\u003c/code>。点开一条，这个是客户端状态——刷新就回到全收起。\u003c/p>\u003cfooter class=\"foot\">\u003ca href=\"/\">← 回首页\u003c/a>\u003c/footer>\u003c/main>\u003c/div>\n  \u003cscript>window.__INIT_STATE__ = {\"path\":\"/news\",\"items\":[{\"id\":1,\"tag\":\"约定\",\"title\":\"NewsController → news.client.tsx → /webSource/scripts/news.js\",\"summary\":\"类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\",\"date\":\"2026-11-13\"},{\"id\":2,\"tag\":\"SEO\",\"title\":\"每页的 title / description 由 Controller 给\",\"summary\":\"pageInfo 在拦截器的 injectSEO 段被塞进 \u003chead>。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\",\"date\":\"2026-11-13\"},{\"id\":3,\"tag\":\"代价\",\"title\":\"renderToString 是同步的，会占住事件循环\",\"summary\":\"页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。\",\"date\":\"2026-11-13\"},{\"id\":4,\"tag\":\"代价\",\"title\":\"CSS 要手写 link 列表\",\"summary\":\"没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。\",\"date\":\"2026-11-13\"}]};\u003c/script>\n  \u003cscript src=\"{{BASE}}webSource/scripts/news.js\" defer>\u003c/script>\n\u003c/body>\n\u003c/html>",
+    "parts": [
+      {
+        "k": "style",
+        "label": "拦截器 ①：把 links 变成 \u003clink> 标签",
+        "code": "\u003clink rel=\"stylesheet\" href=\"{{BASE}}static/base.css\" />\n\u003clink rel=\"stylesheet\" href=\"{{BASE}}static/news.css\" />",
+        "bytes": 113
+      },
+      {
+        "k": "js",
+        "label": "拦截器 ②：按 HomeController → home.js 推断入口",
+        "code": "\u003cscript src=\"{{BASE}}webSource/scripts/news.js\" defer>\u003c/script>",
+        "bytes": 63
+      },
+      {
+        "k": "seo",
+        "label": "拦截器 ③：pageInfo 进 \u003chead>，爬虫与社交卡片直接可用",
+        "code": "\u003ctitle>第二入口 · 命名约定驱动的多页 SSR\u003c/title>\n\u003cmeta name=\"description\" content=\"加一个页面 = 加一个目录。HomeController 对应 home.client.tsx，由类名推断客户端入口。\" />",
+        "bytes": 210
+      },
+      {
+        "k": "render",
+        "label": "拦截器 ④：renderToString 的产物，在 \u003cdiv id=\"root\"> 里等 hydrate",
+        "code": "\u003cmain class=\"page\">\u003cdiv class=\"kicker\">页面 02 · /news\u003c/div>\u003ch1>第二个入口，零配置\u003c/h1>\u003cp class=\"lede\">加一个页面只要加一个目录：\u003ccode>news.controller.ts\u003c/code> + \u003ccode>news.client.tsx\u003c/code>。 拦截器按类名推断 hydrate 脚本，构建按 glob 扫 \u003ccode>*.client.tsx\u003c/code> 生成入口，没有路由表要维护。\u003c/p>\u003cul class=\"news\">\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">约定\u003c/span>\u003ch2>NewsController → news.client.tsx → /webSource/scripts/news.js\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">SEO\u003c/span>\u003ch2>每页的 title / description 由 Controller 给\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>pageInfo 在拦截器的 injectSEO 段被塞进 &lt;head&gt;。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\u003c/p>\u003c/li>\u003cli class=\"\">\u003cdiv class=\"row\">\u003cspan class=\"tag\">代价\u003c/span>\u003ch2>renderToString 是同步的，会占住事件循环\u003c/h2>\u003ctime>2026-11-13\u003c/time>\u003c/div>\u003cp>页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableSt…",
+        "bytes": 1272
+      },
+      {
+        "k": "state",
+        "label": "模板：状态序列化，\u003c 必须转成 \\u003c，否则 \u003c/script> 会截断脚本",
+        "code": "\u003cscript>window.__INIT_STATE__ = {\"path\":\"/news\",\"items\":[{\"id\":1,\"tag\":\"约定\",\"title\":\"NewsController → news.client.tsx → /webSource/scripts/news.js\",\"summary\":\"类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。\",\"date\":\"2026-11-13\"},{\"id\":2,\"tag\":\"SEO\",\"title\":\"每页的 title / description 由 Controller 给\",\"summary\":\"pageInfo 在拦截器的 injectSEO 段被塞进 \\u003chead\\u003e。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。\",\"date\":\"2026-11-13\"},{\"id\":3,\"tag\":\"代价\",\"title\":\"renderToString 是同步的，会占住事件循环\",\"summary\":\"页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。\",\"date\":\"2026-11-13\"},{\"id\":4,\"tag\":\"代价\",\"title\":\"CSS 要手写 link 列表\",\"summary\":\"没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。\",\"date\":\"2026-11-13\"}]};\u003c/script>",
+        "bytes": 1126
+      }
+    ]
+  },
+  "unsafeRenderMs": "0.26",
+  "code": {
+    "controller": "@Controller('news')\n@UseInterceptors(RenderInterceptor)\nexport class NewsController {\n  @Get()\n  @RenderReact(News)\n  index() {\n    return {\n      initState: {\n        path: '/news',\n        items: [\n          {\n            id: 1,\n            tag: '约定',\n            title: 'NewsController → news.client.tsx → /webSource/scripts/news.js',\n            summary: '类名去掉 Controller、首字母小写，就是客户端入口名。构建侧用 glob 扫 modules/**/*.client.tsx，加页面不用改配置。',\n            date: '2026-11-13',\n          },\n          {\n            id: 2,\n            tag: 'SEO',\n            title: '每页的 title / description 由 Controller 给',\n            summary: 'pageInfo 在拦截器的 injectSEO 段被塞进 \u003chead>。同一套模板，不同路由不同的头部信息，不用维护静态模板文件。',\n            date: '2026-11-13',\n          },\n          {\n            id: 3,\n            tag: '代价',\n            title: 'renderToString 是同步的，会占住事件循环',\n            summary: '页面一大就顶到几十毫秒，并发上来直接排队。要么缓存渲染结果，要么换 renderToPipeableStream 流式输出。',\n            date: '2026-11-13',\n          },\n          {\n            id: 4,\n            tag: '代价',\n            title: 'CSS 要手写 link 列表',\n            summary: '没有构建器帮你收集依赖图，哪个页面要哪些样式得自己报。等价于把自动化的活接回手上——这是省掉 Vite 的隐性成本。',\n            date: '2026-11-13',\n          },\n        ],\n      },\n      pageInfo: {\n        title: '第二入口 · 命名约定驱动的多页 SSR',\n        description: '加一个页面 = 加一个目录。HomeController 对应 home.client.tsx，由类名推断客户端入口。',\n      },\n      links: ['/static/base.css', '/static/news.css'],\n    };\n  }\n}",
+    "tree": "src/\n├─ core/render/\n│   ├─ render.decorator.ts      @RenderReact(Home) → SetMetadata\n│   ├─ render.interceptor.ts    map × 4：style → js → seo → render\n│   ├─ server.tsx               renderToString + safeJson\n│   └─ template.ts              模板字符串（不读 index.html）\n├─ modules/\n│   ├─ Home/\n│   │   ├─ home.controller.ts   @Get() @RenderReact(Home)\n│   │   ├─ home.view.tsx        SSR / 客户端共用\n│   │   └─ home.client.tsx      hydrateRoot 入口  → /webSource/scripts/home.js\n│   └─ News/\n│       ├─ news.controller.ts   @Controller('news')\n│       ├─ news.view.tsx\n│       └─ news.client.tsx      → /webSource/scripts/news.js\n└─ main.ts                      NestFactory + 静态资源托管"
+  }
+};
+
+  const BASE = (() => {
+    try { return new URL('./', location.href).href; }
+    catch (e) { return '/apps/ssr/'; }
+  })();
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /* ---------- 极简高亮 ---------- */
+  function hlHtml(s) {
+    let out = esc(s);
+    out = out.replace(/(\s)([a-zA-Z-]+)="([^"]*)"/g, (m, sp, k, v) => `${sp}<i class="a">${k}</i>="<i class="s">${v}</i>"`);
+    out = out.replace(/(&lt;\/?)([a-zA-Z][\w-]*)/g, (m, br, tag) => `${br}<i class="t">${tag}</i>`);
+    out = out.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<i class="cm">$1</i>');
+    return out;
+  }
+  function hlTs(s) {
+    let out = esc(s);
+    out = out.replace(/(\/\/[^\n]*)/g, '<i class="cm">$1</i>');
+    out = out.replace(/('[^'\n]*'|`[^`]*`)/g, '<i class="s">$1</i>');
+    out = out.replace(/\b(import|from|export|default|class|private|public|return|const|let|new|async|await|if|else|this|extends|void)\b/g, '<i class="k">$1</i>');
+    return out;
+  }
+
+  /* ---------- 页面状态 ---------- */
+  const state = { page: 'home', js: true, unsafe: false, lit: -1 };
+
+  const STAGES = [
+    { k: 'ctrl', sn: 'ROUTE', st: 'Controller 返数据', sv: 'initState / pageInfo / links' },
+    { k: 'style', sn: '① injectStyle', st: '<link rel="stylesheet">', sv: '' },
+    { k: 'js', sn: '② injectJS', st: '按类名推断入口', sv: '' },
+    { k: 'seo', sn: '③ injectSEO', st: '<title> + description', sv: '' },
+    { k: 'render', sn: '④ renderToString', st: 'React → HTML 字符串', sv: '' },
+  ];
+
+  function renderPipe() {
+    const d = DATA[state.page];
+    const vals = {
+      style: d.parts.find((p) => p.k === 'style').code.split('\n').length + ' 行',
+      js: d.parts.find((p) => p.k === 'js').code.trim().replace(/^<script src="|"><\/script>$/g, '').split('/').pop(),
+      seo: d.parts.find((p) => p.k === 'seo').code.includes('description') ? 'title + desc' : 'title',
+      render: d.rootLen + ' 字符',
+    };
+    $('#pipe').innerHTML = STAGES.map((s, i) => `
+      <div class="stage" data-i="${i}">
+        <div class="sn">${esc(s.sn)}</div>
+        <div class="st">${esc(s.st)}</div>
+        <div class="sv">${esc(vals[s.k] || s.sv)}</div>
+      </div>`).join('');
+  }
+
+  function renderParts() {
+    const d = DATA[state.page];
+    const badge = { seo: 'b-seo', style: 'b-style', js: 'b-js', render: 'b-render', state: 'b-state' };
+    const label = { seo: 'SEO', style: 'STYLE', js: 'HYDRATE', render: 'PRE-RENDER', state: 'STATE' };
+    $('#parts').innerHTML = d.parts.map((p) => `
+      <div class="part">
+        <div class="part-h">
+          <span class="b ${badge[p.k] || 'b-seo'}">${label[p.k] || p.k}</span>
+          <span style="font-size:12px;color:#b9c6f5">${p.label}</span>
+          <span class="n">${p.bytes} B</span>
+        </div>
+        <pre class="${p.code.split('\n').length > 3 || p.code.length > 220 ? 'clip' : ''}">${hlHtml(p.code)}</pre>
+      </div>`).join('');
+    $('#parts').querySelectorAll('pre.clip').forEach((el) =>
+      el.addEventListener('click', () => el.classList.toggle('expanded'))
+    );
+  }
+
+  async function runPipeline() {
+    const stages = [...document.querySelectorAll('.stage')];
+    stages.forEach((s) => s.classList.remove('lit', 'done'));
+    const d = DATA[state.page];
+    for (let i = 0; i < stages.length; i++) {
+      stages[i].classList.add('lit');
+      await new Promise((r) => setTimeout(r, 230));
+      stages[i].classList.remove('lit');
+      stages[i].classList.add('done');
+    }
+    $('#pipeMeta').textContent = `服务端实测 ${d.renderMs} ms · 产出 ${d.bytes} B HTML`;
+  }
+
+  /* ---------- 预览 ---------- */
+  function buildDoc() {
+    const d = DATA[state.page];
+    let html = state.unsafe ? d.unsafeHtml : d.html;
+    html = html.replace(/\{\{BASE\}\}/g, BASE);
+    if (!state.js) html = html.replace(/<script[\s\S]*?<\/script>/g, '<!-- 脚本已移除 -->');
+    return html;
+  }
+
+  function renderPreview() {
+    const d = DATA[state.page];
+    const src = buildDoc();
+    $('#src').innerHTML = hlHtml(src);
+    $('#srcMeta').textContent = `${new Blob([src]).size} B`;
+    $('#prev').srcdoc = src;
+
+    const dot = $('#runDot');
+    dot.className = 'dot' + (state.js && !state.unsafe ? '' : ' off');
+    $('#prevMeta').textContent = !state.js ? '无 JS' : state.unsafe ? 'hydrate 已崩' : 'hydrate 运行中';
+
+    const t = [];
+    t.push(state.js ? '<span class="on">● JS 已加载</span>：React 接管，按钮可以点' : '<span class="off">● JS 已关闭</span>：页面内容仍在，但按钮没反应——爬虫看到的就是这样');
+    if (state.unsafe) {
+      t.push(`<span class="off">✖ 不转义</span>：状态里的 <code>&lt;/script&gt;</code> 把脚本提前关掉，hydrate bundle 拿到的是半截 JSON，页面被 React 清空（控制台报 <code>React error #423</code>）`);
+    }
+    $('#frameState').innerHTML = t.join('<br>');
+
+    // 等 iframe 加载完再看它内部的真实状态；hydrate 是 defer 脚本，要等它跑完
+    $('#prev').onload = () => setTimeout(() => {
+      try {
+        const w = $('#prev').contentWindow;
+        const pwned = typeof w.__PWNED__;
+        const has = !!w.document.querySelector('[data-testid=count]');
+        $('#frameMeta').textContent = `__PWNED__: ${pwned} · 计数器节点: ${has ? '在' : '没了'}`;
+      } catch (e) {
+        $('#frameMeta').textContent = '';
+      }
+    }, 1200);
+  }
+
+  function syncButtons() {
+    document.querySelectorAll('#pageSeg .btn').forEach((b) => b.classList.toggle('on', b.dataset.page === state.page));
+    document.querySelectorAll('#jsSeg .btn').forEach((b) => b.classList.toggle('on', (b.dataset.js === '1') === state.js));
+    document.querySelectorAll('#escSeg .btn').forEach((b) => b.classList.toggle('on', (b.dataset.unsafe === '1') === state.unsafe));
+  }
+
+  function refresh() {
+    renderPipe();
+    renderParts();
+    renderPreview();
+    syncButtons();
+    $('#pipeMeta').textContent = `服务端实测 ${DATA[state.page].renderMs} ms`;
+  }
+
+  /* ---------- 代码样本 ---------- */
+  $('#codeCtrl').innerHTML = hlTs(DATA.code.controller);
+  $('#codeTree').innerHTML = hlTs(DATA.code.tree);
+
+  /* ---------- 指标 ---------- */
+  const d0 = DATA.home;
+  $('#metrics').innerHTML = `
+    <div><span>renderToString</span><b>${d0.renderMs}<small>ms</small></b><div class="sub">热态单次，整棵树；冷启动约 10ms</div></div>
+    <div><span>直出 HTML</span><b>${(d0.bytes / 1024).toFixed(1)}<small>KB</small></b><div class="sub">含内容与 __INIT_STATE__</div></div>
+    <div><span>hydrate bundle</span><b>${d0.bundle}<small>KB</small></b><div class="sub">React 18 全量，minify 后</div></div>
+    <div><span>页面数 / 配置改动</span><b>1<small>个目录</small></b><div class="sub">加页面不动构建配置</div></div>`;
+
+  /* ---------- 事件 ---------- */
+  $('#run').addEventListener('click', runPipeline);
+  document.querySelectorAll('#pageSeg .btn').forEach((b) =>
+    b.addEventListener('click', () => { state.page = b.dataset.page; refresh(); })
+  );
+  document.querySelectorAll('#jsSeg .btn').forEach((b) =>
+    b.addEventListener('click', () => { state.js = b.dataset.js === '1'; refresh(); })
+  );
+  document.querySelectorAll('#escSeg .btn').forEach((b) =>
+    b.addEventListener('click', () => { state.unsafe = b.dataset.unsafe === '1'; refresh(); })
+  );
+  $('#backHome').addEventListener('click', () => {
+    if (window.$wujie?.props?.onBack) window.$wujie.props.onBack();
+    else location.href = '../../index.html';
+  });
+
+  refresh();
+  setTimeout(runPipeline, 500);
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>星尘 · 示例子应用</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #060918; overflow: hidden; }
+  #stage { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .tag {
+    position: fixed; left: 18px; bottom: 14px; color: #7c88b8;
+    font: 12px/1.6 'Inter', 'PingFang SC', sans-serif; letter-spacing: 2px;
+    user-select: none; pointer-events: none;
+  }
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99; cursor: pointer;
+    padding: 9px 16px; border-radius: 999px; font-size: 12.5px; letter-spacing: 1px;
+    color: #cfd8ff; background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    font-family: 'Inter', 'PingFang SC', sans-serif; backdrop-filter: blur(8px);
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<button class="floating-back" id="backHome">← 回主站</button>
+<div class="tag">星尘 · 子应用独立运行，鼠标划过会散开</div>
+<script>
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${location.origin}/#/portfolio`;
+  });
+
+  const cv = document.getElementById('stage');
+  const ctx = cv.getContext('2d');
+  let W, H, stars = [];
+  const mouse = { x: -9999, y: -9999 };
+
+  function resize() {
+    W = cv.width = innerWidth;
+    H = cv.height = innerHeight;
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  addEventListener('pointermove', (e) => {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+  });
+  addEventListener('pointerleave', () => { mouse.x = -9999; mouse.y = -9999; });
+
+  for (let i = 0; i < 140; i++) {
+    stars.push({
+      x: Math.random(), y: Math.random(),
+      vx: 0, vy: 0,
+      r: Math.random() * 1.6 + 0.4,
+      hue: 190 + Math.random() * 110,
+    });
+  }
+
+  function tick() {
+    ctx.fillStyle = 'rgba(6, 9, 24, 0.32)';
+    ctx.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      const px = s.x * W, py = s.y * H;
+      const dx = px - mouse.x, dy = py - mouse.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < 120 * 120) {
+        const d = Math.sqrt(d2) || 1;
+        s.vx += (dx / d) * 0.6;
+        s.vy += (dy / d) * 0.6;
+      }
+      s.vx *= 0.94; s.vy *= 0.94;
+      s.vx += (Math.random() - 0.5) * 0.02;
+      s.vy += (Math.random() - 0.5) * 0.02;
+      s.x += s.vx / W; s.y += s.vy / H;
+      if (s.x < 0) s.x += 1; if (s.x > 1) s.x -= 1;
+      if (s.y < 0) s.y += 1; if (s.y > 1) s.y -= 1;
+      ctx.beginPath();
+      ctx.arc(px, py, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${s.hue}, 90%, 70%, 0.9)`;
+      ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+</script>
+</body>
+</html>

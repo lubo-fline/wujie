@@ -1,0 +1,3348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Three.js 实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 22px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.8; margin: 0 0 26px; max-width: 760px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.16);
+    color: #9fabd4; transition: all .2s;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(140,165,255,0.4); }
+  .tab.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+
+  .stage {
+    position: relative; width: 100%; height: 460px; border-radius: 16px; overflow: hidden;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(140,165,255,0.14);
+    touch-action: none; cursor: grab;
+  }
+  .stage:active { cursor: grabbing; }
+  .stage canvas { display: block; }
+  .stage-hint {
+    position: absolute; left: 14px; bottom: 12px; z-index: 2;
+    font-size: 11.5px; color: #6b78a3; letter-spacing: .5px; pointer-events: none;
+    background: rgba(6,10,22,0.55); padding: 3px 9px; border-radius: 999px;
+  }
+  .stage-load {
+    position: absolute; inset: 0; display: grid; place-content: center;
+    font-size: 13px; color: #7b88b3; letter-spacing: 1px;
+  }
+  .stage-load.gone { display: none; }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-top: 18px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note code { color: #a8c6ff; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .code {
+    display: block; background: rgba(0,0,0,0.45); border: 1px solid rgba(140,165,255,0.12);
+    border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px; color: #a8c6ff; overflow-x: auto; white-space: pre; margin: 0;
+  }
+  .ctl-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9fabd4; }
+  .ctl input[type=range] { width: 120px; accent-color: #7c9dff; }
+  .ctl .val { font-family: ui-monospace, monospace; color: #cfd8ff; min-width: 34px; }
+  .btn {
+    padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(124,157,255,0.14); color: #cfd8ff;
+    border: 1px solid rgba(140,165,255,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(124,157,255,0.26); }
+  .btn.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+
+  .stat { font-family: ui-monospace, monospace; font-size: 11.5px; color: #7b88b3; margin-left: auto; }
+
+  /* ---- 模型编辑器面板（自定义控件块） ---- */
+  .ctl-block { flex: 1 1 100%; display: flex; flex-direction: column; gap: 9px; }
+  .panel-h { font-size: 10.5px; letter-spacing: 2.4px; color: #5f6c96; margin: 2px 0 0; }
+  .part-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 88px; overflow-y: auto; }
+  .part {
+    padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 11.5px;
+    border: 1px solid rgba(140,165,255,0.18); background: rgba(255,255,255,0.03);
+    color: #9fabd4; font-family: ui-monospace, monospace; transition: all .16s;
+  }
+  .part:hover { color: #e7ecff; border-color: rgba(140,165,255,0.45); }
+  .part.on { border-color: #7c9dff; color: #e7ecff; background: rgba(124,157,255,0.2); }
+  .part.dirty::after { content: '•'; color: #ffd479; margin-left: 5px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch {
+    width: 26px; height: 26px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.18); transition: transform .16s, border-color .16s;
+  }
+  .swatch:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.5); }
+  .out-box {
+    margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(140,165,255,0.12); font-family: ui-monospace, monospace;
+    font-size: 11.5px; color: #a8c6ff; max-height: 118px; overflow: auto; white-space: pre-wrap;
+  }
+  .ed-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  @media (max-width: 720px) {
+    .stage { height: 340px; }
+    .wrap { padding: 26px 16px 70px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">THREE.JS LAB</div>
+    <h1>Three.js 实验室</h1>
+    <p>《Threejs 通关秘籍》里十几个能独立跑、也看得出门道的实战：噪声地形、隧道循环、雨雪粒子、3D 饼图、打碎重组、精灵标注、镜面反射、描边发光，再加合批、LOD、粒子、骨骼、剔除、WebGPU、环境光、物理，以及最后那块模型编辑器（选中→改材质→导出改动）。全部零构建、运行时本地化，每个都拆开讲清楚它在干什么。</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-d="terrain">随机山脉</button>
+    <button class="tab" data-d="tunnel">隧道穿梭</button>
+    <button class="tab" data-d="weather">雨雪粒子</button>
+    <button class="tab" data-d="pie">3D 饼图</button>
+    <button class="tab" data-d="shatter">打碎重组</button>
+    <button class="tab" data-d="label">精灵标注</button>
+    <button class="tab" data-d="mirror">镜面反射</button>
+    <button class="tab" data-d="outline">描边发光</button>
+    <button class="tab" data-d="castle">合批城堡</button>
+    <button class="tab" data-d="submit">四种提交方式</button>
+    <button class="tab" data-d="lod">LOD 分级</button>
+    <button class="tab" data-d="points">十万粒子</button>
+    <button class="tab" data-d="gltf">骨骼动画</button>
+    <button class="tab" data-d="frustum">视锥剔除</button>
+    <button class="tab" data-d="webgpu">WebGPU 实验</button>
+    <button class="tab" data-d="env">HDR 环境光</button>
+    <button class="tab" data-d="physics">物理引擎</button>
+    <button class="tab" data-d="editor">模型编辑器</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="stage-hint" id="hint">拖动旋转 · 滚轮缩放</div>
+    <div class="stage-load" id="loading">Three.js 加载中…</div>
+  </div>
+
+  <div class="card">
+    <h3 id="dTitle">随机山脉</h3>
+    <p class="note" id="dNote"></p>
+    <div class="ctl-row" id="controls"></div>
+    <pre class="code" id="dCode"></pre>
+  </div>
+
+  <p style="text-align:center; color:#5f6c96; font-size:12px; margin-top:34px; letter-spacing:2px">
+    路小垚 · Three.js 实验室 · 独立子应用，通过微前端接入主站
+  </p>
+</div>
+
+<script>
+  /* ---- 回主站 ---- */
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${window.location.origin}/#/portfolio`;
+  });
+
+  const stageEl = document.getElementById('stage');
+  const ctlEl = document.getElementById('controls');
+  const loadEl = document.getElementById('loading');
+  const hintEl = document.getElementById('hint');
+
+  let THREE = null;
+  let Reflector = null;
+  let EffectComposer = null;
+  let RenderPass = null;
+  let OutlinePass = null;
+  let mergeGeometries = null;
+  let GLTFLoader = null;
+  /* 自封装工具（lib/*.js）：确定性随机、几何合批、读数条，后面每个 demo 都复用 */
+  let createRng = null;
+  let GeometryBatch = null;
+  let createHud = null;
+  let renderer = null;
+  let current = null;      // 当前 demo 的三件套 + 更新函数 + 清理函数
+  let raf = 0;
+
+  /* ============ 通用：极简轨道控制（自己写，不引 addons） ============ */
+  function makeOrbit(camera, dom, opts = {}) {
+    const target = opts.target || new THREE.Vector3(0, 0, 0);
+    let radius = opts.radius ?? 8;
+    let theta = opts.theta ?? 0.7;
+    let phi = opts.phi ?? 1.1;
+    let dTheta = 0;
+    let dPhi = 0;
+    let drag = false;
+    let lx = 0;
+    let ly = 0;
+
+    function update() {
+      theta += dTheta;
+      phi += dPhi;
+      dTheta *= 0.9;
+      dPhi *= 0.9;
+      phi = Math.max(0.12, Math.min(Math.PI - 0.12, phi));
+      camera.position.set(
+        radius * Math.sin(phi) * Math.sin(theta),
+        radius * Math.cos(phi),
+        radius * Math.sin(phi) * Math.cos(theta)
+      );
+      camera.position.add(target);
+      camera.lookAt(target);
+    }
+
+    const down = (e) => { drag = true; lx = e.clientX; ly = e.clientY; };
+    const move = (e) => {
+      if (!drag) return;
+      dTheta -= (e.clientX - lx) * 0.0055;
+      dPhi -= (e.clientY - ly) * 0.0055;
+      lx = e.clientX;
+      ly = e.clientY;
+    };
+    const up = () => { drag = false; };
+    const wheel = (e) => {
+      e.preventDefault();
+      radius = Math.max(opts.min ?? 3, Math.min(opts.max ?? 60, radius * (1 + Math.sign(e.deltaY) * 0.09)));
+    };
+
+    dom.addEventListener('pointerdown', down);
+    dom.addEventListener('pointermove', move);
+    dom.addEventListener('pointerup', up);
+    dom.addEventListener('pointerleave', up);
+    dom.addEventListener('wheel', wheel, { passive: false });
+
+    update();
+
+    return {
+      update,
+      dispose() {
+        dom.removeEventListener('pointerdown', down);
+        dom.removeEventListener('pointermove', move);
+        dom.removeEventListener('pointerup', up);
+        dom.removeEventListener('pointerleave', up);
+        dom.removeEventListener('wheel', wheel);
+      },
+    };
+  }
+
+  /* ============ 通用：释放 ============ */
+  function disposeObj(obj) {
+    obj.traverse?.((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+      mats.forEach((m) => {
+        Object.values(m).forEach((v) => { if (v && v.isTexture) v.dispose(); });
+        m.dispose();
+      });
+    });
+  }
+
+  /* ============ 噪声（值噪声 + fbm，够用且没有依赖） ============ */
+  function hash(x, y) {
+    const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  }
+  function vnoise(x, y) {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const xf = x - xi;
+    const yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf);
+    const v = yf * yf * (3 - 2 * yf);
+    const a = hash(xi, yi);
+    const b = hash(xi + 1, yi);
+    const c = hash(xi, yi + 1);
+    const d = hash(xi + 1, yi + 1);
+    return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+  }
+  function fbm(x, y, oct = 4) {
+    let sum = 0;
+    let amp = 0.5;
+    let f = 1;
+    for (let i = 0; i < oct; i++) {
+      sum += amp * vnoise(x * f, y * f);
+      f *= 2.03;
+      amp *= 0.5;
+    }
+    return sum;
+  }
+
+  /* ============ DEMO 定义 ============ */
+  const DEMOS = {
+    /* ---------- 1 噪声地形 ---------- */
+    terrain: {
+      title: '随机山脉 · 顶点抬高',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '一个 120×120 分段的平面，把每个顶点按 fbm 噪声抬高，再开启 <code>flatShading</code>，就成了低多边形的硬朗山体。改幅度会重新计算高度——注意它是「改已有顶点」，不是重新创建几何体。',
+      code: `const geo = new THREE.PlaneGeometry(70, 70, 120, 120);
+geo.rotateX(-Math.PI / 2);              // 平面立起来当地面
+
+// 每个顶点按 fbm 噪声抬高（减 0.42 让山谷沉到海平面以下）
+for (let i = 0; i < pos.count; i++) {
+  const h = (fbm(x * 0.075, z * 0.075) - 0.42) * amp * 2.8;
+  pos.setY(i, h);
+  color[i] = heightToColor(h);           // 谷底深蓝 → 山脊亮青
+}
+pos.needsUpdate = true;
+geo.computeVertexNormals();              // 法线重算，否则光照是平的
+
+new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true });`,
+      controls: [
+        { type: 'range', label: '幅度', min: 1, max: 10, step: 0.5, value: 5 },
+        { type: 'toggle', label: '线框', value: false },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x070a14, 60, 130);
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 400);
+
+        scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x0a1020, 1.25));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+        dir.position.set(18, 26, 12);
+        scene.add(dir);
+
+        const geo = new THREE.PlaneGeometry(70, 70, 120, 120);
+        geo.rotateX(-Math.PI / 2);
+        const pos = geo.attributes.position;
+        const base = Float32Array.from(pos.array);
+
+        const colors = new Float32Array(pos.count * 3);
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const cLow = new THREE.Color(0x182c66);
+        const cMid = new THREE.Color(0x4a6bff);
+        const cHigh = new THREE.Color(0x9fe8ff);
+        const cTmp = new THREE.Color();
+
+        const mat = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          flatShading: true,
+          metalness: 0.12,
+          roughness: 0.78,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        scene.add(mesh);
+
+        function build(amp) {
+          for (let i = 0; i < pos.count; i++) {
+            const x = base[i * 3];
+            const z = base[i * 3 + 2];
+            const h = (fbm(x * 0.075 + 12, z * 0.075 + 12, 5) - 0.42) * amp * 2.8
+              + (fbm(x * 0.26, z * 0.26, 3) - 0.5) * amp * 0.3;
+            pos.setY(i, h);
+            // 按海拔上色：谷底深蓝 → 山脊亮青
+            const k = Math.max(0, Math.min(1, (h / (amp * 1.6)) + 0.5));
+            if (k < 0.55) cTmp.copy(cLow).lerp(cMid, k / 0.55);
+            else cTmp.copy(cMid).lerp(cHigh, (k - 0.55) / 0.45);
+            colors[i * 3] = cTmp.r;
+            colors[i * 3 + 1] = cTmp.g;
+            colors[i * 3 + 2] = cTmp.b;
+          }
+          pos.needsUpdate = true;
+          geo.attributes.color.needsUpdate = true;
+          geo.computeVertexNormals();
+        }
+        build(5);
+
+        const orb = makeOrbit(camera, stageEl, { radius: 52, phi: 1.02, theta: 0.7, min: 18, max: 110 });
+
+        return {
+          scene,
+          camera,
+          api: {
+            amp(v) { build(Number(v)); },
+            wire(on) { mat.wireframe = !!on; },
+          },
+          update(dt) {
+            orb.update();
+            mesh.rotation.y += dt * 0.06;
+          },
+          dispose() { orb.dispose(); disposeObj(scene); },
+        };
+      },
+    },
+
+    /* ---------- 2 隧道穿梭 ---------- */
+    tunnel: {
+      title: '隧道穿梭 · 循环复用',
+      hint: '左右移动鼠标看视差',
+      note: '40 个圆环沿 z 轴排开，每帧朝相机方向推进一点，跑出画面就绕回队尾。物体数量不变、不新建也不销毁，所以怎么跑都不会卡——这是所有「无尽通道」的做法。',
+      code: `rings.forEach((ring) => {
+  ring.position.z += speed;              // 朝相机走
+  if (ring.position.z > 8) {              // 出画了
+    ring.position.z -= TOTAL;             // 直接绕回队尾
+  }
+});
+// 一盏跟着相机走的点光，把近处的环照亮`,
+      controls: [
+        { type: 'range', label: '速度', min: 0.2, max: 3.2, step: 0.1, value: 1.2 },
+        { type: 'toggle', label: '雾', value: true },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(62, width / height, 0.1, 400);
+        camera.position.set(0, 0, 0);
+
+        const fogOn = { v: true };
+        scene.fog = new THREE.FogExp2(0x070a14, 0.019);
+
+        const COUNT = 40;
+        const GAP = 6;
+        const TOTAL = COUNT * GAP;
+        const rings = [];
+        const colors = [0x7c9dff, 0xb98bff, 0x22d3ee, 0xe879f9];
+
+        for (let i = 0; i < COUNT; i++) {
+          const hue = colors[i % colors.length];
+          const geo = new THREE.TorusGeometry(5.2, 0.11, 8, 44);
+          const mat = new THREE.MeshBasicMaterial({ color: hue, transparent: true, opacity: 0.9 });
+          const ring = new THREE.Mesh(geo, mat);
+          ring.position.z = -i * GAP + 8;
+          ring.rotation.z = i * 0.14;
+          rings.push(ring);
+          scene.add(ring);
+        }
+
+        // 主光：跟着相机，负责近处亮度
+        const key = new THREE.PointLight(0x9fc0ff, 40, 40);
+        key.position.set(0, 0, 4);
+        scene.add(key);
+        scene.add(new THREE.AmbientLight(0x2a3766, 1.2));
+
+        let speed = 1.2;
+        let lookX = 0;
+        let lookY = 0;
+        let curX = 0;
+        let curY = 0;
+        const onMove = (e) => {
+          const r = stageEl.getBoundingClientRect();
+          lookX = ((e.clientX - r.left) / r.width - 0.5) * 1.4;
+          lookY = ((e.clientY - r.top) / r.height - 0.5) * 0.9;
+        };
+        const onLeave = () => { lookX = 0; lookY = 0; };
+        stageEl.addEventListener('pointermove', onMove);
+        stageEl.addEventListener('pointerleave', onLeave);
+
+        return {
+          scene,
+          camera,
+          api: {
+            speed(v) { speed = Number(v); },
+            fog(on) { scene.fog = on ? new THREE.FogExp2(0x070a14, 0.019) : null; },
+          },
+          update(dt) {
+            rings.forEach((r, i) => {
+              r.position.z += speed * dt * 18;
+              if (r.position.z > 8) r.position.z -= TOTAL;
+              r.rotation.z += dt * 0.12;
+              r.material.opacity = 0.35 + 0.55 * Math.max(0, 1 - Math.abs(r.position.z) / 60);
+            });
+            // 指针视差：相机原地小幅转头，隧道看起来在偏
+            curX += (lookX - curX) * Math.min(1, dt * 4);
+            curY += (lookY - curY) * Math.min(1, dt * 4);
+            camera.rotation.y = -curX;
+            camera.rotation.x = -curY;
+          },
+          dispose() {
+            stageEl.removeEventListener('pointermove', onMove);
+            stageEl.removeEventListener('pointerleave', onLeave);
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 3 雨雪粒子 ---------- */
+    weather: {
+      title: '雨雪粒子 · 一个几何体搞定',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '两千个点共用一份 <code>BufferGeometry</code>，速度存在一个普通数组里。每帧只改 y 坐标，出界就回顶部——没有为每个粒子建对象，也就没有 GC 压力。雨和雪的区别只是速度、大小和横向摆动。',
+      code: `const pos = new Float32Array(N * 3);     // 位置
+const vel = new Float32Array(N);         // 每颗的速度
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+
+// 每帧
+pos[i * 3 + 1] -= vel[i] * dt;
+if (pos[i * 3 + 1] < -10) pos[i * 3 + 1] = 10;
+attr.needsUpdate = true;`,
+      controls: [
+        { type: 'toggle', label: '下雪（关=下雨）', value: false },
+        { type: 'range', label: '密度', min: 0.3, max: 2.2, step: 0.1, value: 1 },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x070a14, 0.012);
+        const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 400);
+
+        const N = 2200;
+        const R = 26;
+        const H = 22;
+        const pos = new Float32Array(N * 3);
+        const vel = new Float32Array(N);
+        const sway = new Float32Array(N);
+        const seed = new Float32Array(N);
+
+        for (let i = 0; i < N; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * R * 2;
+          pos[i * 3 + 1] = Math.random() * H - 6;
+          pos[i * 3 + 2] = (Math.random() - 0.5) * R * 2;
+          vel[i] = 0.6 + Math.random() * 0.8;
+          sway[i] = Math.random() * Math.PI * 2;
+          seed[i] = Math.random();
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+
+        // 圆点贴图：canvas 画一个径向渐变，边缘自然淡出
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const g2 = c.getContext('2d');
+        const grad = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.4, 'rgba(210,225,255,0.85)');
+        grad.addColorStop(1, 'rgba(180,200,255,0)');
+        g2.fillStyle = grad;
+        g2.fillRect(0, 0, 64, 64);
+        const sprite = new THREE.CanvasTexture(c);
+
+        const mat = new THREE.PointsMaterial({
+          size: 0.5,
+          map: sprite,
+          transparent: true,
+          depthWrite: false,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          color: 0xa8c6ff,
+        });
+        const points = new THREE.Points(geo, mat);
+        scene.add(points);
+
+        scene.add(new THREE.AmbientLight(0x8899cc, 1));
+
+        // 地面一个淡淡的圆，给粒子一个参照
+        const floorGeo = new THREE.CircleGeometry(24, 48);
+        floorGeo.rotateX(-Math.PI / 2);
+        const floor = new THREE.Mesh(
+          floorGeo,
+          new THREE.MeshBasicMaterial({ color: 0x0b1226, transparent: true, opacity: 0.6 })
+        );
+        floor.position.y = -6;
+        scene.add(floor);
+
+        let snow = false;
+        let density = 1;
+        const attr = geo.attributes.position;
+
+        return {
+          scene,
+          camera,
+          api: {
+            snow(on) {
+              snow = !!on;
+              mat.color.set(snow ? 0xffffff : 0xa8c6ff);
+              mat.size = snow ? 0.85 : 0.42;
+              mat.opacity = snow ? 0.95 : 0.75;
+            },
+            density(v) { density = Number(v); },
+          },
+          update(dt, t) {
+            const n = Math.floor(N * Math.min(1, density));
+            for (let i = 0; i < n; i++) {
+              const iy = i * 3 + 1;
+              if (snow) {
+                pos[iy] -= vel[i] * 1.1 * dt;
+                pos[i * 3] += Math.sin(t * 1.2 + sway[i]) * 0.5 * dt;
+              } else {
+                pos[iy] -= vel[i] * 9 * dt;
+              }
+              if (pos[iy] < -6) {
+                pos[iy] = H - 6;
+                pos[i * 3] = (Math.random() - 0.5) * R * 2;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * R * 2;
+              }
+            }
+            // 超出密度的点移到画面外，避免"关掉"时还在
+            for (let i = n; i < N; i++) pos[i * 3 + 1] = -999;
+            attr.needsUpdate = true;
+            points.rotation.y += dt * 0.02;
+          },
+          dispose() { disposeObj(scene); },
+        };
+      },
+    },
+
+    /* ---------- 4 3D 饼图 ---------- */
+    pie: {
+      title: '3D 饼图 · 挤出与拾取',
+      hint: '拖动旋转 · 滚轮缩放 · 悬停扇区',
+      note: '扇形用 <code>Shape.absarc</code> 画出来，再 <code>ExtrudeGeometry</code> 挤出厚度。鼠标悬停时用 Raycaster 检测命中了哪一块，把它沿 y 轴抬起来——每帧只做一次检测，六块也不费。',
+      code: `const shape = new THREE.Shape();
+shape.moveTo(0, 0);
+shape.absarc(0, 0, r, start, end, false);
+shape.lineTo(0, 0);
+
+const geo = new THREE.ExtrudeGeometry(shape, {
+  depth: 0.7, bevelEnabled: false,
+});
+geo.rotateX(-Math.PI / 2);               // 挤出方向摆正
+
+// 悬停抬起
+const hit = raycaster.intersectObjects(slices)[0];
+hit.object.userData.lift = hit ? 0.45 : 0;`,
+      controls: [
+        { type: 'toggle', label: '自动旋转', value: true },
+        { type: 'button', label: '全部分离', value: false },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
+
+        scene.add(new THREE.HemisphereLight(0xaaccff, 0x0a1020, 1.15));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+        dir.position.set(6, 12, 8);
+        scene.add(dir);
+
+        const DATA = [
+          { label: 'React', value: 34, color: 0x22d3ee },
+          { label: 'Vue', value: 26, color: 0x34d399 },
+          { label: 'CSS', value: 18, color: 0x8b5cf6 },
+          { label: 'Three', value: 12, color: 0xe879f9 },
+          { label: '其他', value: 10, color: 0xfbbf24 },
+        ];
+        const total = DATA.reduce((a, b) => a + b.value, 0);
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        const slices = [];
+        let a0 = 0;
+        DATA.forEach((d) => {
+          const angle = (d.value / total) * Math.PI * 2;
+          const shape = new THREE.Shape();
+          shape.moveTo(0, 0);
+          shape.absarc(0, 0, 4, a0, a0 + angle, false);
+          shape.lineTo(0, 0);
+          const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.7, bevelEnabled: false, curveSegments: 48 });
+          geo.rotateX(-Math.PI / 2);
+          const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+            color: d.color,
+            metalness: 0.25,
+            roughness: 0.42,
+            emissive: d.color,
+            emissiveIntensity: 0.08,
+          }));
+          const mid = a0 + angle / 2;
+          mesh.userData = { lift: 0, target: 0, mid, base: 0 };
+          group.add(mesh);
+          slices.push(mesh);
+          a0 += angle;
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const ndc = new THREE.Vector2();
+        let autoRotate = true;
+        let exploded = false;
+
+        const onMove = (e) => {
+          const r = stageEl.getBoundingClientRect();
+          ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+          ndc.y = -(((e.clientY - r.top) / r.height) * 2 - 1);
+          raycaster.setFromCamera(ndc, camera);
+          const hit = raycaster.intersectObjects(slices, false)[0];
+          slices.forEach((s) => { s.userData.target = 0; });
+          if (hit) hit.object.userData.target = 0.55;
+        };
+        const onLeave = () => slices.forEach((s) => { s.userData.target = 0; });
+        stageEl.addEventListener('pointermove', onMove);
+        stageEl.addEventListener('pointerleave', onLeave);
+
+        const orb = makeOrbit(camera, stageEl, { radius: 11, phi: 1.02, theta: 0.5, min: 6, max: 26 });
+
+        return {
+          scene,
+          camera,
+          api: {
+            rotate(on) { autoRotate = !!on; },
+            explode() {
+              exploded = !exploded;
+              slices.forEach((s) => {
+                s.userData.base = exploded ? 0.6 : 0;
+              });
+            },
+          },
+          update(dt) {
+            orb.update();
+            if (autoRotate) group.rotation.y += dt * 0.28;
+            slices.forEach((s) => {
+              s.userData.lift += (s.userData.target - s.userData.lift) * Math.min(1, dt * 12);
+              const off = s.userData.base;
+              s.position.set(
+                Math.cos(-s.userData.mid + Math.PI / 2) * off,
+                s.userData.lift,
+                Math.sin(-s.userData.mid + Math.PI / 2) * off
+              );
+            });
+          },
+          dispose() {
+            stageEl.removeEventListener('pointermove', onMove);
+            stageEl.removeEventListener('pointerleave', onLeave);
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 5 打碎重组 ---------- */
+    shatter: {
+      title: '打碎重组 · 一份数据两种形态',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '从二十面体表面采样 3000 个点，每个点记住自己的原始位置和一个随机方向。炸开就是把点沿随机方向推出去，归位就是推回 0——同一个 <code>k</code> 系数控制两者，所以来回都接得上，不会「炸完回不来」。',
+      code: `p = orig + dir * rnd * k * 6;      // k: 0 → 1
+
+// k 用缓动推，不是线性跳
+k += (target - k) * 0.045;
+// dir 每个点固定，所以同一颗点永远朝同一方向飞`,
+      controls: [
+        { type: 'toggle', label: '自动呼吸', value: true },
+        { type: 'button', label: '手动炸一次', value: false },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x070a14, 0.02);
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 200);
+
+        const N = 3000;
+        const src = new THREE.IcosahedronGeometry(3.4, 12);
+        const srcPos = src.attributes.position;
+        const count = srcPos.count;
+
+        const pos = new Float32Array(N * 3);
+        const orig = new Float32Array(N * 3);
+        const dir = new Float32Array(N * 3);
+        const rnd = new Float32Array(N);
+        const col = new Float32Array(N * 3);
+
+        const tmpColor = new THREE.Color();
+        for (let i = 0; i < N; i++) {
+          const j = Math.floor(Math.random() * count) * 3;
+          const x = srcPos.array[j];
+          const y = srcPos.array[j + 1];
+          const z = srcPos.array[j + 2];
+          orig[i * 3] = x;
+          orig[i * 3 + 1] = y;
+          orig[i * 3 + 2] = z;
+          pos[i * 3] = x;
+          pos[i * 3 + 1] = y;
+          pos[i * 3 + 2] = z;
+
+          const v = new THREE.Vector3(x, y, z).normalize();
+          dir[i * 3] = v.x + (Math.random() - 0.5) * 0.6;
+          dir[i * 3 + 1] = v.y + (Math.random() - 0.5) * 0.6;
+          dir[i * 3 + 2] = v.z + (Math.random() - 0.5) * 0.6;
+          rnd[i] = 0.4 + Math.random() * 1.6;
+
+          tmpColor.setHSL(0.6 + y * 0.03, 0.85, 0.62);
+          col[i * 3] = tmpColor.r;
+          col[i * 3 + 1] = tmpColor.g;
+          col[i * 3 + 2] = tmpColor.b;
+        }
+        src.dispose();
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+        const mat = new THREE.PointsMaterial({
+          size: 0.075,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.95,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        const points = new THREE.Points(geo, mat);
+        scene.add(points);
+
+        const orb = makeOrbit(camera, stageEl, { radius: 12, phi: 1.1, theta: 0.6, min: 5, max: 40 });
+
+        let k = 0;
+        let target = 0;
+        let breathing = true;
+        let phase = 0;
+
+        return {
+          scene,
+          camera,
+          api: {
+            breathe(on) { breathing = !!on; if (!breathing) target = 0; },
+            burst() { target = target > 0.5 ? 0 : 1; },
+          },
+          update(dt, t) {
+            orb.update();
+            if (breathing) {
+              phase += dt * 0.55;
+              target = (Math.sin(phase) * 0.5 + 0.5) ** 1.4;
+            }
+            k += (target - k) * Math.min(1, dt * 3.4);
+
+            const attr = geo.attributes.position;
+            for (let i = 0; i < N; i++) {
+              const i3 = i * 3;
+              const s = k * rnd[i] * 2.6;
+              attr.array[i3] = orig[i3] + dir[i3] * s;
+              attr.array[i3 + 1] = orig[i3 + 1] + dir[i3 + 1] * s;
+              attr.array[i3 + 2] = orig[i3 + 2] + dir[i3 + 2] * s;
+            }
+            attr.needsUpdate = true;
+            points.rotation.y += dt * 0.12;
+            points.rotation.x = Math.sin(t * 0.25) * 0.12;
+          },
+          dispose() { orb.dispose(); disposeObj(scene); },
+        };
+      },
+    },
+
+    /* ---------- 6 精灵标注 ---------- */
+    label: {
+      title: '精灵标注 · canvas 画完贴上去',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '3D 里挂文字最省事的办法不是建模，是把字画在 canvas 上，做成 <code>Sprite</code>。精灵永远正对相机，怎么转都不会侧过去；<code>scale</code> 按 canvas 的宽高比给，字才不会被压扁。',
+      code: `const c = document.createElement('canvas');
+const ctx = c.getContext('2d');
+ctx.fillStyle = '#7c9dff';
+roundRect(ctx, 0, 0, c.width, c.height, 18);
+ctx.fill();
+ctx.fillText('Scene 01', 28, 54);
+
+const tex = new THREE.CanvasTexture(c);
+const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+sprite.scale.set(c.width / 128, c.height / 128, 1);
+// Sprite 自带朝向：永远面向相机`,
+      controls: [
+        { type: 'toggle', label: '缓慢公转', value: true },
+        { type: 'range', label: '标签大小', min: 0.6, max: 2, step: 0.1, value: 1 },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x070a14, 0.014);
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 300);
+
+        scene.add(new THREE.AmbientLight(0x8899cc, 1.1));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+        dir.position.set(8, 14, 6);
+        scene.add(dir);
+
+        const grid = new THREE.GridHelper(30, 24, 0x2b3b6b, 0x18233f);
+        grid.position.y = -1.6;
+        scene.add(grid);
+
+        function makeLabel(text, sub, color) {
+          const c = document.createElement('canvas');
+          c.width = 512;
+          c.height = 192;
+          const g2 = c.getContext('2d');
+          const r = 34;
+          g2.fillStyle = 'rgba(10,16,32,0.92)';
+          g2.strokeStyle = color;
+          g2.lineWidth = 6;
+          g2.beginPath();
+          g2.moveTo(r, 3);
+          g2.lineTo(c.width - r, 3);
+          g2.quadraticCurveTo(c.width - 3, 3, c.width - 3, r);
+          g2.lineTo(c.width - 3, c.height - r);
+          g2.quadraticCurveTo(c.width - 3, c.height - 3, c.width - r, c.height - 3);
+          g2.lineTo(r, c.height - 3);
+          g2.quadraticCurveTo(3, c.height - 3, 3, c.height - r);
+          g2.lineTo(3, r);
+          g2.quadraticCurveTo(3, 3, r, 3);
+          g2.closePath();
+          g2.fill();
+          g2.stroke();
+
+          g2.fillStyle = '#eaf0ff';
+          g2.font = 'bold 62px "PingFang SC", "Microsoft YaHei", sans-serif';
+          g2.textAlign = 'center';
+          g2.fillText(text, c.width / 2, 92);
+          g2.fillStyle = color;
+          g2.font = '34px "PingFang SC", sans-serif';
+          g2.fillText(sub, c.width / 2, 146);
+
+          const tex = new THREE.CanvasTexture(c);
+          tex.anisotropy = 4;
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: tex,
+            transparent: true,
+            depthWrite: false,
+          }));
+          const s = 0.011;
+          sprite.scale.set(c.width * s, c.height * s, 1);
+          return sprite;
+        }
+
+        const items = [
+          { text: '星穹', sub: 'THREE.SCENE', color: '#7c9dff', pos: [0, 2.4, 0], geo: 'icosa' },
+          { text: '轨道', sub: 'ORBIT', color: '#22d3ee', pos: [5.4, 0.8, 2.6], geo: 'torus' },
+          { text: '节点', sub: 'SPRITE', color: '#e879f9', pos: [-5, 1.2, -3], geo: 'box' },
+        ];
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        items.forEach((it) => {
+          let geo;
+          if (it.geo === 'icosa') geo = new THREE.IcosahedronGeometry(1.5, 0);
+          else if (it.geo === 'torus') geo = new THREE.TorusKnotGeometry(0.95, 0.32, 96, 12);
+          else geo = new THREE.BoxGeometry(1.7, 1.7, 1.7);
+
+          const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+            color: new THREE.Color(it.color),
+            metalness: 0.35,
+            roughness: 0.35,
+            flatShading: it.geo === 'icosa',
+          }));
+          mesh.position.set(...it.pos);
+          group.add(mesh);
+
+          const label = makeLabel(it.text, it.sub, it.color);
+          label.position.set(it.pos[0], it.pos[1] + 2.1, it.pos[2]);
+          label.userData.base = label.scale.clone();
+          group.add(label);
+
+          // 一根细线把标签和物体连起来
+          const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(it.pos[0], it.pos[1] + 0.9, it.pos[2]),
+            new THREE.Vector3(it.pos[0], it.pos[1] + 1.55, it.pos[2]),
+          ]);
+          group.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x3a4b7a })));
+          it.mesh = mesh;
+          it.label = label;
+        });
+
+        const orb = makeOrbit(camera, stageEl, { radius: 13, phi: 1.05, theta: 0.7, min: 7, max: 40 });
+        let spin = true;
+        let scaleK = 1;
+
+        return {
+          scene,
+          camera,
+          api: {
+            spin(on) { spin = !!on; },
+            scale(v) {
+              scaleK = Number(v);
+              items.forEach((it) => {
+                const b = it.label.userData.base;
+                it.label.scale.set(b.x * scaleK, b.y * scaleK, 1);
+              });
+            },
+          },
+          update(dt, t) {
+            orb.update();
+            if (spin) group.rotation.y += dt * 0.22;
+            items.forEach((it, i) => {
+              it.mesh.rotation.y += dt * (0.4 + i * 0.15);
+              it.mesh.rotation.x = Math.sin(t * 0.4 + i) * 0.25;
+            });
+          },
+          dispose() { orb.dispose(); disposeObj(scene); },
+        };
+      },
+    },
+
+    /* ---------- 7 镜面反射 ---------- */
+    mirror: {
+      title: '镜面反射 · 把场景再画一遍',
+      hint: '拖动旋转 · 滚轮缩放 · 看倒影跟着动',
+      note: '镜子不是「画」出来的，是把场景再渲染一遍：Reflector 内部放了一台关于镜面对称的虚拟相机，用一个斜裁剪面把镜子以下的部分切掉，把镜像渲染进一张纹理，再按屏幕坐标贴回平面。所以物体一动，倒影真的跟着动。反射分辨率在构造时就定死了，想换清晰度只能重建——这也是它最容易被忽略的性能开关。',
+      code: `const mirror = new Reflector(
+  new THREE.PlaneGeometry(64, 64),
+  { textureWidth: 1024, textureHeight: 1024, color: 0x8fb4ff }
+);
+mirror.rotateX(-Math.PI / 2);
+scene.add(mirror);
+
+// 内部每帧做的事（简化）
+// 1) 反射相机 = 主相机按镜面做镜像
+// 2) 斜裁剪平面切掉镜面以下
+// 3) 渲染进 renderTarget
+// 4) 用 textureMatrix 反算屏幕 UV，贴回平面
+
+// 换清晰度：贴图尺寸绑死在构造参数里，只能重建
+mirror.geometry.dispose();
+mirror.getRenderTarget().dispose();`,
+      controls: [
+        { type: 'range', label: '镜面亮度', min: 0.2, max: 1.6, step: 0.1, value: 1 },
+        { type: 'toggle', label: '低清反射', value: false },
+        { type: 'toggle', label: '展品旋转', value: true },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x070a14, 46, 130);
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 300);
+
+        scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x0a1020, 1.15));
+        const key = new THREE.DirectionalLight(0xffffff, 1.9);
+        key.position.set(11, 20, 9);
+        scene.add(key);
+        const rim = new THREE.PointLight(0xb98bff, 70, 70);
+        rim.position.set(-11, 7, -9);
+        scene.add(rim);
+
+        let bright = 1;
+        let mirror = null;
+
+        function buildMirror(low) {
+          if (mirror) {
+            scene.remove(mirror);
+            mirror.geometry.dispose();
+            mirror.material.dispose();
+            mirror.getRenderTarget().dispose();
+          }
+          const size = low ? 256 : 1024;
+          mirror = new Reflector(new THREE.PlaneGeometry(64, 64), {
+            clipBias: 0.002,
+            textureWidth: size,
+            textureHeight: size,
+            color: 0x8fb4ff,
+          });
+          mirror.rotateX(-Math.PI / 2);
+          mirror.position.y = 0;
+          scene.add(mirror);
+          tint();
+        }
+
+        function tint() {
+          // color 是反射结果的 tint，乘一下就是整体亮度
+          mirror.material.uniforms.color.value.setRGB(0.62, 0.76, 1).multiplyScalar(bright);
+        }
+        buildMirror(false);
+
+        // 展厅
+        const group = new THREE.Group();
+        scene.add(group);
+
+        const palette = [0x7c9dff, 0x22d3ee, 0xb98bff, 0xe879f9, 0x9fe8ff];
+        const makers = [
+          () => new THREE.TorusKnotGeometry(0.92, 0.29, 128, 18),
+          () => new THREE.IcosahedronGeometry(1.12, 0),
+          () => new THREE.BoxGeometry(1.55, 1.55, 1.55),
+          () => new THREE.OctahedronGeometry(1.22, 0),
+          () => new THREE.ConeGeometry(0.98, 1.85, 6),
+        ];
+
+        const items = makers.map((make, i) => {
+          const a = (i / makers.length) * Math.PI * 2;
+          const mesh = new THREE.Mesh(
+            make(),
+            new THREE.MeshStandardMaterial({
+              color: palette[i],
+              metalness: 0.55,
+              roughness: 0.26,
+              flatShading: i === 1,
+              emissive: new THREE.Color(palette[i]).multiplyScalar(0.14),
+            })
+          );
+          const y = 3.1 + (i % 2) * 1.5;
+          mesh.position.set(Math.cos(a) * 4.8, y, Math.sin(a) * 4.8);
+          mesh.userData.baseY = y;
+          group.add(mesh);
+          return mesh;
+        });
+
+        // 一圈矮桩，倒影里最容易看清「真的在反射」
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const post = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.09, 0.09, 1.1, 8),
+            new THREE.MeshBasicMaterial({ color: i % 2 ? 0x22d3ee : 0x7c9dff })
+          );
+          post.position.set(Math.cos(a) * 8.6, 0.55, Math.sin(a) * 8.6);
+          group.add(post);
+        }
+
+        const orb = makeOrbit(camera, stageEl, { radius: 20, phi: 1.18, theta: 0.55, min: 9, max: 46 });
+        let spin = true;
+
+        return {
+          scene,
+          camera,
+          api: {
+            bright(v) { bright = Number(v); tint(); },
+            lowRes(on) { buildMirror(!!on); },
+            spin(on) { spin = !!on; },
+          },
+          update(dt, t) {
+            orb.update();
+            if (spin) group.rotation.y += dt * 0.22;
+            items.forEach((m, i) => {
+              m.rotation.y += dt * (0.35 + i * 0.12);
+              m.position.y = m.userData.baseY + Math.sin(t * 1.1 + i * 1.7) * 0.32;
+            });
+          },
+          dispose() {
+            orb.dispose();
+            mirror.getRenderTarget().dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 8 描边发光 ---------- */
+    outline: {
+      title: '描边发光 · 后期处理链',
+      hint: '鼠标掠过物体选中 · 拖动旋转 · 滚轮缩放',
+      note: '描边不是给物体套第二层壳，而是在后期合成阶段单独处理：RenderPass 先出正常画面，OutlinePass 把选中物体的遮罩做多次模糊扩张得到边缘，再以加法混回画面。所以粗细、亮度、外发光都是浮点数，随时可调；代价是多几张全屏纹理，物体越多越吃带宽。鼠标掠过时的选中靠 Raycaster 反查。',
+      code: `const composer = new EffectComposer(renderer);
+composer.setSize(w, h);
+composer.addPass(new RenderPass(scene, camera));
+
+const outline = new OutlinePass(
+  new THREE.Vector2(w, h), scene, camera
+);
+outline.edgeStrength  = 2.4;   // 亮度
+outline.edgeGlow      = 0.7;   // 外发光扩散
+outline.edgeThickness = 1.6;   // 粗细
+outline.visibleEdgeColor.set(0x7c9dff);
+composer.addPass(outline);
+
+// 每帧
+composer.render();
+// 选中谁就塞谁
+outline.selectedObjects = [hoveredMesh];`,
+      controls: [
+        { type: 'range', label: '描边粗细', min: 0.5, max: 6, step: 0.1, value: 1.6 },
+        { type: 'range', label: '发光强度', min: 0.2, max: 6, step: 0.1, value: 2.4 },
+        { type: 'toggle', label: '全部描边', value: false },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x070a14);
+        const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 200);
+
+        scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x0a1020, 1.3));
+        const key = new THREE.DirectionalLight(0xffffff, 1.7);
+        key.position.set(8, 14, 10);
+        scene.add(key);
+
+        const palette = [0x7c9dff, 0x22d3ee, 0xb98bff, 0xe879f9, 0x9fe8ff, 0xffd479];
+        const makers = [
+          () => new THREE.TorusKnotGeometry(0.72, 0.24, 110, 14),
+          () => new THREE.BoxGeometry(1.35, 1.35, 1.35),
+          () => new THREE.IcosahedronGeometry(0.95, 0),
+          () => new THREE.TorusGeometry(0.9, 0.3, 16, 44),
+          () => new THREE.OctahedronGeometry(1.05, 0),
+          () => new THREE.ConeGeometry(0.9, 1.6, 5),
+        ];
+
+        const items = makers.map((make, i) => {
+          const col = i % 3;
+          const row = Math.floor(i / 3);
+          const mesh = new THREE.Mesh(
+            make(),
+            new THREE.MeshStandardMaterial({
+              color: palette[i],
+              metalness: 0.4,
+              roughness: 0.38,
+              flatShading: i === 2 || i === 5,
+            })
+          );
+          mesh.position.set((col - 1) * 3.6, 1.1 - row * 3.1, 0);
+          scene.add(mesh);
+          return mesh;
+        });
+
+        const composer = new EffectComposer(renderer);
+        composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        composer.setSize(width, height);
+        composer.addPass(new RenderPass(scene, camera));
+
+        const outlinePass = new OutlinePass(new THREE.Vector2(width, height), scene, camera);
+        outlinePass.edgeStrength = 2.4;
+        outlinePass.edgeGlow = 0.7;
+        outlinePass.edgeThickness = 1.6;
+        outlinePass.pulsePeriod = 0;
+        outlinePass.visibleEdgeColor.set(0x9fc0ff);
+        outlinePass.hiddenEdgeColor.set(0x2c3f7a);
+        composer.addPass(outlinePass);
+
+        const ray = new THREE.Raycaster();
+        const ndc = new THREE.Vector2();
+        let hovered = null;
+        let allOn = false;
+
+        function apply() {
+          outlinePass.selectedObjects = allOn ? items.slice() : (hovered ? [hovered] : []);
+        }
+
+        const onMove = (e) => {
+          const r = stageEl.getBoundingClientRect();
+          ndc.set(
+            ((e.clientX - r.left) / r.width) * 2 - 1,
+            -((e.clientY - r.top) / r.height) * 2 + 1
+          );
+          ray.setFromCamera(ndc, camera);
+          const hit = ray.intersectObjects(items, false)[0];
+          hovered = hit ? hit.object : null;
+          apply();
+        };
+        const onLeave = () => { hovered = null; apply(); };
+        stageEl.addEventListener('pointermove', onMove);
+        stageEl.addEventListener('pointerleave', onLeave);
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 15, phi: 1.4, theta: 0, min: 8, max: 34,
+          target: new THREE.Vector3(0, -0.4, 0),
+        });
+
+        return {
+          scene,
+          camera,
+          api: {
+            edgeThickness(v) { outlinePass.edgeThickness = Number(v); },
+            edgeStrength(v) { outlinePass.edgeStrength = Number(v); },
+            allOutlines(on) { allOn = !!on; apply(); },
+          },
+          resize(nw, nh) {
+            composer.setSize(nw, nh);
+            outlinePass.setSize(nw, nh);
+          },
+          render() {
+            composer.render();
+          },
+          update(dt, t) {
+            orb.update();
+            items.forEach((m, i) => {
+              m.rotation.y += dt * (0.4 + i * 0.08);
+              m.rotation.x = Math.sin(t * 0.5 + i) * 0.2;
+            });
+          },
+          dispose() {
+            stageEl.removeEventListener('pointermove', onMove);
+            stageEl.removeEventListener('pointerleave', onLeave);
+            outlinePass.dispose();
+            composer.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 9 合批城堡 ---------- */
+    castle: {
+      title: '合批城堡 · 一千个盒子只用 4 次绘制',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '结构参考《无限城》：井道四周层层叠楼、上下镜像、L 型连廊。真正要看的不是造型，是提交方式——每块墙体、屋顶、灯窗、连廊都不建 Mesh，只往四个收集器里塞一个 <code>applyMatrix4</code> 过的几何体，最后按材质合并。点「单独 Mesh 对比」切回一物一 Mesh，右上角 draw call 会从 4 跳到四位数。两个工具已封装：<code>lib/rng.js</code>（确定性随机，同一 seed 同一座城）和 <code>lib/batch.js</code>（<code>GeometryBatch</code>，攒几何体到合并只三行）。',
+      code: `// 1. 攒，不建：几何体先摆到位，进按材质分的数组
+function push(list, geo, x, y, z, ry) {
+  const g = geo.clone();
+  g.applyMatrix4(
+    new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z)
+  );
+  list.push(g);
+}
+
+// 2. 确定性随机：Park–Miller LCG
+seed = (seed * 16807) % 2147483647;
+const rnd = seed / 2147483647;
+
+// 3. 合并：一个材质一次 draw call
+const big = mergeGeometries(walls, false);
+scene.add(new THREE.Mesh(big, wallMat));`,
+      controls: [
+        { type: 'range', label: '建筑数', min: 60, max: 600, step: 20, value: 300 },
+        { type: 'toggle', label: '单独 Mesh 对比', value: false },
+        { type: 'button', label: '换一座城' },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x05070f);
+        scene.fog = new THREE.FogExp2(0x05070f, 0.0095);
+
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.5, 400);
+        camera.position.set(44, 30, 52);
+
+        scene.add(new THREE.HemisphereLight(0x93a9ff, 0x1a0d14, 1.35));
+        const keyLight = new THREE.DirectionalLight(0xffd9b0, 1.6);
+        keyLight.position.set(28, 46, 18);
+        scene.add(keyLight);
+        const coreLight = new THREE.PointLight(0xff6a3d, 320, 220, 2);
+        coreLight.position.set(0, 0, 0);
+        scene.add(coreLight);
+
+        const mats = {
+          wall: new THREE.MeshStandardMaterial({ color: 0x2a2434, roughness: 0.82, metalness: 0.08 }),
+          roof: new THREE.MeshStandardMaterial({ color: 0x6e2c2c, roughness: 0.62, metalness: 0.12 }),
+          win: new THREE.MeshStandardMaterial({
+            color: 0xffc37a, emissive: 0xff7b33, emissiveIntensity: 2.4, roughness: 0.4,
+          }),
+          bridge: new THREE.MeshStandardMaterial({ color: 0x3b3247, roughness: 0.9 }),
+        };
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        // 两个封装好的工具：确定性随机（lib/rng.js）+ 几何合批（lib/batch.js）
+        const rng = createRng(20261112);
+        const rnd = () => rng.next();
+        const between = (a, b) => rng.range(a, b);
+
+
+        let count = 300;
+        let merged = true;
+
+        function build() {
+          while (group.children.length) {
+            const c = group.children.pop();
+            group.remove(c);
+            if (c.geometry) c.geometry.dispose();
+          }
+
+          const walls = new GeometryBatch();
+          const roofs = new GeometryBatch();
+          const wins = new GeometryBatch();
+          const bridges = new GeometryBatch();
+
+          const R = 16;                 // 井道半宽
+          const levels = 14;            // 层数（上下镜像，共 28 层视线）
+          const perSide = Math.max(2, Math.round(count / 4 / levels));
+          const span = R * 2;
+
+          for (let L = 0; L < levels; L++) {
+            const y = -15 + (L / (levels - 1)) * 30;
+
+            for (let s = 0; s < 4; s++) {
+              const ang = (s * Math.PI) / 2;
+              const nx = Math.sin(ang);
+              const nz = Math.cos(ang);
+
+              for (let k = 0; k < perSide; k++) {
+                const along = -span / 2 + ((k + 0.5) * span) / perSide + between(-0.45, 0.45);
+                const w = between(2.4, 4.6);
+                const h = between(2.2, 7.2);
+                const d = between(1.8, 3.4);
+                const out = between(0.5, 2.6);
+
+                const px = nx * (R + out) + nz * along;
+                const pz = nz * (R + out) - nx * along;
+                const py = y + between(-0.4, 0.4);
+
+                walls.box(w, h, d, px, py, pz, ang);
+                roofs.cone(0.72, between(0.45, 0.75), 4, px, py + h / 2 + 0.36, pz, ang, w * 0.95, d * 0.95);
+
+                const winCount = Math.round(between(1, 3));
+                for (let i = 0; i < winCount; i++) {
+                  const wy = py - h / 2 + ((i + 0.8) * h) / (winCount + 0.6);
+                  wins.box(w * 0.44, h / (winCount + 1.6), 0.14,
+                    px - nx * (d / 2 + 0.07), wy, pz - nz * (d / 2 + 0.07), ang);
+                }
+
+                // L 型连廊：只在每侧末端，连到拐角
+                if (k === perSide - 1 && rnd() < 0.9) {
+                  const cx = nx * R + nz * R;
+                  const cz = nz * R - nx * R;
+                  const arm = R * 0.42;
+                  bridges.box(arm, 0.34, 1.1,
+                    cx - Math.sign(cx) * arm / 2, py, cz, 0);
+                  bridges.box(1.1, 0.34, arm,
+                    cx, py, cz - Math.sign(cz) * arm / 2, 0);
+                }
+              }
+            }
+          }
+
+          const pairs = [
+            [walls, mats.wall],
+            [roofs, mats.roof],
+            [wins, mats.win],
+            [bridges, mats.bridge],
+          ];
+          pairs.forEach(([batch, mat]) => {
+            if (merged) {
+              const mesh = batch.build(mat);
+              if (mesh) group.add(mesh);
+            } else {
+              batch.buildSeparate(mat).forEach((mesh) => group.add(mesh));
+            }
+          });
+        }
+
+        build();
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 72, phi: 1.16, theta: 0.62, min: 24, max: 170,
+          target: new THREE.Vector3(0, 0, 0),
+        });
+
+        // 右上角读数：draw call 是这个 demo 的主角
+        const hud = createHud(stageEl);
+
+        return {
+          scene,
+          camera,
+          api: {
+            count(v) { count = Number(v); build(); },
+            compare(on) { merged = !on; build(); },
+            reseed() { rng.reseed(Math.floor(Math.random() * 2147483000) + 1); build(); },
+          },
+          update(dt) {
+            orb.update();
+            group.rotation.y += dt * 0.055;
+            const info = renderer.info.render;
+            hud.tick(dt,
+              (merged ? '合批' : '单独 Mesh') +
+              ' · draw calls ' + info.calls +
+              ' · 三角形 ' + (info.triangles / 1000).toFixed(1) + 'k');
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 10 四种提交方式 ---------- */
+    submit: {
+      title: '同一画面 · 四种提交方式',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '同样一堆盒子，四个按钮切四种提交方式：<b>一物一 Mesh</b>（每次一批 draw call）、<b>merge 合并</b>（1 次，但合并后不能单独剔除/换材质）、<b>InstancedMesh</b>（1 次，几何必须完全相同）、<b>BatchedMesh</b>（1 次，每实例可不同几何且保留剔除）。画面一模一样，右上角读数差三个数量级——这是 draw call 优化唯一有说服力的证据。',
+      code: `// ① 一物一 Mesh：N 次提交
+for (...) group.add(new THREE.Mesh(geo, mat));
+
+// ② merge：几何体攒起来合并成一个
+const big = mergeGeometries(list, false);
+
+// ③ InstancedMesh：一次画 N 个「相同」几何
+const im = new THREE.InstancedMesh(geo, mat, N);
+im.setMatrixAt(i, matrix);
+
+// ④ BatchedMesh：一次画 N 个「不同」几何，仍保留逐个剔除
+const bm = new THREE.BatchedMesh(N, maxVerts, maxIndex, mat);
+const gid = bm.addGeometry(geo);
+bm.setMatrixAt(bm.addInstance(gid), matrix);`,
+      controls: [
+        { type: 'range', label: '建筑数', min: 200, max: 2400, step: 200, value: 1200 },
+        { type: 'button', label: '单独 Mesh' },
+        { type: 'button', label: 'merge 合并' },
+        { type: 'button', label: 'InstancedMesh' },
+        { type: 'button', label: 'BatchedMesh' },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06080f);
+        scene.fog = new THREE.Fog(0x06080f, 70, 210);
+
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.5, 500);
+        camera.position.set(42, 34, 48);
+
+        scene.add(new THREE.HemisphereLight(0x9fb8ff, 0x0b0f1c, 1.2));
+        const keyLight = new THREE.DirectionalLight(0xffe6c0, 1.5);
+        keyLight.position.set(30, 50, 20);
+        scene.add(keyLight);
+
+        const geo = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x7f92d8, roughness: 0.42, metalness: 0.28, flatShading: true,
+        });
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        let count = 1200;
+        let mode = 'instanced';
+        let label = 'InstancedMesh';
+
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion();
+        const e = new THREE.Euler();
+        const v = new THREE.Vector3();
+        const s = new THREE.Vector3(1, 1, 1);
+
+        const per = () => Math.ceil(Math.sqrt(count));
+        const slot = (i) => {
+          const p = per();
+          const gx = i % p;
+          const gz = Math.floor(i / p);
+          return {
+            x: (gx - p / 2) * 2.1,
+            y: Math.sin(gx * 0.5) * Math.cos(gz * 0.5) * 3.4,
+            z: (gz - p / 2) * 2.1,
+            ry: gx * 0.4 + gz * 0.3,
+          };
+        };
+        const mat4At = (p) => {
+          e.set(0, p.ry, 0);
+          q.setFromEuler(e);
+          v.set(p.x, p.y, p.z);
+          return m.compose(v, q, s);
+        };
+
+        function clearGroup() {
+          while (group.children.length) {
+            const c = group.children.pop();
+            group.remove(c);
+            if (c.isBatchedMesh) c.dispose();
+            else if (c.geometry && c.geometry !== geo) c.geometry.dispose();
+          }
+        }
+
+        function build() {
+          clearGroup();
+
+          if (mode === 'each') {
+            label = '单独 Mesh';
+            for (let i = 0; i < count; i++) {
+              const p = slot(i);
+              const mesh = new THREE.Mesh(geo, mat);
+              mesh.position.set(p.x, p.y, p.z);
+              mesh.rotation.y = p.ry;
+              group.add(mesh);
+            }
+            return;
+          }
+
+          if (mode === 'merge') {
+            label = 'merge 合并';
+            const batch = new GeometryBatch();
+            for (let i = 0; i < count; i++) {
+              const p = slot(i);
+              batch.box(1.4, 1.4, 1.4, p.x, p.y, p.z, p.ry);
+            }
+            const mesh = batch.build(mat);
+            if (mesh) group.add(mesh);
+            return;
+          }
+
+          if (mode === 'instanced') {
+            label = 'InstancedMesh';
+            const inst = new THREE.InstancedMesh(geo, mat, count);
+            for (let i = 0; i < count; i++) inst.setMatrixAt(i, mat4At(slot(i)));
+            inst.instanceMatrix.needsUpdate = true;
+            group.add(inst);
+            return;
+          }
+
+          label = 'BatchedMesh';
+          const bm = new THREE.BatchedMesh(
+            count,
+            count * geo.attributes.position.count,
+            count * geo.index.count,
+            mat
+          );
+          const gid = bm.addGeometry(geo);
+          for (let i = 0; i < count; i++) {
+            bm.setMatrixAt(bm.addInstance(gid), mat4At(slot(i)));
+          }
+          group.add(bm);
+        }
+
+        build();
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 78, phi: 1.1, theta: 0.66, min: 20, max: 210,
+          target: new THREE.Vector3(0, 0, 0),
+        });
+        const hud = createHud(stageEl);
+
+        return {
+          scene,
+          camera,
+          api: {
+            count(val) { count = Number(val); build(); },
+            each() { mode = 'each'; build(); },
+            merge() { mode = 'merge'; build(); },
+            instanced() { mode = 'instanced'; build(); },
+            batched() { mode = 'batched'; build(); },
+          },
+          update(dt) {
+            orb.update();
+            group.rotation.y += dt * 0.05;
+            const info = renderer.info.render;
+            hud.tick(dt, `${label} · draw calls ${info.calls} · 三角形 ${(info.triangles / 1000).toFixed(1)}k`);
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 11 LOD 分级 ---------- */
+    lod: {
+      title: 'LOD · 远处自动降面',
+      hint: '拖动旋转 · 滚轮缩放（拉远看三角形数掉下来）',
+      note: '一排物体沿纵深摆开，每个挂三级模型：近处高模（Icosahedron 细分 3）、中距中模（细分 1）、远处低模（细分 0），<code>THREE.LOD</code> 按相机距离自动换。右上角实时统计高/中/低各几个、三角形总数——拉远看它掉，点「关闭 LOD」全部用高模，三角形数直接翻十倍。',
+      code: `const lod = new THREE.LOD();
+lod.addLevel(highMesh, 0);    // 0 米起：高模
+lod.addLevel(midMesh, 38);    // 38 米起：中模
+lod.addLevel(lowMesh, 82);    // 82 米起：低模
+scene.add(lod);
+
+// 每帧：LOD 自己算距离换层级，不用你管
+// 想读当前层级：lod.getCurrentLevel()`,
+      controls: [
+        { type: 'range', label: '物体数', min: 8, max: 40, step: 4, value: 24 },
+        { type: 'toggle', label: '关闭 LOD', value: false },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06080f);
+        scene.fog = new THREE.Fog(0x06080f, 120, 300);
+
+        const camera = new THREE.PerspectiveCamera(50, width / height, 0.5, 600);
+        camera.position.set(30, 26, 40);
+
+        scene.add(new THREE.HemisphereLight(0x9fb8ff, 0x0b0f1c, 1.25));
+        const keyLight = new THREE.DirectionalLight(0xffe0b8, 1.6);
+        keyLight.position.set(24, 40, 16);
+        scene.add(keyLight);
+        const rim = new THREE.PointLight(0x7c9dff, 200, 160, 2);
+        rim.position.set(-20, 10, -40);
+        scene.add(rim);
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x8aa0e8, roughness: 0.35, metalness: 0.3, flatShading: true,
+        });
+        const geos = [
+          new THREE.IcosahedronGeometry(2.2, 3),
+          new THREE.IcosahedronGeometry(2.2, 1),
+          new THREE.IcosahedronGeometry(2.2, 0),
+        ];
+
+        const group = new THREE.Group();
+        scene.add(group);
+
+        let count = 24;
+        let lodOff = false;
+        let levels = [0, 0, 0];
+
+        function clearGroup() {
+          while (group.children.length) {
+            const c = group.children.pop();
+            group.remove(c);
+          }
+        }
+
+        function build() {
+          clearGroup();
+          for (let i = 0; i < count; i++) {
+            const z = -10 - i * 6;
+            const x = Math.sin(i * 0.9) * 10;
+            const y = Math.cos(i * 0.6) * 3;
+
+            if (lodOff) {
+              const mesh = new THREE.Mesh(geos[0], mat);
+              mesh.position.set(x, y, z);
+              group.add(mesh);
+              continue;
+            }
+
+            const lod = new THREE.LOD();
+            lod.position.set(x, y, z);
+            geos.forEach((g, k) => lod.addLevel(new THREE.Mesh(g, mat), [0, 38, 82][k]));
+            group.add(lod);
+          }
+        }
+
+        build();
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 62, phi: 1.08, theta: 0.5, min: 20, max: 240,
+          target: new THREE.Vector3(0, 0, -70),
+        });
+        const hud = createHud(stageEl);
+
+        return {
+          scene,
+          camera,
+          api: {
+            count(val) { count = Number(val); build(); },
+            off(on) { lodOff = !!on; build(); },
+          },
+          update(dt) {
+            orb.update();
+            levels = [0, 0, 0];
+            group.children.forEach((c) => {
+              if (c.isLOD) {
+                const l = c.getCurrentLevel();
+                if (l >= 0) levels[l] += 1;
+              }
+            });
+            const info = renderer.info.render;
+            hud.tick(
+              dt,
+              (lodOff ? 'LOD 关闭' : `高 ${levels[0]} · 中 ${levels[1]} · 低 ${levels[2]}`) +
+                ` · 三角形 ${(info.triangles / 1000).toFixed(1)}k`
+            );
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 12 十万粒子 ---------- */
+    points: {
+      title: '十万粒子 · 一个 draw call',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '十万个点全放进一个 <code>BufferGeometry</code>，一个 <code>Points</code> 一次画完——如果每个粒子建一个 Mesh，就是十万次 draw call，必卡死。颜色按高度写进顶点属性；漂移写在顶点着色器里，CPU 每帧只改一个 <code>uTime</code>，不碰 30 万个 float。透明粒子要 <code>depthWrite:false</code>，否则会互相遮挡出黑边。',
+      code: `const pos = new Float32Array(N * 3);
+const col = new Float32Array(N * 3);
+// ...只上传一次
+geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+geometry.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+
+new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uSize: { value: 26 } },
+  vertexShader, fragmentShader,
+  transparent: true,
+  depthWrite: false,               // 关掉深度写入，避免粒子互遮挡
+  blending: THREE.AdditiveBlending,
+});
+
+// 每帧只改这一个数，漂移在 GPU 里算
+material.uniforms.uTime.value = t;`,
+      controls: [
+        { type: 'range', label: '粒子数', min: 10000, max: 200000, step: 10000, value: 100000 },
+        { type: 'range', label: '粒子大小', min: 8, max: 60, step: 2, value: 12 },
+        { type: 'range', label: '漂移速度', min: 0, max: 2, step: 0.1, value: 1 },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x04060d);
+        scene.fog = new THREE.FogExp2(0x04060d, 0.004);
+
+        const camera = new THREE.PerspectiveCamera(52, width / height, 0.5, 800);
+        camera.position.set(58, 34, 62);
+
+        const material = new THREE.ShaderMaterial({
+          uniforms: {
+            uTime: { value: 0 },
+            uSize: { value: 12 },
+            uSpeed: { value: 1 },
+          },
+          vertexShader: `
+            uniform float uTime;
+            uniform float uSize;
+            uniform float uSpeed;
+            attribute vec3 aColor;
+            attribute float aSeed;
+            varying vec3 vColor;
+            varying float vFade;
+            void main() {
+              vColor = aColor;
+              vec3 p = position;
+              float t = uTime * uSpeed;
+              p.y += sin(t * 0.6 + aSeed * 6.283) * 3.2;
+              p.x += cos(t * 0.43 + aSeed * 12.566) * 2.6;
+              p.z += sin(t * 0.31 + aSeed * 9.42) * 2.6;
+
+              vec4 mv = modelViewMatrix * vec4(p, 1.0);
+              gl_Position = projectionMatrix * mv;
+              gl_PointSize = uSize * 22.0 / max(1.0, -mv.z);
+              vFade = clamp(1.0 - (-mv.z - 40.0) / 260.0, 0.15, 1.0);
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vColor;
+            varying float vFade;
+            void main() {
+              vec2 d = gl_PointCoord - 0.5;
+              float a = smoothstep(0.5, 0.05, length(d));
+              if (a <= 0.01) discard;
+              gl_FragColor = vec4(vColor * vFade, a * 0.45);
+            }
+          `,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+
+        let count = 100000;
+        const group = new THREE.Group();
+        scene.add(group);
+        let cloud = null;
+
+        function build() {
+          if (cloud) {
+            group.remove(cloud);
+            cloud.geometry.dispose();
+          }
+          const pos = new Float32Array(count * 3);
+          const col = new Float32Array(count * 3);
+          const seeds = new Float32Array(count);
+          const rng = createRng(20261112);
+          const c = new THREE.Color();
+          const inner = new THREE.Color(0xff8a3c);
+          const outer = new THREE.Color(0x6f8dff);
+
+          for (let i = 0; i < count; i++) {
+            // 球壳内随机分布，靠近球心更密
+            const u = rng.next();
+            const r = 22 + Math.pow(u, 0.65) * 40;
+            const theta = rng.range(0, Math.PI * 2);
+            const phi = Math.acos(rng.range(-1, 1));
+            pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            pos[i * 3 + 1] = r * Math.cos(phi) * 0.62;
+            pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+            const k = THREE.MathUtils.clamp((r - 22) / 40, 0, 1);
+            c.copy(inner).lerp(outer, k);
+            const jitter = rng.range(0.5, 0.9);
+            col[i * 3] = c.r * jitter;
+            col[i * 3 + 1] = c.g * jitter;
+            col[i * 3 + 2] = c.b * jitter;
+            seeds[i] = rng.next();
+          }
+
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          geo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+          geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+          geo.computeBoundingSphere();
+
+          cloud = new THREE.Points(geo, material);
+          group.add(cloud);
+        }
+
+        build();
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 86, phi: 1.14, theta: 0.7, min: 30, max: 220,
+          target: new THREE.Vector3(0, 0, 0),
+        });
+        const hud = createHud(stageEl);
+
+        return {
+          scene,
+          camera,
+          api: {
+            count(val) { count = Number(val); build(); },
+            size(val) { material.uniforms.uSize.value = Number(val); },
+            speed(val) { material.uniforms.uSpeed.value = Number(val); },
+          },
+          update(dt, t) {
+            orb.update();
+            material.uniforms.uTime.value = t;
+            group.rotation.y += dt * 0.06;
+            hud.tick(
+              dt,
+              `粒子 ${count.toLocaleString()} · draw calls ${renderer.info.render.calls}`
+            );
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            material.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 13 GLTF 骨骼动画 ---------- */
+    gltf: {
+      title: 'GLTF 骨骼动画 · 加载 → 切动作 → 骨架读数',
+      hint: '拖动旋转 · 滚轮缩放',
+      note: '模型的顶点跟着骨架（Skeleton）走，蒙皮（SkinnedMesh）负责把每根骨头的影响权重烘焙进顶点；播放则是 <code>AnimationMixer</code> 驱动关键帧轨道——一个模型 N 个动作就是 N 个 <code>AnimationClip</code>，切动作用 <code>fadeOut/fadeIn</code> 交叉过渡，不生切。注意 init 必须同步返回：GLTF 是异步加载的，先空场景进循环，模型到位后自己长出来。模型为 three.js 官方示例 RobotExpressive（MIT 许可，464KB）；资产入库规则：来源 + 许可证缺一个不入。',
+      code: `const mixer = new THREE.AnimationMixer(gltf.scene);
+gltf.animations.forEach(clip => {
+  actions[clip.name] = mixer.clipAction(clip);  // 一个动作一个 Action
+});
+actions['Idle'].play();
+
+// 切动作不生切：交叉淡入淡出 0.2s
+actions['Walking'].reset().fadeIn(0.2).play();
+actions['Idle'].fadeOut(0.2);
+
+// 骨架读数
+model.traverse(o => {
+  if (o.isSkinnedMesh) bones = o.skeleton.bones.length;
+});`,
+      controls: [
+        { type: 'button', label: '上一个动作' },
+        { type: 'button', label: '下一个动作' },
+        { type: 'toggle', label: '播放', value: true },
+        { type: 'range', label: '播放速度', min: 0.2, max: 2, step: 0.1, value: 1 },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x04060d);
+
+        const ground = new THREE.Mesh(
+          new THREE.CircleGeometry(14, 48),
+          new THREE.MeshStandardMaterial({ color: 0x131c30, roughness: 1 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        const key = new THREE.DirectionalLight(0xffffff, 2.2);
+        key.position.set(6, 10, 8);
+        scene.add(key);
+        const rim = new THREE.DirectionalLight(0x66aaff, 1.2);
+        rim.position.set(-8, 4, -6);
+        scene.add(rim);
+        scene.add(new THREE.HemisphereLight(0x9db8ff, 0x141821, 0.8));
+
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
+        camera.position.set(6, 4.2, 9);
+
+        const orb = makeOrbit(camera, stageEl, {
+          radius: 11, phi: 1.25, theta: 0.5, min: 3, max: 40,
+          target: new THREE.Vector3(0, 1.6, 0),
+        });
+
+        const hud = createHud(stageEl);
+
+        // init 必须同步返回：GLTF 异步加载，先空场景进循环，到位后自动长出来
+        let mixer = null;
+        let actions = {};
+        let names = [];
+        let idx = 0;
+        let playing = true;
+        let speed = 1;
+        let stats = '';
+
+        const switchTo = (i) => {
+          actions[names[idx]].fadeOut(0.2);
+          idx = (i + names.length) % names.length;
+          actions[names[idx]].reset().fadeIn(0.2).play();
+        };
+
+        new GLTFLoader().load(
+          './vendor/models/RobotExpressive.glb',
+          (gltf) => {
+            const model = gltf.scene;
+            scene.add(model);
+            mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach((clip) => {
+              actions[clip.name] = mixer.clipAction(clip);
+            });
+            names = Object.keys(actions);
+            idx = Math.max(0, names.indexOf('Idle'));
+            actions[names[idx]].play();
+
+            let bones = 0;
+            let tris = 0;
+            model.traverse((o) => {
+              if (o.isSkinnedMesh) bones = Math.max(bones, o.skeleton.bones.length);
+              if (o.isMesh) {
+                tris += o.geometry.index
+                  ? o.geometry.index.count / 3
+                  : o.geometry.attributes.position.count / 3;
+              }
+            });
+            stats = `动作 ${names.length} 个 · 骨骼 ${bones} · 三角形 ${Math.round(tris)}`;
+          },
+          undefined,
+          (err) => {
+            stats = '模型加载失败';
+            console.error(err);
+          }
+        );
+
+        return {
+          scene,
+          camera,
+          api: {
+            prev() { if (names.length) switchTo(idx - 1); },
+            next() { if (names.length) switchTo(idx + 1); },
+            play(on) {
+              playing = on;
+              if (mixer) mixer.timeScale = on ? speed : 0;
+            },
+            speed(v) {
+              speed = Number(v);
+              if (mixer && playing) mixer.timeScale = speed;
+            },
+          },
+          update(dt) {
+            orb.update();
+            if (mixer && playing) mixer.update(dt);
+            hud.tick(dt, stats ? `${stats} · draw calls ${renderer.info.render.calls}` : '模型加载中…');
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+
+    /* ---------- 15 视锥剔除 ---------- */
+    frustum: {
+      title: '视锥剔除 · 框外的不画',
+      hint: '拖动旋转 · 开关剔除对比 draw calls · 「换个视角」移观察相机',
+      note: '每帧渲染前，GPU 判断每个物体的包围球是否在视锥体（6 个平面围出的截头金字塔）内：全在外面直接跳过，不进渲染队列——这就是 three 默认开启的 <code>frustumCulled</code>。画面里那把彩色线框是「观察相机」的视锥（<code>CameraHelper</code>），这里为了和画面里的框对齐，直接按它的视锥手动控制 <code>visible</code>——和内置剔除同一套数学。关掉剔除看 draw calls 从一百多涨到三百：物体越多、场景越大，这个开关越是生死线。判定用包围球而不是包围盒：球对 6 个平面各做一次点积就够，且不随物体旋转变大。',
+      code: `// three 默认开着，每个 mesh 一颗包围球
+mesh.frustumCulled = true;
+
+// 底层就是这套：视锥体 6 平面 vs 包围球
+const frustum = new THREE.Frustum();
+const m = new THREE.Matrix4()
+  .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+frustum.setFromProjectionMatrix(m);
+
+frustum.intersectsObject(mesh); // false → 整个对象跳过
+// 全部 6 个平面外才剔除，部分相交照画
+mesh.visible = frustum.intersectsObject(mesh); // 手动版：效果等价
+
+// 旁边这把彩色线框就是视锥本尊
+scene.add(new THREE.CameraHelper(viewCamera));`,
+      controls: [
+        { type: 'toggle', label: '剔除', value: true },
+        { type: 'toggle', label: '显示视锥', value: true },
+        { type: 'button', label: '换个视角' },
+        { type: 'range', label: '房子数', min: 100, max: 500, step: 100, value: 300 },
+      ],
+      init() {
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06080f);
+        scene.fog = new THREE.Fog(0x06080f, 150, 420);
+
+        const camera = new THREE.PerspectiveCamera(50, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.5, 800);
+        camera.position.set(70, 55, 90);
+
+        scene.add(new THREE.HemisphereLight(0x9fb8ff, 0x0b0f1c, 1.2));
+        const sun = new THREE.DirectionalLight(0xffe0b8, 1.5);
+        sun.position.set(40, 70, 30);
+        scene.add(sun);
+
+        const rng = createRng(20260411);
+        const group = new THREE.Group();
+        scene.add(group);
+
+        // 观察相机：它的视锥就是要可视化的「框」
+        const viewCam = new THREE.PerspectiveCamera(46, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 8, 160);
+        const helper = new THREE.CameraHelper(viewCam);
+        scene.add(helper);
+
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(500, 500),
+          new THREE.MeshStandardMaterial({ color: 0x101a30, roughness: 1 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -2.2;
+        scene.add(ground);
+
+        const geo = new THREE.BoxGeometry(1, 1, 1);
+        let boxes = [];
+        let culling = true;
+
+        function placeViewCam() {
+          // 随机在场地边缘找位置，看向场地中央
+          const a = rng.range(0, Math.PI * 2);
+          const r = rng.range(45, 75);
+          viewCam.position.set(Math.sin(a) * r, rng.range(14, 30), Math.cos(a) * r);
+          viewCam.lookAt(rng.range(-15, 15), 0, rng.range(-15, 15));
+          viewCam.updateMatrixWorld(true);
+          helper.update();
+        }
+
+        function build(n) {
+          while (group.children.length) group.remove(group.children[0]);
+          boxes = [];
+          for (let i = 0; i < n; i++) {
+            const h = rng.range(2, 14);
+            const m = new THREE.MeshStandardMaterial({
+              color: new THREE.Color().setHSL(rng.range(0.5, 0.75), rng.range(0.3, 0.7), rng.range(0.4, 0.7)),
+              roughness: 0.7,
+            });
+            const mesh = new THREE.Mesh(geo, m);
+            mesh.scale.set(rng.range(2, 6), h, rng.range(2, 6));
+            mesh.position.set(rng.range(-90, 90), h / 2 - 2.2, rng.range(-90, 90));
+            mesh.rotation.y = rng.range(0, Math.PI);
+            group.add(mesh);
+            boxes.push(mesh);
+          }
+        }
+
+        build(300);
+        placeViewCam();
+
+        const orb = makeOrbit(camera, stageEl, { radius: 120, phi: 1.05, theta: 0.8, min: 40, max: 320 });
+        const hud = createHud(stageEl);
+
+        const frustum = new THREE.Frustum();
+        const m4 = new THREE.Matrix4();
+
+        return {
+          scene,
+          camera,
+          api: {
+            cull(on) {
+              culling = !!on;
+              boxes.forEach((b) => { b.frustumCulled = culling; });
+            },
+            helperOn(on) { helper.visible = !!on; },
+            relocate() { placeViewCam(); },
+            count(val) { build(Number(val)); },
+          },
+          update(dt) {
+            orb.update();
+            // 按观察相机的视锥手动控制可见性：和 three 内置剔除同一套数学
+            // （内置 frustumCulled 按渲染相机算，这里为了和画面里的「框」对齐，
+            //   直接用观察相机的视锥决定 visible，效果等价于用它当渲染相机）
+            m4.multiplyMatrices(viewCam.projectionMatrix, viewCam.matrixWorldInverse);
+            frustum.setFromProjectionMatrix(m4);
+            let vis = 0;
+            boxes.forEach((b) => {
+              const inView = frustum.intersectsObject(b);
+              b.visible = !culling || inView;
+              if (inView) vis += 1;
+            });
+            const calls = renderer.info.render.calls;
+            hud.tick(
+              dt,
+              `视锥内 ${vis} / ${boxes.length} · draw calls ${calls}` +
+                (culling ? '' : '（剔除已关，全部硬画）')
+            );
+          },
+          dispose() {
+            hud.dispose();
+            orb.dispose();
+            disposeObj(scene);
+          },
+        };
+      },
+    },
+  };
+
+  /* ---------- 16 WebGPU 实验 ---------- */
+  DEMOS.webgpu = {
+    title: 'WebGPU 实验 · WebGPURenderer + TSL 节点材质',
+    hint: '首次加载从 CDN 拉 three.webgpu.min.js（约 1.4MB）· 读数条显示实际后端',
+    note: 'WebGPU 路线的最小验证：同一个 API 口径，WebGPU 后端可用就用 WebGPU，不可用自动回退 WebGL2——读数条会告诉你当前跑在哪条后端上。材质用 <code>TSL 节点</code> 写：<code>colorNode</code> 是一棵节点树（UV 渐变 + time 脉冲），不再是字符串 GLSL。为什么值得跟进：这是「merge → InstancedMesh → BatchedMesh → Meshlet」那条演进线的下一级，r187 的 Meshlet 管线、渐进 GI 都铺在 WebGPURenderer 上（源料见 <code>kb/three-r187-webgpu.md</code>）。注意：无头验证环境只能验证 WebGL2 回退路径，WebGPU 后端要真机浏览器看。',
+    code: `// 一行换渲染器，API 不变
+const renderer = new THREE.WebGPURenderer({ canvas, antialias: true });
+await renderer.init();   // 异步：此时决定用 WebGPU 还是回退 WebGL2
+renderer.backend.isWebGPUBackend  // 当前后端读数
+
+// TSL 节点材质：颜色是一棵节点树，不再是字符串 GLSL
+mat.colorNode = Fn(() => {
+  const grad = mix(vec3(0.1, 0.3, 0.6), vec3(0.9, 0.5, 0.2), uv().y);
+  return grad.add(sin(time().mul(3)).mul(0.08));  // 时间脉冲
+})();  // r169 及以前时间节点叫 timerLocal，r171 起改名 time
+
+// 演进线：merge → InstancedMesh → BatchedMesh → Meshlet 管线`,
+    controls: [
+      { type: 'toggle', label: '自动旋转', value: true },
+      { type: 'range', label: '色相', min: 0, max: 100, step: 5, value: 55 },
+    ],
+    init() {
+      const T = THREE;
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;';
+      stageEl.appendChild(canvas);
+      const hud = createHud(stageEl);
+
+      const camera = new T.PerspectiveCamera(50, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 100);
+      const orb = makeOrbit(camera, canvas, { radius: 6, phi: 1.15, theta: 0.6, min: 3, max: 20 });
+
+        let renderer = null;
+        let scene = null;
+        let knot = null;
+        let hueU1 = null;
+        let hueU2 = null;
+        let backendTxt = 'CDN 模块加载中…';
+        let spinning = true;
+        let hue = 55;
+        let dead = false;
+
+      function buildScene(mod) {
+        scene = new mod.Scene();
+        scene.background = new mod.Color(0x06080f);
+
+        const mat = new mod.MeshStandardNodeMaterial({ roughness: 0.35, metalness: 0.1 });
+        // TSL 节点树：uv 渐变 × 色相滑杆 + time 脉冲
+        // 时间节点版本兼容：r167-169 叫 timerLocal，r171 起改名 time
+        const timeN = mod.time || mod.timerLocal;
+        // 色相走 uniform 节点：滑杆改的是 .value，不用重建节点树
+        hueU1 = mod.uniform(hue / 360);
+        hueU2 = mod.uniform((hue + 40) / 360);
+        mat.colorNode = mod.Fn(() => {
+          const base = mod.mix(
+            mod.vec3(hueU1.mul(0.9), 0.2, 0.55),
+            mod.vec3(hueU2.mul(0.9), 0.85, 0.6),
+            mod.uv().y
+          );
+          return base.add(mod.sin(timeN().mul(3)).mul(0.08));
+        })();
+
+        knot = new mod.Mesh(new mod.TorusKnotGeometry(1.1, 0.34, 160, 24), mat);
+        scene.add(knot);
+
+        scene.add(new mod.AmbientLight(0x5566aa, 0.5));
+        const sun = new mod.DirectionalLight(0xffe2b8, 1.1);
+        sun.position.set(4, 6, 3);
+        scene.add(sun);
+        const rim = new mod.PointLight(0x5fd8c4, 40, 30, 2);
+        rim.position.set(-4, 2, -3);
+        scene.add(rim);
+      }
+
+      async function startBackend(fallbackGL) {
+        const mod = await import('https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.webgpu.min.js');
+        if (dead) return;
+        renderer = new mod.WebGPURenderer({ canvas, antialias: true, forceWebGL: fallbackGL });
+        await renderer.init();
+        if (dead) { renderer.dispose(); return; }
+        buildScene(mod);
+        backendTxt = renderer.backend.isWebGPUBackend ? 'WebGPU 后端' : 'WebGL2 回退';
+        renderer.setSize(stageEl.clientWidth, stageEl.clientHeight, false);
+      }
+
+      // 优先 WebGPU，初始化失败（无适配器/软渲染不支持）回退 WebGL2
+      startBackend(false).catch(() => startBackend(true).catch((err) => {
+        backendTxt = '加载失败：' + (err.message || err).slice(0, 60);
+        console.error(err);
+      }));
+
+      return {
+        api: {
+          rotate(on) { spinning = !!on; },
+          hue(v) {
+            hue = Number(v);
+            if (hueU1) { hueU1.value = hue / 360; hueU2.value = (hue + 40) / 360; }
+          },
+        },
+        // 自渲染接管：本面板用自己的 WebGPURenderer，不走全局渲染器
+        render() {},
+        update(dt) {
+          orb.update();
+          if (knot && spinning) knot.rotation.y += dt * 0.5;
+          if (renderer && scene) {
+            renderer.render(scene, camera);
+          }
+          hud.tick(dt, backendTxt);
+        },
+        resize() {
+          if (renderer) renderer.setSize(stageEl.clientWidth, stageEl.clientHeight, false);
+        },
+        dispose() {
+          dead = true;
+          hud.dispose();
+          orb.dispose();
+          try { renderer?.dispose(); } catch (e) { /* 忽略 */ }
+          if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        },
+      };
+    },
+  };
+
+  /* ---------- 17 HDR 环境光 ---------- */
+  DEMOS.env = {
+    title: 'HDR 环境光 · 程序化 IBL',
+    hint: '开关「环境光」看金属球从死黑变成镜面 · 「背景图」和环境光互不相干',
+    note:
+      'HDR 环境光的本质是 <b>IBL（基于图像的光照）</b>：把一张等距柱状的高动态范围全景图当作光源，先过 <code>PMREMGenerator</code> 预卷积成各粗糙度对应的 mip 链，再按材质粗糙度采样——所以光滑金属反射的是清晰的天光，粗糙表面反射的是糊成一片的平均亮度。<br>这张环境图没有下载任何 .hdr 资产，是<b>用代码算出来的 float 数据</b>（天空梯度 + 两个高亮光斑当太阳）：<code>DataTexture(format:RGBA, type:Float)</code> + <code>EquirectangularReflectionMapping</code> 就能喂给 PMREM。<br>最容易踩的坑在开关上：<code>scene.background</code> 只负责「画一张背景图」，<b>完全不参与照明</b>；要吃到 IBL 必须设 <code>scene.environment</code>。两个开关我故意做成独立的，你可以只开背景不开环境光，看金属球依然一片死黑。',
+    code: `// ① 程序生成等距柱状 float 图（也能换 RGBELoader 加载 .hdr）
+const data = new Float32Array(W * H * 4);
+fillSkySunGround(data, W, H);          // 天空梯度 + 太阳光斑，值可 >1（HDR）
+const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.FloatType);
+tex.mapping = THREE.EquirectangularReflectionMapping;
+tex.needsUpdate = true;
+
+// ② 预卷积：一张图 → 一整条按粗糙度分级的 mip 链
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+const rt = pmrem.fromEquirectangular(tex);
+scene.environment = rt.texture;        // 这才是「参与照明」
+// scene.background = rt.texture;      // 这个只画背景，不照明（高频坑）
+
+// ③ 材质侧：metalness 高、roughness 低 → 反射最清晰
+new THREE.MeshStandardMaterial({ metalness: 1, roughness: 0.05, envMapIntensity: 1.5 });
+tex.dispose(); pmrem.dispose();        // 只保留 rt，源图可以扔掉`,
+    controls: [
+      { type: 'toggle', label: '环境光', value: true },
+      { type: 'toggle', label: '背景图', value: false },
+      { type: 'range', label: '环境强度', min: 0, max: 3, step: 0.1, value: 1.5 },
+      { type: 'range', label: '金属度', min: 0, max: 1, step: 0.05, value: 1 },
+      { type: 'toggle', label: '自动旋转', value: true },
+    ],
+    init() {
+      const T = THREE;
+      const scene = new T.Scene();
+      scene.background = new T.Color(0x05070c);
+      const camera = new T.PerspectiveCamera(46, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 200);
+      camera.position.set(0, 5.2, 14);
+
+      /* ---- 程序生成 HDR 全景（天空梯度 + 两个太阳光斑） ---- */
+      const W = 256;
+      const H = 128;
+      // half-float 存 HDR：亮度能超过 1，这正是「HDR」的意义（RGBELoader 也是这个类型）
+      const half = new Uint16Array(W * H * 4);
+      const toHalf = T.DataUtils.toHalfFloat;
+      // 两个「太阳」：(方位角, 仰角)，强度可以远大于 1
+      const suns = [
+        { az: 0.9, el: 0.55, col: [18, 15, 11], sharp: 900 },
+        { az: 3.9, el: 0.3, col: [4, 7, 14], sharp: 220 },
+      ];
+      for (let y = 0; y < H; y++) {
+        const phi = ((y + 0.5) / H) * Math.PI;         // 0 = 天顶
+        const up = Math.cos(phi);                       // dir.y
+        const horiz = Math.sin(phi);                    // 水平投影长度
+        for (let x = 0; x < W; x++) {
+          const theta = ((x + 0.5) / W) * Math.PI * 2;
+          let r;
+          let g;
+          let b;
+          if (up >= 0) {
+            // 天空：地平线亮白 → 天顶深蓝
+            const t = Math.pow(up, 0.65);
+            r = 1.05 * (1 - t) + 0.10 * t;
+            g = 1.08 * (1 - t) + 0.17 * t;
+            b = 1.15 * (1 - t) + 0.42 * t;
+          } else {
+            // 地面：暖褐色，越靠近观察者越暗
+            const t = Math.min(1, -up * 3);
+            r = 0.30 * (1 - t) + 0.13 * t;
+            g = 0.23 * (1 - t) + 0.11 * t;
+            b = 0.18 * (1 - t) + 0.10 * t;
+          }
+          for (const s of suns) {
+            // dir · sunDir：像素方向与太阳方向的夹角余弦
+            const dot = up * Math.sin(s.el) + horiz * Math.cos(s.el) * Math.cos(theta - s.az);
+            if (dot > 0) {
+              const k = Math.pow(dot, s.sharp);
+              r += s.col[0] * k;
+              g += s.col[1] * k;
+              b += s.col[2] * k;
+            }
+          }
+          const i = (y * W + x) * 4;
+          half[i] = toHalf(Math.min(r, 60));
+          half[i + 1] = toHalf(Math.min(g, 60));
+          half[i + 2] = toHalf(Math.min(b, 60));
+          half[i + 3] = toHalf(1);
+        }
+      }
+
+      const src = new T.DataTexture(half, W, H, T.RGBAFormat, T.HalfFloatType);
+      src.mapping = T.EquirectangularReflectionMapping;
+      src.magFilter = T.LinearFilter;
+      src.minFilter = T.LinearFilter;
+      src.generateMipmaps = false;
+      src.needsUpdate = true;
+
+      const pmrem = new T.PMREMGenerator(renderer);
+      pmrem.compileEquirectangularShader();
+      const envRT = pmrem.fromEquirectangular(src);
+      const envTex = envRT.texture;
+      scene.environment = envTex;
+
+      /* ---- 展台：一排粗糙度递增的金属球 + 一个金属结 ---- */
+      const mats = [];
+      const sphereGeo = new T.SphereGeometry(1, 48, 32);
+      const N = 7;
+      for (let i = 0; i < N; i++) {
+        const rough = i / (N - 1);
+        const m = new T.MeshStandardMaterial({
+          color: new T.Color().setHSL(0.55 + i * 0.02, 0.35, 0.75),
+          metalness: 1,
+          roughness: rough * rough,
+          envMapIntensity: 1.5,
+        });
+        mats.push(m);
+        const s = new T.Mesh(sphereGeo, m);
+        s.scale.setScalar(0.72);
+        s.position.set((i - (N - 1) / 2) * 1.68, 0.75, 0);
+        scene.add(s);
+      }
+
+      const knotMat = new T.MeshStandardMaterial({ color: 0xffd9a0, metalness: 1, roughness: 0.08, envMapIntensity: 1.5 });
+      mats.push(knotMat);
+      const knot = new T.Mesh(new T.TorusKnotGeometry(1.05, 0.3, 180, 24), knotMat);
+      knot.position.set(0, 3.15, -0.4);
+      scene.add(knot);
+
+      const floorMat = new T.MeshStandardMaterial({ color: 0x10151f, roughness: 0.45, metalness: 0.2, envMapIntensity: 1.5 });
+      mats.push(floorMat);
+      const floor = new T.Mesh(new T.PlaneGeometry(40, 40), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      // 一盏弱平行光：环境光关掉时还能看清轮廓，方便对比「不是全黑屏」
+      const key = new T.DirectionalLight(0xffffff, 0.55);
+      key.position.set(4, 8, 6);
+      scene.add(key);
+
+      const orb = makeOrbit(camera, stageEl, { target: new T.Vector3(0, 1.9, 0), radius: 9.5, phi: 1.15, theta: 0.55, min: 5, max: 24 });
+      orb.update();
+      const hud = createHud(stageEl);
+
+      let envOn = true;
+      let bgOn = false;
+      let metal = 1;
+      let spinning = true;
+      let envInt = 1.5;
+
+      return {
+        scene,
+        camera,
+        api: {
+          env(on) {
+            envOn = !!on;
+            scene.environment = envOn ? envTex : null;
+          },
+          bg(on) {
+            bgOn = !!on;
+            scene.background = bgOn ? envTex : new T.Color(0x05070c);
+          },
+          envInt(v) {
+            envInt = Number(v);
+            mats.forEach((m) => { m.envMapIntensity = envInt; });
+          },
+          metal(v) {
+            metal = Number(v);
+            mats.forEach((m, i) => { if (i < N) m.metalness = metal; });
+          },
+          rotate(on) { spinning = !!on; },
+        },
+        update(dt) {
+          orb.update();
+          if (spinning) knot.rotation.y += dt * 0.4;
+          hud.tick(
+            dt,
+            `环境 ${W}×${H} half-float · PMREM · metalness ${metal.toFixed(2)} · env×${envInt.toFixed(1)}` +
+              (envOn ? '' : ' · 环境光已关（只剩一盏弱平行光）')
+          );
+        },
+        dispose() {
+          hud.dispose();
+          orb.dispose();
+          disposeObj(scene);
+          envTex.dispose();
+          envRT.dispose();
+          src.dispose();
+          pmrem.dispose();
+        },
+      };
+    },
+  };
+
+  /* ---------- 18 物理引擎 ---------- */
+  DEMOS.physics = {
+    title: '物理引擎 · 固定步长 + 刚体同步',
+    hint: '「固定步长」关掉看球穿地/爆炸 · 拖重力与弹性 · 旋转视角看堆叠',
+    note:
+      '物理引擎接入 three 的全部秘密就三条，这个面板是<b>手写的极简版</b>（没有引入任何物理库，一眼看到底）：<br><b>① 固定步长</b>——物理永远按 <code>1/60</code> 秒推进，用累加器 <code>acc += dt</code> 把渲染帧率波动吸收掉。关掉这个开关改成「跟随帧率」，帧率一抖步长就变，球会穿地、堆叠会炸（自己点一下就知道为什么引擎都强制固定步长）。<br><b>② 刚体 ↔ Mesh 单向同步</b>——物理只认位置、速度、半径、质量，渲染只是把结果抄到 <code>mesh.position / rotation</code> 上。物理算得对，画面就跟着对，跟 three 本身完全解耦。<br><b>③ 包围体简化</b>——球用球，方块也用<b>包围球</b>做碰撞（注意看方块落地的角会插进地面：这就是简化的代价，真实引擎会给盒子单独做 OBB 或凸包）。静态物体（地面）质量设为 0 / 逆质量 0，永远不会被推走。',
+    code: `// ① 累加器 + 固定步长（引擎都这么干）
+const H = 1 / 60;
+acc += dt;
+let n = 0;
+while (acc >= H && n++ < 5) { stepPhysics(H); acc -= H; }
+// 帧太快就多跑几步补齐，帧太慢最多补 5 步（防止死亡螺旋）
+
+// ② step 里只有牛顿第二定律和冲量
+body.v.y -= gravity * H;
+body.p.addScaledVector(body.v, H);
+if (body.p.y - body.r < 0) {           // 地面 = 静态物体（逆质量 0）
+  body.p.y = body.r;
+  if (body.v.y < 0) body.v.y = -body.v.y * restitution;
+}
+
+// ③ 球-球：沿法线做冲量交换，按逆质量分配（重的更不动）
+const vn = v1.sub(v2).dot(normal);
+if (vn > 0) {                          // 正在靠近才处理
+  const j = -(1 + restitution) * vn / (invM1 + invM2);
+  v1.addScaledVector(normal, j * invM1);
+  v2.addScaledVector(normal, -j * invM2);
+}
+
+// ④ 渲染侧：只抄结果，不做任何物理解算
+mesh.position.copy(body.p);
+mesh.rotation.x = body.rot.x;`,
+    controls: [
+      { type: 'toggle', label: '固定步长', value: true },
+      { type: 'range', label: '重力', min: 0, max: 24, step: 1, value: 12 },
+      { type: 'range', label: '弹性', min: 0, max: 0.95, step: 0.05, value: 0.62 },
+      { type: 'button', label: '重置' },
+      { type: 'button', label: '加球' },
+    ],
+    init() {
+      const T = THREE;
+      const ARENA = 8;
+      const scene = new T.Scene();
+      scene.background = new T.Color(0x05070d);
+      scene.fog = new T.Fog(0x05070d, 30, 64);
+
+      const camera = new T.PerspectiveCamera(48, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 200);
+      scene.add(new T.HemisphereLight(0x93a8ff, 0x0a0f1a, 1.15));
+      const sun = new T.DirectionalLight(0xffe4bd, 2.1);
+      sun.position.set(7, 13, 6);
+      scene.add(sun);
+      const rim = new T.PointLight(0x4fd7c4, 60, 40, 2);
+      rim.position.set(-7, 5, -7);
+      scene.add(rim);
+
+      const ground = new T.Mesh(
+        new T.PlaneGeometry(ARENA * 2 + 2, ARENA * 2 + 2),
+        new T.MeshStandardMaterial({ color: 0x0c1422, roughness: 0.9, metalness: 0.15 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+
+      const grid = new T.GridHelper(ARENA * 2, 16, 0x27405f, 0x14202f);
+      grid.position.y = 0.012;
+      scene.add(grid);
+
+      // 挡边（纯视觉，物理里用坐标夹取实现墙体）
+      const wallMat = new T.MeshStandardMaterial({ color: 0x1a2740, roughness: 0.8, metalness: 0.2 });
+      for (let i = 0; i < 4; i++) {
+        const w = new T.Mesh(new T.BoxGeometry(ARENA * 2 + 0.6, 0.7, 0.25), wallMat);
+        const a = (i * Math.PI) / 2;
+        w.position.set(Math.sin(a) * ARENA, 0.35, Math.cos(a) * ARENA);
+        w.rotation.y = a;
+        scene.add(w);
+      }
+
+      const sphereGeo = new T.SphereGeometry(1, 24, 16);
+      const boxGeo = new T.BoxGeometry(1, 1, 1);
+      const rng = createRng(20260411);
+
+      const bodies = [];
+      const shared = { g: 12, rest: 0.62, fixed: true };
+
+      function makeBody(kind) {
+        const isBox = kind === 'box';
+        const r = isBox ? rng.range(0.34, 0.5) : rng.range(0.28, 0.55);
+        const mat = new T.MeshStandardMaterial({
+          color: new T.Color().setHSL(rng.range(0.48, 0.92), rng.range(0.45, 0.85), rng.range(0.45, 0.66)),
+          roughness: 0.35,
+          metalness: 0.55,
+        });
+        const mesh = new T.Mesh(isBox ? boxGeo : sphereGeo, mat);
+        // 方块：视觉尺寸 = 2r，碰撞却用包围球半径 r*1.5（√3/2 的近似）
+        if (isBox) mesh.scale.setScalar(r * 2);
+        else mesh.scale.setScalar(r);
+        scene.add(mesh);
+        const vol = r * r * r;
+        const b = {
+          p: new T.Vector3(rng.range(-ARENA + 1.2, ARENA - 1.2), rng.range(4, 15), rng.range(-ARENA + 1.2, ARENA - 1.2)),
+          v: new T.Vector3(rng.range(-2.2, 2.2), rng.range(-1, 1), rng.range(-2.2, 2.2)),
+          r,
+          m: vol * 8,
+          invM: 1 / (vol * 8),
+          rot: new T.Euler(rng.range(0, 3), rng.range(0, 3), rng.range(0, 3)),
+          w: new T.Vector3(rng.range(-3, 3), rng.range(-3, 3), rng.range(-3, 3)),
+          mesh,
+          mat,
+        };
+        bodies.push(b);
+        return b;
+      }
+
+      function reset(n) {
+        bodies.forEach((b) => {
+          scene.remove(b.mesh);
+          b.mat.dispose();
+        });
+        bodies.length = 0;
+        for (let i = 0; i < n; i++) makeBody(i % 4 === 0 ? 'box' : 'sphere');
+        syncMeshes();
+      }
+
+      function syncMeshes() {
+        for (const b of bodies) {
+          b.mesh.position.copy(b.p);
+          b.mesh.rotation.copy(b.rot);
+        }
+      }
+
+      function step(h) {
+        const g = shared.g;
+        const rest = shared.rest;
+        for (const b of bodies) {
+          b.v.y -= g * h;
+          b.v.multiplyScalar(0.999);
+          b.p.addScaledVector(b.v, h);
+          // 地面：静态物体，逆质量 0，只反弹不位移
+          if (b.p.y - b.r < 0) {
+            b.p.y = b.r;
+            if (b.v.y < 0) {
+              b.v.y = -b.v.y * rest;
+              b.v.x *= 0.94;
+              b.v.z *= 0.94;
+              b.w.x += rng.range(-2, 2);
+              b.w.z += rng.range(-2, 2);
+            }
+          }
+          // 墙体：坐标夹取
+          if (b.p.x > ARENA - b.r) { b.p.x = ARENA - b.r; b.v.x = -Math.abs(b.v.x) * rest; }
+          if (b.p.x < -ARENA + b.r) { b.p.x = -ARENA + b.r; b.v.x = Math.abs(b.v.x) * rest; }
+          if (b.p.z > ARENA - b.r) { b.p.z = ARENA - b.r; b.v.z = -Math.abs(b.v.z) * rest; }
+          if (b.p.z < -ARENA + b.r) { b.p.z = -ARENA + b.r; b.v.z = Math.abs(b.v.z) * rest; }
+          // 旋转：由角速度积分（无杆连，纯视觉）
+          b.w.multiplyScalar(0.995);
+          b.rot.x += b.w.x * h;
+          b.rot.y += b.w.y * h;
+          b.rot.z += b.w.z * h;
+        }
+
+        // 球-球（O(n²)，几十个刚体随便跑）
+        for (let i = 0; i < bodies.length; i++) {
+          const a = bodies[i];
+          for (let j = i + 1; j < bodies.length; j++) {
+            const c = bodies[j];
+            const dx = c.p.x - a.p.x;
+            const dy = c.p.y - a.p.y;
+            const dz = c.p.z - a.p.z;
+            const rr = a.r + c.r;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 >= rr * rr || d2 < 1e-8) continue;
+            const d = Math.sqrt(d2);
+            const nx = dx / d;
+            const ny = dy / d;
+            const nz = dz / d;
+            // 位置修正：按逆质量分配重叠量
+            const overlap = rr - d;
+            const invSum = a.invM + c.invM;
+            const pa = (a.invM / invSum) * overlap;
+            const pc = (c.invM / invSum) * overlap;
+            a.p.x -= nx * pa; a.p.y -= ny * pa; a.p.z -= nz * pa;
+            c.p.x += nx * pc; c.p.y += ny * pc; c.p.z += nz * pc;
+            // 冲量：沿法线的相对速度
+            const rvx = c.v.x - a.v.x;
+            const rvy = c.v.y - a.v.y;
+            const rvz = c.v.z - a.v.z;
+            const vn = rvx * nx + rvy * ny + rvz * nz;
+            if (vn > 0) continue;
+            const jImp = (-(1 + rest) * vn) / invSum;
+            a.v.x -= nx * jImp * a.invM; a.v.y -= ny * jImp * a.invM; a.v.z -= nz * jImp * a.invM;
+            c.v.x += nx * jImp * c.invM; c.v.y += ny * jImp * c.invM; c.v.z += nz * jImp * c.invM;
+          }
+        }
+      }
+
+      reset(46);
+
+      const orb = makeOrbit(camera, stageEl, { target: new T.Vector3(0, 2.4, 0), radius: 22, phi: 1.1, theta: 0.7, min: 8, max: 46 });
+      const hud = createHud(stageEl);
+
+      let acc = 0;
+      let stepsPerSec = 0;
+      let stepAcc = 0;
+      let stepClock = 0;
+      let lastH = 1 / 60;
+
+      return {
+        scene,
+        camera,
+        api: {
+          fixedStep(on) { shared.fixed = !!on; acc = 0; },
+          gravity(v) { shared.g = Number(v); },
+          restitution(v) { shared.rest = Number(v); },
+          reset() { reset(46); },
+          more() {
+            const add = Math.min(24, 120 - bodies.length);
+            for (let i = 0; i < add; i++) makeBody(rng.range(0, 1) > 0.75 ? 'box' : 'sphere');
+          },
+        },
+        update(dt) {
+          orb.update();
+          const H = 1 / 60;
+          let steps = 0;
+          if (shared.fixed) {
+            acc += dt;
+            // 最多补 5 步：帧卡久了不追债，避免死亡螺旋
+            while (acc >= H && steps < 5) {
+              step(H);
+              acc -= H;
+              steps += 1;
+            }
+            if (acc > H * 6) acc = 0;
+            lastH = H * 1000;
+          } else {
+            // 反面教材：步长跟随帧率，帧率一抖就穿模
+            const h = Math.min(dt, 0.2);
+            step(h);
+            steps = 1;
+            lastH = h * 1000;
+          }
+          stepAcc += steps;
+          stepClock += dt;
+          if (stepClock >= 1) {
+            // 每秒统计一次：物理步数 / 真实耗时，固定步长下应该稳定在 60
+            stepsPerSec = Math.round(stepAcc / stepClock);
+            stepAcc = 0;
+            stepClock = 0;
+          }
+          syncMeshes();
+          hud.tick(
+            dt,
+            `刚体 ${bodies.length} · ${shared.fixed ? '固定 1/60' : `跟随帧率 ${lastH.toFixed(1)}ms`} · ${stepsPerSec} 步/秒`
+          );
+        },
+        dispose() {
+          hud.dispose();
+          orb.dispose();
+          bodies.forEach((b) => b.mat.dispose());
+          disposeObj(scene);
+        },
+      };
+    },
+  };
+
+  /* ---------- 19 模型编辑器 ---------- */
+  DEMOS.editor = {
+    title: '模型编辑器 · 选中 → 改材质 → 导出改动',
+      hint: '点选部件 · 拖动选中件平移 · 空白处拖动转视角 · 滚轮缩放',
+      note: '实验室里前 18 个面板都是「看效果」，这一块补的是另一条链路：<b>选中 → 编辑 → 回写</b>。思路参考开源项目 <code>threejs-3dmodel-edit</code>（Vue3 栈，只借结构不抄代码）：① Raycaster 点选拿到 <code>intersect.object</code>；② 把选中的 Mesh 塞进 <code>OutlinePass.selectedObjects</code> 做描边；③ 改 <code>material.color</code>（材质必须 <code>clone()</code> 过，否则同名材质会一起变色）；④ 位置改动用「射线打到水平面」算，不是直接加鼠标位移；⑤ 导出的是<b>改动清单</b>而不是模型文件——躲开 GLTFExporter 的体积和异步坑，服务端拿到清单再烘焙。',
+      code: `// 1. 点选：必须用 canvas 的 rect 换算 NDC，不能用窗口坐标
+ndc.set(((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1);
+ray.setFromCamera(ndc, camera);
+const hit = ray.intersectObjects(meshes, false)[0];
+
+// 2. 描边：选中谁就塞谁
+outlinePass.selectedObjects = hit ? [hit.object] : [];
+
+// 3. 改色前先 clone —— 共享材质会一起变色
+const mat = mesh.material.clone();
+mat.color.set('#e879f9');
+
+// 4. 拖动：射线打在过物体中心的水平面上，减法得到位移
+plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), worldPos);
+if (ray.ray.intersectPlane(plane, hitPoint)) {
+  const local = mesh.parent.worldToLocal(hitPoint.clone().sub(grabOffset));
+  mesh.position.copy(local);      // worldToLocal 处理父级变换
+}
+
+// 5. 导出：只记「和基线不一样」的部分
+{ parts: [{ name, color, position: [x, y, z] }] }`,
+      controls: [
+        { type: 'range', label: '补光强度', min: 0, max: 3, step: 0.1, value: 1.2 },
+        { type: 'toggle', label: '选中描边', value: true },
+        { type: 'html' },
+      ],
+      init(ctx) {
+        const { width, height } = ctx;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x05080f);
+
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
+
+        // ---- 灯光：主光固定，补光给滑杆 ----
+        scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x0a1020, 0.85));
+        const key = new THREE.DirectionalLight(0xffffff, 1.5);
+        key.position.set(6, 10, 7);
+        scene.add(key);
+        const fill = new THREE.DirectionalLight(0x88aaff, 1.2);
+        fill.position.set(-7, 4, -5);
+        scene.add(fill);
+        const rim = new THREE.DirectionalLight(0xe879f9, 0.6);
+        rim.position.set(0, 3, -9);
+        scene.add(rim);
+
+        const grid = new THREE.GridHelper(20, 20, 0x2a3a66, 0x18213a);
+        grid.position.y = 0;
+        scene.add(grid);
+        const floor = new THREE.Mesh(
+          new THREE.CircleGeometry(4.2, 64).rotateX(-Math.PI / 2),
+          new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.9, metalness: 0.1 })
+        );
+        floor.position.y = 0.002;
+        scene.add(floor);
+
+        // ---- 后期：描边 ----
+        const composer = new EffectComposer(renderer);
+        composer.setSize(width, height);
+        composer.addPass(new RenderPass(scene, camera));
+        const outlinePass = new OutlinePass(new THREE.Vector2(width, height), scene, camera);
+        outlinePass.edgeStrength = 4.2;
+        outlinePass.edgeGlow = 0.5;
+        outlinePass.edgeThickness = 1.8;
+        outlinePass.visibleEdgeColor.set('#7c9dff');
+        outlinePass.hiddenEdgeColor.set('#3b2a66');
+        composer.addPass(outlinePass);
+
+        // ---- 相机：自制轨道（要留出「拖物体」的手势，不能和轨道控制抢事件）----
+        const target = new THREE.Vector3(0, 1.6, 0);
+        const orb = { radius: 9.2, theta: 0.62, phi: 1.22 };
+        const applyCamera = () => {
+          camera.position.set(
+            target.x + orb.radius * Math.sin(orb.phi) * Math.sin(orb.theta),
+            target.y + orb.radius * Math.cos(orb.phi),
+            target.z + orb.radius * Math.sin(orb.phi) * Math.cos(orb.theta)
+          );
+          camera.lookAt(target);
+        };
+        applyCamera();
+
+        // ---- 模型与状态 ----
+        const parts = [];      // { mesh, name, baseColor(hex), basePos(Vector3) }
+        const listeners = [];  // 等模型加载完的回调（面板要在加载后才填列表）
+        let root = null;
+        let sel = null;
+        let outlineOn = true;
+
+        const ray = new THREE.Raycaster();
+        const ndc = new THREE.Vector2();
+        const plane = new THREE.Plane();
+        const grabOffset = new THREE.Vector3();
+        const hitPoint = new THREE.Vector3();
+        const tmp = new THREE.Vector3();
+        let mode = null;       // 'orbit' | 'drag'
+        let lastX = 0;
+        let lastY = 0;
+        let moved = 0;
+
+        const emit = () => listeners.forEach((fn) => fn(parts, sel));
+
+        function focusOf(e) {
+          const r = stageEl.getBoundingClientRect();
+          ndc.set(
+            ((e.clientX - r.left) / r.width) * 2 - 1,
+            -((e.clientY - r.top) / r.height) * 2 + 1
+          );
+          ray.setFromCamera(ndc, camera);
+        }
+
+        function pick(e) {
+          if (!parts.length) return null;
+          focusOf(e);
+          const hit = ray.intersectObjects(parts.map((p) => p.mesh), false)[0];
+          return hit || null;
+        }
+
+        function select(entry) {
+          sel = entry || null;
+          outlinePass.selectedObjects = sel && outlineOn ? [sel.mesh] : [];
+          emit();
+        }
+
+        const isDirty = (p) =>
+          p.mesh.material.color.getHex() !== p.baseColor ||
+          p.mesh.position.distanceTo(p.basePos) > 1e-4;
+
+        function onDown(e) {
+          if (e.button !== undefined && e.button !== 0) return;
+          const hit = pick(e);
+          if (hit) {
+            const entry = parts.find((p) => p.mesh === hit.object) || null;
+            select(entry);
+            if (entry) {
+              mode = 'drag';
+              entry.mesh.getWorldPosition(tmp);
+              plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), tmp);
+              grabOffset.copy(hit.point).sub(tmp);
+              stageEl.style.cursor = 'move';
+            }
+            moved = 0;
+          } else {
+            mode = 'orbit';
+            lastX = e.clientX;
+            lastY = e.clientY;
+          }
+          try { stageEl.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+
+        function onMove(e) {
+          if (!mode) {
+            stageEl.style.cursor = pick(e) ? 'pointer' : 'grab';
+            return;
+          }
+          moved += Math.abs(e.clientX - (lastX || e.clientX)) + Math.abs(e.clientY - (lastY || e.clientY));
+          if (mode === 'orbit') {
+            orb.theta -= (e.clientX - lastX) * 0.006;
+            orb.phi = Math.max(0.3, Math.min(1.44, orb.phi - (e.clientY - lastY) * 0.005));
+            lastX = e.clientX;
+            lastY = e.clientY;
+            applyCamera();
+          } else if (mode === 'drag' && sel) {
+            focusOf(e);
+            if (ray.ray.intersectPlane(plane, hitPoint)) {
+              const local = sel.mesh.parent.worldToLocal(hitPoint.clone().sub(grabOffset));
+              sel.mesh.position.copy(local);
+              emit();
+            }
+          }
+        }
+
+        function onUp() {
+          if (mode === 'drag' && moved < 5) emit();
+          mode = null;
+          stageEl.style.cursor = 'grab';
+        }
+
+        function onWheel(e) {
+          e.preventDefault();
+          orb.radius = Math.max(4, Math.min(26, orb.radius * (1 + Math.sign(e.deltaY) * 0.1)));
+          applyCamera();
+        }
+
+        stageEl.addEventListener('pointerdown', onDown);
+        stageEl.addEventListener('pointermove', onMove);
+        stageEl.addEventListener('pointerup', onUp);
+        stageEl.addEventListener('pointerleave', onUp);
+        stageEl.addEventListener('wheel', onWheel, { passive: false });
+
+        // ---- 加载模型 ----
+        new GLTFLoader().load(
+          './vendor/models/RobotExpressive.glb',
+          (gltf) => {
+            root = gltf.scene;
+            root.traverse((o) => {
+              if (!o.isMesh) return;
+              // 关键：clone 材质，否则同名材质会一起变色
+              o.material = o.material.clone();
+              parts.push({
+                mesh: o,
+                name: o.name || `part-${parts.length}`,
+                baseColor: o.material.color.getHex(),
+                basePos: o.position.clone(),
+              });
+            });
+            scene.add(root);
+            emit();
+          },
+          undefined,
+          (err) => {
+            console.error(err);
+            emit();
+          }
+        );
+
+        const snapshot = () => {
+          const changed = parts.filter(isDirty);
+          return {
+            model: 'RobotExpressive.glb',
+            exportedAt: new Date().toISOString(),
+            total: parts.length,
+            changed: changed.length,
+            // 注意记世界坐标：骨架模型的父节点常带缩放，局部坐标会差几个数量级
+            parts: changed.map((p) => {
+              p.mesh.getWorldPosition(tmp);
+              return {
+                name: p.name,
+                color: '#' + p.mesh.material.color.getHexString(),
+                position: [tmp.x, tmp.y, tmp.z].map((n) => +n.toFixed(3)),
+              };
+            }),
+          };
+        };
+
+        return {
+          scene,
+          camera,
+          api: {
+            fill(v) { fill.intensity = Number(v); },
+            outlineOn(on) {
+              outlineOn = !!on;
+              outlinePass.selectedObjects = sel && outlineOn ? [sel.mesh] : [];
+            },
+            onParts(fn) {
+              if (parts.length) fn(parts, sel);
+              else listeners.push(fn);
+            },
+            selectByIndex(i) { select(parts[i] || null); },
+            current() { return sel; },
+            isDirty,
+            paint(hex) {
+              if (!sel) return;
+              sel.mesh.material.color.set(hex);
+              sel.mesh.material.needsUpdate = true;
+              emit();
+            },
+            resetSel() {
+              if (!sel) return;
+              sel.mesh.material.color.setHex(sel.baseColor);
+              sel.mesh.position.copy(sel.basePos);
+              emit();
+            },
+            resetAll() {
+              parts.forEach((p) => {
+                p.mesh.material.color.setHex(p.baseColor);
+                p.mesh.position.copy(p.basePos);
+              });
+              emit();
+            },
+            snapshot,
+          },
+          resize(nw, nh) {
+            composer.setSize(nw, nh);
+            outlinePass.setSize(nw, nh);
+          },
+          render() {
+            composer.render();
+          },
+          dispose() {
+            stageEl.removeEventListener('pointerdown', onDown);
+            stageEl.removeEventListener('pointermove', onMove);
+            stageEl.removeEventListener('pointerup', onUp);
+            stageEl.removeEventListener('pointerleave', onUp);
+            stageEl.removeEventListener('wheel', onWheel);
+            stageEl.style.cursor = 'grab';
+            outlinePass.selectedObjects = [];
+            composer.dispose?.();
+            if (root) scene.remove(root);
+            disposeObj(scene);
+          },
+        };
+      },
+  };
+
+  /* ============ 控件渲染 ============ */
+  function renderControls(demo, inst) {
+    ctlEl.innerHTML = '';
+    if (!demo.controls || !demo.controls.length) return;
+
+    demo.controls.forEach((c) => {
+      if (c.type === 'html') {
+        // 自定义控件块：面板结构由 demo 自己决定（模型编辑器这种要动态列表的用得上）
+        const box = document.createElement('div');
+        box.className = 'ctl-block';
+        ctlEl.appendChild(box);
+        buildEditorPanel(box, inst);
+        return;
+      }
+      if (c.type === 'range') {
+        const wrap = document.createElement('label');
+        wrap.className = 'ctl';
+        const span = document.createElement('span');
+        span.textContent = c.label;
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = c.min;
+        input.max = c.max;
+        input.step = c.step;
+        input.value = c.value;
+        const val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = c.value;
+        input.addEventListener('input', () => {
+          val.textContent = input.value;
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(input.value);
+        });
+        wrap.append(span, input, val);
+        ctlEl.appendChild(wrap);
+      } else if (c.type === 'toggle') {
+        const btn = document.createElement('button');
+        btn.className = 'btn' + (c.value ? ' on' : '');
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => {
+          const on = !btn.classList.contains('on');
+          btn.classList.toggle('on', on);
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(on);
+        });
+        ctlEl.appendChild(btn);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => {
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(btn);
+        });
+        ctlEl.appendChild(btn);
+      }
+    });
+  }
+
+  /* ============ 模型编辑器面板（自定义控件块） ============ */
+  const ED_PALETTE = ['#7c9dff', '#22d3ee', '#b98bff', '#e879f9', '#9fe8ff', '#ffd479', '#ff7b6b', '#7ce0a3'];
+
+  function buildEditorPanel(box, inst) {
+    const api = inst.api || {};
+    box.innerHTML = `
+      <p class="panel-h">部件 · 点选模型或点标签</p>
+      <div class="part-list" id="edParts"></div>
+      <p class="panel-h">材质颜色</p>
+      <div class="swatches" id="edSw"></div>
+      <div class="ed-actions" id="edAct"></div>
+      <p class="panel-h">改动清单</p>
+      <pre class="out-box" id="edOut">点选部件 → 选颜色 → 「导出改动」。</pre>
+    `;
+    const listEl = box.querySelector('#edParts');
+    const swEl = box.querySelector('#edSw');
+    const actEl = box.querySelector('#edAct');
+    const outEl = box.querySelector('#edOut');
+
+    ED_PALETTE.forEach((hex) => {
+      const b = document.createElement('button');
+      b.className = 'swatch';
+      b.style.background = hex;
+      b.title = hex;
+      b.setAttribute('aria-label', hex);
+      b.addEventListener('click', () => {
+        if (!api.current || !api.current()) {
+          outEl.textContent = '先点选一个部件，再选颜色。';
+          return;
+        }
+        api.paint(hex);
+      });
+      swEl.appendChild(b);
+    });
+
+    const mkBtn = (label, fn) => {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      actEl.appendChild(b);
+    };
+    mkBtn('重置所选', () => {
+      if (!api.current || !api.current()) { outEl.textContent = '还没选中部件。'; return; }
+      api.resetSel();
+    });
+    mkBtn('全部重置', () => api.resetAll());
+    mkBtn('导出改动', () => {
+      const data = api.snapshot ? api.snapshot() : { error: 'no snapshot' };
+      const text = JSON.stringify(data, null, 2);
+      outEl.textContent = text;
+      try {
+        const blob = new Blob([text], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'model-edits.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+      } catch (err) {
+        console.error('导出失败', err);
+      }
+    });
+
+    if (!api.onParts) return;
+    api.onParts((parts, sel) => {
+      listEl.innerHTML = '';
+      if (!parts.length) {
+        const tip = document.createElement('span');
+        tip.style.cssText = 'font-size:11.5px;color:#5f6c96';
+        tip.textContent = '模型加载中…';
+        listEl.appendChild(tip);
+        return;
+      }
+      parts.forEach((p, i) => {
+        const b = document.createElement('button');
+        b.className = 'part' + (p === sel ? ' on' : '');
+        if (api.isDirty && api.isDirty(p)) b.classList.add('dirty');
+        b.textContent = p.name;
+        b.title = `#${i} · ${p.name}`;
+        b.addEventListener('click', () => api.selectByIndex(i));
+        listEl.appendChild(b);
+      });
+      if (sel) {
+        const wp = sel.mesh.getWorldPosition(new THREE.Vector3());
+        outEl.textContent = `选中 ${sel.name}\n颜色 #${sel.mesh.material.color.getHexString()}\n位置 ${[wp.x, wp.y, wp.z].map((n) => n.toFixed(2)).join(', ')}`;
+      } else {
+        outEl.textContent = `共 ${parts.length} 个部件 · 点选一个开始编辑`;
+      }
+    });
+  }
+
+  // 控件文案 → demo api 方法名
+  const API_MAP = {
+    幅度: 'amp',
+    线框: 'wire',
+    速度: 'speed',
+    雾: 'fog',
+    '下雪（关=下雨）': 'snow',
+    密度: 'density',
+    自动旋转: 'rotate',
+    全部分离: 'explode',
+    自动呼吸: 'breathe',
+    '手动炸一次': 'burst',
+    缓慢公转: 'spin',
+    标签大小: 'scale',
+    镜面亮度: 'bright',
+    低清反射: 'lowRes',
+    展品旋转: 'spin',
+    描边粗细: 'edgeThickness',
+    建筑数: 'count',
+    '单独 Mesh 对比': 'compare',
+    '换一座城': 'reseed',
+    物体数: 'count',
+    '关闭 LOD': 'off',
+    粒子数: 'count',
+    粒子大小: 'size',
+    漂移速度: 'speed',
+    '单独 Mesh': 'each',
+    'merge 合并': 'merge',
+    InstancedMesh: 'instanced',
+    BatchedMesh: 'batched',
+    发光强度: 'edgeStrength',
+    全部描边: 'allOutlines',
+    '上一个动作': 'prev',
+    '下一个动作': 'next',
+    播放: 'play',
+    播放速度: 'speed',
+    剔除: 'cull',
+    显示视锥: 'helperOn',
+    '换个视角': 'relocate',
+    房子数: 'count',
+    自动旋转: 'rotate',
+    色相: 'hue',
+    环境光: 'env',
+    背景图: 'bg',
+    环境强度: 'envInt',
+    金属度: 'metal',
+    固定步长: 'fixedStep',
+    重力: 'gravity',
+    弹性: 'restitution',
+    重置: 'reset',
+    加球: 'more',
+    补光强度: 'fill',
+    选中描边: 'outlineOn',
+  };
+  const mapApi = (label) => API_MAP[label];
+
+  /* ============ 加载与切换 ============ */
+  async function boot() {
+    THREE = await import('./vendor/three.module.min.js');
+    // addons 也本地化，内部 import 已改指向同一个 three 模块实例
+    const [refMod, ecMod, rpMod, opMod] = await Promise.all([
+      import('./vendor/addons/Reflector.js'),
+      import('./vendor/addons/EffectComposer.js'),
+      import('./vendor/addons/RenderPass.js'),
+      import('./vendor/addons/OutlinePass.js'),
+    ]);
+    Reflector = refMod.Reflector;
+    EffectComposer = ecMod.EffectComposer;
+    RenderPass = rpMod.RenderPass;
+    OutlinePass = opMod.OutlinePass;
+    mergeGeometries = (await import('./vendor/addons/BufferGeometryUtils.js')).mergeGeometries;
+    GLTFLoader = (await import('./vendor/addons/GLTFLoader.js')).GLTFLoader;
+
+    const [rngMod, batchMod, hudMod] = await Promise.all([
+      import('./lib/rng.js'),
+      import('./lib/batch.js'),
+      import('./lib/hud.js'),
+    ]);
+    createRng = rngMod.createRng;
+    GeometryBatch = batchMod.GeometryBatch;
+    createHud = hudMod.createHud;
+
+    const w = stageEl.clientWidth;
+    const h = stageEl.clientHeight;
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h, false);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    stageEl.insertBefore(renderer.domElement, stageEl.firstChild);
+    loadEl.classList.add('gone');
+
+    new ResizeObserver(() => {
+      const nw = stageEl.clientWidth;
+      const nh = stageEl.clientHeight;
+      if (!nw || !nh) return;
+      renderer.setSize(nw, nh, false);
+      if (current) {
+        current.camera.aspect = nw / nh;
+        current.camera.updateProjectionMatrix();
+        current.resize?.(nw, nh);
+      }
+    }).observe(stageEl);
+
+    mount(currentId);
+    scheduleLoop();
+  }
+
+  function mount(id) {
+    if (current && current.dispose) current.dispose();
+    ctlEl.innerHTML = '';
+
+    const demo = DEMOS[id];
+    document.getElementById('dTitle').textContent = demo.title;
+    document.getElementById('dNote').innerHTML = demo.note;
+    document.getElementById('dCode').textContent = demo.code;
+    hintEl.textContent = demo.hint;
+
+    const inst = demo.init({
+      width: stageEl.clientWidth,
+      height: stageEl.clientHeight,
+    });
+    current = inst;
+    renderControls(demo, inst);
+  }
+
+  let last = 0;
+  function scheduleLoop() {
+    cancelAnimationFrame(raf);
+    last = 0;
+    const loop = (now) => {
+      raf = requestAnimationFrame(loop);
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+      last = now;
+      if (!current || !renderer) return;
+      try {
+        current.update?.(dt, now / 1000);
+        // 有后期处理链的 demo 自己接管渲染
+        if (current.render) current.render(dt);
+        else renderer.render(current.scene, current.camera);
+      } catch (err) {
+        console.error('render error', err);
+      }
+    };
+    raf = requestAnimationFrame(loop);
+  }
+
+  const tabs = document.getElementById('tabs');
+  let currentId = 'terrain';
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn || !renderer) return;
+    tabs.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === btn));
+    currentId = btn.dataset.d;
+    mount(currentId);
+    scheduleLoop();
+  });
+
+  // three 加载失败时给出提示，不留白屏
+  boot().catch((err) => {
+    console.error(err);
+    loadEl.textContent = 'Three.js 加载失败：' + (err && err.message ? err.message : err);
+  });
+</script>
+</body>
+</html>

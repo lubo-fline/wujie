@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WebGL 原生实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 22px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: 1px; }
+  header p { color: #8b96bd; font-size: 13.5px; line-height: 1.8; margin: 0 0 26px; max-width: 760px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f6c96; margin-bottom: 10px; }
+
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99;
+    padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-size: 12.5px; letter-spacing: 1px; color: #cfd8ff;
+    background: rgba(8,13,28,0.86); border: 1px solid rgba(140,165,255,0.35);
+    backdrop-filter: blur(8px); transition: all .2s;
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,0.7); transform: translateX(-2px); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(140,165,255,0.16);
+    color: #9fabd4; transition: all .2s;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(140,165,255,0.4); }
+  .tab.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+
+  .stage {
+    position: relative; width: 100%; height: 460px; border-radius: 16px; overflow: hidden;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(140,165,255,0.14);
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage-hint {
+    position: absolute; left: 14px; bottom: 12px; z-index: 2;
+    font-size: 11.5px; color: #6b78a3; letter-spacing: .5px; pointer-events: none;
+    background: rgba(6,10,22,0.55); padding: 3px 9px; border-radius: 999px;
+  }
+  .stage-load {
+    position: absolute; inset: 0; display: grid; place-content: center;
+    font-size: 13px; color: #7b88b3; letter-spacing: 1px;
+  }
+  .stage-load.gone { display: none; }
+
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(140,165,255,0.14);
+    border-radius: 16px; padding: 20px 22px; margin-top: 18px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card .note { color: #8b96bd; font-size: 12.5px; line-height: 1.85; margin: 0 0 16px; }
+  .card .note code { color: #a8c6ff; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .code {
+    display: block; background: rgba(0,0,0,0.45); border: 1px solid rgba(140,165,255,0.12);
+    border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 12px; color: #a8c6ff; overflow-x: auto; white-space: pre; margin: 0;
+  }
+  .ctl-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ctl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9fabd4; }
+  .ctl input[type=range] { width: 120px; accent-color: #7c9dff; }
+  .ctl .val { font-family: ui-monospace, monospace; color: #cfd8ff; min-width: 34px; }
+  .btn {
+    padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(124,157,255,0.14); color: #cfd8ff;
+    border: 1px solid rgba(140,165,255,0.3); transition: all .18s;
+  }
+  .btn:hover { background: rgba(124,157,255,0.26); }
+  .btn.on { background: linear-gradient(135deg, #7c9dff, #b98bff); color: #0a1020; font-weight: 600; border-color: transparent; }
+
+  @media (max-width: 720px) {
+    .stage { height: 340px; }
+    .wrap { padding: 26px 16px 70px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="floating-back" id="backHome">← 回主站</button>
+  <header>
+    <div class="kicker">WEBGL RAW LAB</div>
+    <h1>WebGL 原生实验室</h1>
+    <p>《WebGL 入门与实践》里最值得上手玩的核心点，全部手写：fragment shader 火焰、手写矩阵画三种几何体、冯氏光照三分量、UV 贴图、帧缓冲离屏渲染、颜色拾取、透明混合、万级实例化。不依赖 three 之类的库——shader、顶点、矩阵、甚至「点了谁」「一万个谁先画」都是自己算的，目的就是看清 WebGL 最底下那一层到底在干什么。</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-d="fire">魔法火焰</button>
+    <button class="tab" data-d="shapes">立方体 · 球体 · 椎体</button>
+    <button class="tab" data-d="phong">冯氏光照</button>
+    <button class="tab" data-d="texture">纹理贴图</button>
+    <button class="tab" data-d="fbo">帧缓冲</button>
+    <button class="tab" data-d="picking">颜色拾取</button>
+    <button class="tab" data-d="blend">透明混合</button>
+    <button class="tab" data-d="inst">万级实例化</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="stage-hint" id="hint"></div>
+    <div class="stage-load gone" id="loading"></div>
+  </div>
+
+  <div class="card">
+    <h3 id="dTitle"></h3>
+    <p class="note" id="dNote"></p>
+    <div class="ctl-row" id="controls"></div>
+    <pre class="code" id="dCode"></pre>
+  </div>
+
+  <p style="text-align:center; color:#5f6c96; font-size:12px; margin-top:34px; letter-spacing:2px">
+    路小垚 · WebGL 原生实验室 · 独立子应用，通过微前端接入主站
+  </p>
+</div>
+
+<script>
+  /* ---- 回主站 ---- */
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${window.location.origin}/#/portfolio`;
+  });
+
+  const stageEl = document.getElementById('stage');
+  const ctlEl = document.getElementById('controls');
+  const hintEl = document.getElementById('hint');
+
+  /* ============ 公共：WebGL 帮手 ============ */
+  function makeGL() {
+    // 每次切换 demo 都换一块新 canvas，context 随之干净
+    stageEl.querySelectorAll('canvas').forEach((c) => c.remove());
+    const canvas = document.createElement('canvas');
+    stageEl.insertBefore(canvas, stageEl.firstChild);
+    const gl = canvas.getContext('webgl', { antialias: true });
+    return { canvas, gl };
+  }
+
+  function compile(gl, type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      throw new Error('shader: ' + gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  function program(gl, vs, fs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+      throw new Error('link: ' + gl.getProgramInfoLog(p));
+    }
+    return p;
+  }
+
+  function fitCanvas(canvas, gl) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(stageEl.clientWidth * dpr);
+    const h = Math.round(stageEl.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+
+  /* ---- 极简 mat4（列主序，够这两个 demo 用） ---- */
+  const M4 = {
+    identity() { return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); },
+    perspective(fov, aspect, near, far) {
+      const f = 1 / Math.tan(fov / 2);
+      const nf = 1 / (near - far);
+      return new Float32Array([
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) * nf, -1,
+        0, 0, 2 * far * near * nf, 0,
+      ]);
+    },
+    mul(a, b) { // a * b
+      const o = new Float32Array(16);
+      for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < 4; r++) {
+          o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+        }
+      }
+      return o;
+    },
+    rotateY(a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]);
+    },
+    rotateX(a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]);
+    },
+    translate(x, y, z) {
+      const m = M4.identity();
+      m[12] = x; m[13] = y; m[14] = z;
+      return m;
+    },
+  };
+
+  /* ============ 公共：几何生成器与网格上传（demo 之间复用） ============ */
+  function cubeGeo(scale = 0.8) {
+    const f = [
+      [[-1,-1, 1], [ 1,-1, 1], [ 1, 1, 1], [-1, 1, 1], [0,0,1]],
+      [[ 1,-1,-1], [-1,-1,-1], [-1, 1,-1], [ 1, 1,-1], [0,0,-1]],
+      [[ 1,-1, 1], [ 1,-1,-1], [ 1, 1,-1], [ 1, 1, 1], [1,0,0]],
+      [[-1,-1,-1], [-1,-1, 1], [-1, 1, 1], [-1, 1,-1], [-1,0,0]],
+      [[-1, 1, 1], [ 1, 1, 1], [ 1, 1,-1], [-1, 1,-1], [0,1,0]],
+      [[-1,-1,-1], [ 1,-1,-1], [ 1,-1, 1], [-1,-1, 1], [0,-1,0]],
+    ];
+    const pos = [], nor = [], uv = [], idx = [], edge = [];
+    const corner = [[0,0],[1,0],[1,1],[0,1]];
+    f.forEach((face, i) => {
+      face.slice(0, 4).forEach((v, k) => {
+        pos.push(...v.map((n) => n * scale));
+        nor.push(...face[4]);
+        uv.push(...corner[k]);
+      });
+      const b = i * 4;
+      idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+      edge.push(b, b + 1, b + 1, b + 2, b + 2, b + 3, b + 3, b);
+    });
+    return { pos, nor, uv, idx, edge };
+  }
+
+  function sphereGeo(LAT = 22, LON = 34) {
+    const pos = [], nor = [], idx = [];
+    for (let la = 0; la <= LAT; la++) {
+      const th = (la / LAT) * Math.PI;
+      for (let lo = 0; lo <= LON; lo++) {
+        const ph = (lo / LON) * Math.PI * 2;
+        const x = Math.sin(th) * Math.cos(ph);
+        const y = Math.cos(th);
+        const z = Math.sin(th) * Math.sin(ph);
+        pos.push(x, y, z);
+        nor.push(x, y, z);
+      }
+    }
+    for (let la = 0; la < LAT; la++) {
+      for (let lo = 0; lo < LON; lo++) {
+        const a = la * (LON + 1) + lo;
+        const b = a + LON + 1;
+        idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    return { pos, nor, idx };
+  }
+
+  function coneGeo() {
+    const SEG = 34;
+    const pos = [], nor = [], idx = [];
+    const R = 1, H = 1.6;
+    for (let i = 0; i <= SEG; i++) {
+      const a = (i / SEG) * Math.PI * 2;
+      const nx = Math.cos(a), nz = Math.sin(a);
+      const slope = R / Math.hypot(R, H);
+      pos.push(Math.cos(a) * R, -H / 2, Math.sin(a) * R);
+      nor.push(nx * slope, R / Math.hypot(R, H), nz * slope);
+      pos.push(0, H / 2, 0);
+      nor.push(nx * slope, R / Math.hypot(R, H), nz * slope);
+    }
+    for (let i = 0; i < SEG; i++) {
+      idx.push(i * 2, i * 2 + 1, i * 2 + 2);
+    }
+    const base = pos.length / 3;
+    for (let i = 0; i <= SEG; i++) {
+      const a = (i / SEG) * Math.PI * 2;
+      pos.push(Math.cos(a) * R, -H / 2, Math.sin(a) * R);
+      nor.push(0, -1, 0);
+    }
+    pos.push(0, -H / 2, 0); nor.push(0, -1, 0);
+    const center = base + SEG + 1;
+    for (let i = 0; i < SEG; i++) {
+      idx.push(base + i, center, base + i + 1);
+    }
+    return { pos, nor, idx };
+  }
+
+  function uploadMesh(gl, d) {
+    const mesh = {
+      pos: gl.createBuffer(), nor: gl.createBuffer(), idx: gl.createBuffer(),
+      idxCount: d.idx.length, edgeCount: d.edge ? d.edge.length : 0,
+    };
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pos);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d.pos), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.nor);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d.nor), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.idx);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(d.idx), gl.STATIC_DRAW);
+    if (d.uv) {
+      mesh.uv = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uv);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d.uv), gl.STATIC_DRAW);
+    }
+    if (d.edge) {
+      mesh.edge = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.edge);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(d.edge), gl.STATIC_DRAW);
+    }
+    return mesh;
+  }
+
+  function bindMesh(gl, prog, mesh, opts = {}) {
+    const aP = gl.getAttribLocation(prog, 'aP');
+    const aN = gl.getAttribLocation(prog, 'aN');
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pos);
+    gl.enableVertexAttribArray(aP);
+    gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 0, 0);
+    if (aN >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.nor);
+      gl.enableVertexAttribArray(aN);
+      gl.vertexAttribPointer(aN, 3, gl.FLOAT, false, 0, 0);
+    }
+    if (opts.uv && mesh.uv) {
+      const aU = gl.getAttribLocation(prog, 'aU');
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.uv);
+      gl.enableVertexAttribArray(aU);
+      gl.vertexAttribPointer(aU, 2, gl.FLOAT, false, 0, 0);
+    }
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.idx);
+  }
+
+  function deleteMesh(gl, mesh) {
+    gl.deleteBuffer(mesh.pos);
+    gl.deleteBuffer(mesh.nor);
+    gl.deleteBuffer(mesh.idx);
+    if (mesh.uv) gl.deleteBuffer(mesh.uv);
+    if (mesh.edge) gl.deleteBuffer(mesh.edge);
+  }
+
+  /* ============ DEMO 定义 ============ */
+  const DEMOS = {
+    /* ---------- 1 魔法火焰 ---------- */
+    fire: {
+      title: '魔法火焰 · 全部发生在 fragment shader',
+      hint: '没有几何体，没有逐帧计算，只有一张全屏三角形',
+      note: '火焰是「假」的：屏幕上只有一个全屏四边形，GPU 对每个像素跑同一段 fragment shader——多层噪声向上滚动、越靠上越窄、按噪声值套一条黑→红→橙→黄的颜色梯度。速度、湍流、蓝焰都只是改 uniform，一帧都不用重算几何。这个套路是所有 shader 特效（烟、水、云、能量盾）的共同起点。',
+      code: `// fragment shader 核心
+float n = fbm(uv * 3.0                 // 横向铺开
+            + vec2(0.0, -uTime * uSpeed) // 向上滚动
+            + fbm(uv * 6.0 - uTime * .5) // 湍流：噪声套噪声
+              * uTurb * .3);
+
+// 越靠边缘越窄，模拟火苗收拢
+float shape = clamp(1.0 - abs(uv.x - .5) * 2.6, 0.0, 1.0);
+float body = pow(n * uv.y * 1.6 * shape, 1.4);
+
+// 噪声值 → 颜色梯度（火焰的「配方」）
+vec3 c = vec3(1.0, .35, .05) * body * 1.4    // 底色：暗红
+       + vec3(1.0, .85, .3) * body * body * 2.2 // 高温核心：亮黄
+       + vec3(1.0) * pow(body, 6.0) * 1.4;     // 白炽尖端
+
+gl_FragColor = vec4(c, 1.0);`,
+      controls: [
+        { type: 'range', label: '速度', min: 0.4, max: 3, step: 0.1, value: 1.2 },
+        { type: 'range', label: '湍流', min: 0.5, max: 6, step: 0.1, value: 2.2 },
+        { type: 'toggle', label: '蓝焰', value: false },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const vs = `
+attribute vec2 aP;
+varying vec2 vUv;
+void main() {
+  vUv = aP * 0.5 + 0.5;
+  gl_Position = vec4(aP, 0.0, 1.0);
+}`;
+        const fs = `
+precision highp float;
+varying vec2 vUv;
+uniform float uTime;
+uniform float uSpeed;
+uniform float uTurb;
+uniform float uBlue;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+float fbm(vec2 p) {
+  float s = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    s += a * noise(p);
+    p *= 2.03;
+    a *= 0.5;
+  }
+  return s;
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 q = vec2(uv.x * 3.0, uv.y * 2.4);
+  float t = uTime * uSpeed;
+
+  float n = fbm(q + vec2(0.0, -t) + fbm(q * 2.0 - t * 0.6) * uTurb * 0.32);
+
+  float shape = clamp(1.0 - abs(uv.x - 0.5) * 2.6, 0.0, 1.0);
+  float body = pow(n * uv.y * 1.7 * shape, 1.35);
+
+  vec3 c;
+  if (uBlue > 0.5) {
+    c = vec3(0.5, 0.72, 1.0) * body * 1.1
+      + vec3(0.15, 0.35, 0.95) * body * body * 2.4
+      + vec3(1.0) * pow(body, 6.0) * 0.7;
+  } else {
+    c = vec3(1.0, 0.34, 0.04) * body * 1.5
+      + vec3(1.0, 0.85, 0.3) * body * body * 2.3
+      + vec3(1.0) * pow(body, 6.0) * 1.5;
+  }
+
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+        const prog = program(gl, vs, fs);
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        const locP = gl.getAttribLocation(prog, 'aP');
+        gl.enableVertexAttribArray(locP);
+        gl.vertexAttribPointer(locP, 2, gl.FLOAT, false, 0, 0);
+        gl.useProgram(prog);
+
+        const u = (n) => gl.getUniformLocation(prog, n);
+        const uTime = u('uTime');
+        const uSpeed = u('uSpeed');
+        const uTurb = u('uTurb');
+        const uBlue = u('uBlue');
+
+        const state = { speed: 1.2, turb: 2.2, blue: 0 };
+        gl.uniform1f(uSpeed, state.speed);
+        gl.uniform1f(uTurb, state.turb);
+        gl.uniform1f(uBlue, state.blue);
+
+        return {
+          api: {
+            speed(v) { state.speed = Number(v); gl.uniform1f(uSpeed, state.speed); },
+            turb(v) { state.turb = Number(v); gl.uniform1f(uTurb, state.turb); },
+            blue(on) { state.blue = on ? 1 : 0; gl.uniform1f(uBlue, state.blue); },
+          },
+          render(t) {
+            fitCanvas(canvas, gl);
+            gl.uniform1f(uTime, t);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          },
+          resize() { fitCanvas(canvas, gl); },
+          dispose() {
+            gl.deleteBuffer(buf);
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+
+    /* ---------- 2 三种几何体 ---------- */
+    shapes: {
+      title: '立方体 · 球体 · 椎体 · 手写矩阵变换',
+      hint: '点按钮换形体 · 拖动旋转 · 滚轮缩放',
+      note: '离开 three 的庇护，形体要自己「数」出来：立方体是 24 个顶点 6 个面；球体是经纬线切出来的四边形网格；椎体是底面圆 + 一圈斜面。变换也是手写的——model 矩阵管旋转、view 管相机后移、projection 管透视收缩，三者相乘得到 MVP，顶点着色器里一次 gl_Position 就完成了整个管线。拖动旋转改的只是 model 矩阵，这 36 行矩阵工具就是 three 内部的做法。',
+      code: `// 顶点着色器：MVP 一步到位
+attribute vec3 aP;
+attribute vec3 aN;
+uniform mat4 uMVP;    // projection * view * model
+uniform mat4 uModel;
+varying vec3 vN;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vN = mat3(uModel) * aN;   // 纯旋转时法线直接跟着转
+}
+
+// 球体顶点：双循环数出来
+for (let lat = 0; lat <= LAT; lat++) {
+  const th = (lat / LAT) * Math.PI;        // 0..π
+  for (let lon = 0; lon <= LON; lon++) {
+    const ph = (lon / LON) * Math.PI * 2;  // 0..2π
+    const x = Math.sin(th) * Math.cos(ph);
+    const y = Math.cos(th);
+    const z = Math.sin(th) * Math.sin(ph);
+    positions.push(x, y, z);  // 球心在原点，法线 == 归一化位置
+  }
+}`,
+      controls: [
+        { type: 'button', label: '立方体' },
+        { type: 'button', label: '球体' },
+        { type: 'button', label: '椎体' },
+        { type: 'range', label: '缩放', min: 0.5, max: 2, step: 0.05, value: 1 },
+        { type: 'toggle', label: '自动旋转', value: true },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const vs = `
+attribute vec3 aP;
+attribute vec3 aN;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+varying vec3 vN;
+varying vec3 vW;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vec4 w = uModel * vec4(aP, 1.0);
+  vW = w.xyz;
+  vN = mat3(uModel) * aN;
+}`;
+        const fs = `
+precision mediump float;
+varying vec3 vN;
+varying vec3 vW;
+uniform vec3 uColor;
+void main() {
+  vec3 N = normalize(vN);
+  vec3 L = normalize(vec3(0.5, 0.85, 0.6));
+  vec3 V = normalize(vec3(0.0, 0.0, 6.0) - vW);
+  float diff = max(dot(N, L), 0.0);
+  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+  vec3 c = uColor * (0.22 + 0.78 * diff) + vec3(0.55, 0.72, 1.0) * rim * 0.45;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+        const prog = program(gl, vs, fs);
+        const u = (n) => gl.getUniformLocation(prog, n);
+        const uMVP = u('uMVP');
+        const uModel = u('uModel');
+        const uColor = u('uColor');
+
+        // 几何生成器已提到公共层（GEO 那组函数），这里只管上传与切换
+        const PALETTE = {
+          立方体: [0.49, 0.61, 1.0],
+          球体: [0.13, 0.83, 0.93],
+          椎体: [0.73, 0.55, 1.0],
+        };
+
+        let mesh = null;
+        function setShape(kind) {
+          const d = kind === '立方体' ? cubeGeo() : kind === '球体' ? sphereGeo() : coneGeo();
+          if (mesh) deleteMesh(gl, mesh);
+          mesh = uploadMesh(gl, d);
+          bindMesh(gl, prog, mesh);
+          gl.uniform3fv(uColor, PALETTE[kind]);
+        }
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+        gl.useProgram(prog); // uniform 调用前必须先绑 program，否则是静默 no-op
+        setShape('立方体');
+
+        // 拖动 / 缩放
+        let rx = -0.35, ry = 0.6, dRx = 0, dRy = 0;
+        let radius = 6;
+        let drag = false, lx = 0, ly = 0;
+        const down = (e) => { drag = true; lx = e.clientX; ly = e.clientY; };
+        const move = (e) => {
+          if (!drag) return;
+          dRy += (e.clientX - lx) * 0.008;
+          dRx += (e.clientY - ly) * 0.008;
+          lx = e.clientX; ly = e.clientY;
+        };
+        const up = () => { drag = false; };
+        const wheel = (e) => {
+          e.preventDefault();
+          radius = Math.max(3, Math.min(14, radius * (1 + Math.sign(e.deltaY) * 0.08)));
+        };
+        stageEl.addEventListener('pointerdown', down);
+        stageEl.addEventListener('pointermove', move);
+        stageEl.addEventListener('pointerup', up);
+        stageEl.addEventListener('pointerleave', up);
+        stageEl.addEventListener('wheel', wheel, { passive: false });
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / stageEl.clientHeight, 0.1, 50);
+        const view = M4.translate(0, 0, -radius);
+        let auto = true;
+        let scale = 1;
+
+        function mvp() {
+          const model = M4.mul(M4.rotateX(rx), M4.rotateY(ry));
+          const mv = M4.mul(view, model);
+          return { mvp: M4.mul(proj, mv), model };
+        }
+
+        return {
+          api: {
+            cube() { setShape('立方体'); },
+            sphere() { setShape('球体'); },
+            cone() { setShape('椎体'); },
+            scale(v) { scale = Number(v); },
+            rotate(on) { auto = !!on; },
+          },
+          render(t, dt) {
+            fitCanvas(canvas, gl);
+            if (auto) ry += dt * 0.55;
+            ry += dRy; rx += dRx;
+            dRy *= 0.82; dRx *= 0.82;
+            rx = Math.max(-1.4, Math.min(1.4, rx));
+
+            const s = M4.identity();
+            s[0] = scale; s[5] = scale; s[10] = scale;
+            const model = M4.mul(M4.mul(M4.rotateX(rx), M4.rotateY(ry)), s);
+            const mv = M4.mul(M4.translate(0, 0, -radius), model);
+            const m = M4.mul(proj, mv);
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.uniformMatrix4fv(uMVP, false, m);
+            gl.uniformMatrix4fv(uModel, false, model);
+            gl.drawElements(gl.TRIANGLES, mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            stageEl.removeEventListener('pointerdown', down);
+            stageEl.removeEventListener('pointermove', move);
+            stageEl.removeEventListener('pointerup', up);
+            stageEl.removeEventListener('pointerleave', up);
+            stageEl.removeEventListener('wheel', wheel);
+            if (mesh) deleteMesh(gl, mesh);
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+
+    /* ---------- 3 冯氏光照三连 ---------- */
+    phong: {
+      title: '冯氏光照 · 环境光 / 漫反射 / 高光逐个开',
+      hint: '拨开关看三个分量各自贡献什么',
+      note: '冯氏光照不是什么模型库，就是 fragment shader 里三行加法：<code>环境光</code>是无脑垫底色（不然背光面全黑）、<code>漫反射</code>是 N·L（光打正才亮，球体体积感全靠它）、<code>高光</code>是 (N·H)^shininess（那个跟着光源走的白点）。三个开关逐个拨，能看清每个分量在画面里负责什么——three 里 MeshStandardMaterial 一行配置的光，底下就是这三步。',
+      code: `// fragment shader 里就是三行加法
+vec3 N = normalize(vN);              // 法线
+vec3 L = normalize(uLightPos - vW);  // 指向光源
+vec3 V = normalize(uEye - vW);       // 指向眼睛
+vec3 H = normalize(L + V);           // 半程向量
+
+vec3 amb  = uColor * 0.18;                        // ① 环境光：垫底
+vec3 diff = uColor * max(dot(N, L), 0.0);         // ② 漫反射：N·L
+vec3 spec = vec3(1.0) * pow(max(dot(N, H), 0.0),  // ③ 高光：(N·H)^shininess
+                           uShiny);
+
+vec3 c = amb * uAmb + diff * uDiff + spec * uSpec;`,
+      controls: [
+        { type: 'toggle', label: '环境光', value: true },
+        { type: 'toggle', label: '漫反射', value: true },
+        { type: 'toggle', label: '高光', value: true },
+        { type: 'range', label: '高光锐度', min: 2, max: 96, step: 2, value: 24 },
+        { type: 'range', label: '光源方位', min: 0, max: 6.28, step: 0.05, value: 0.8 },
+        { type: 'range', label: '光源高度', min: -1, max: 3, step: 0.1, value: 1.6 },
+        { type: 'toggle', label: '光源动画', value: false },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const vs = `
+attribute vec3 aP;
+attribute vec3 aN;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+varying vec3 vN;
+varying vec3 vW;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vec4 w = uModel * vec4(aP, 1.0);
+  vW = w.xyz;
+  vN = mat3(uModel) * aN;
+}`;
+        const fs = `
+precision mediump float;
+varying vec3 vN;
+varying vec3 vW;
+uniform vec3 uColor;
+uniform vec3 uEye;
+uniform vec3 uLightPos;
+uniform float uAmb;
+uniform float uDiff;
+uniform float uSpec;
+uniform float uShiny;
+void main() {
+  vec3 N = normalize(vN);
+  vec3 L = normalize(uLightPos - vW);
+  vec3 V = normalize(uEye - vW);
+  vec3 H = normalize(L + V);
+  vec3 amb = uColor * 0.18;
+  vec3 diff = uColor * max(dot(N, L), 0.0);
+  vec3 spec = vec3(1.0) * pow(max(dot(N, H), 0.0), uShiny);
+  vec3 c = amb * uAmb + diff * uDiff + spec * uSpec;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+        const prog = program(gl, vs, fs);
+        const u = (n) => gl.getUniformLocation(prog, n);
+        const uMVP = u('uMVP');
+        const uModel = u('uModel');
+        const uColor = u('uColor');
+        const uEye = u('uEye');
+        const uLightPos = u('uLightPos');
+        const uAmb = u('uAmb');
+        const uDiff = u('uDiff');
+        const uSpec = u('uSpec');
+        const uShiny = u('uShiny');
+
+        const mesh = uploadMesh(gl, sphereGeo());
+        bindMesh(gl, prog, mesh);
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+        gl.useProgram(prog);
+        gl.uniform3fv(uColor, [0.49, 0.61, 1.0]);
+        gl.uniform3fv(uEye, [0, 0, 6]);
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+        const view = M4.translate(0, 0, -6);
+        let ry = 0.5;
+        const state = { amb: 1, diff: 1, spec: 1, shiny: 24, azim: 0.8, height: 1.6, move: 0 };
+        const sync = () => {
+          gl.uniform1f(uAmb, state.amb);
+          gl.uniform1f(uDiff, state.diff);
+          gl.uniform1f(uSpec, state.spec);
+          gl.uniform1f(uShiny, state.shiny);
+        };
+        sync();
+
+        return {
+          api: {
+            amb(on) { state.amb = on ? 1 : 0; sync(); },
+            diff(on) { state.diff = on ? 1 : 0; sync(); },
+            spec(on) { state.spec = on ? 1 : 0; sync(); },
+            shiny(v) { state.shiny = Number(v); sync(); },
+            azim(v) { state.azim = Number(v); state.move = 0; },
+            height(v) { state.height = Number(v); },
+            move(on) { state.move = on ? 1 : 0; },
+          },
+          render(t, dt) {
+            fitCanvas(canvas, gl);
+            ry += dt * 0.25;
+            const azim = state.move ? t * 0.7 : state.azim;
+            const model = M4.rotateY(ry);
+            const mvp = M4.mul(proj, M4.mul(view, model));
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.uniformMatrix4fv(uMVP, false, mvp);
+            gl.uniformMatrix4fv(uModel, false, model);
+            gl.uniform3f(uLightPos, Math.cos(azim) * 3.2, state.height, Math.sin(azim) * 3.2);
+            gl.drawElements(gl.TRIANGLES, mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            deleteMesh(gl, mesh);
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+
+    /* ---------- 4 纹理贴图 ---------- */
+    texture: {
+      title: '纹理贴图 · UV 坐标 → sampler2D',
+      hint: '按钮换贴图 · 每张贴图都是现场用 Canvas 画的',
+      note: '贴图的本质：模型每个顶点带一个 <code>UV 坐标</code>（这张图上哪个点），fragment shader 里 <code>texture2D(uTex, vUv)</code> 按坐标取色。贴图不需要图片文件——Canvas 画一块、<code>texImage2D</code> 上传、<code>generateMipmap</code> 生成多级纹理（256 是 2 的幂所以能生成），缩小时 GPU 自动用低清版本防摩尔纹。三个按钮的图全是运行时现画的。',
+      code: `// CPU 侧：Canvas 画一张图 → 上传显存
+const cv = document.createElement('canvas');
+cv.width = cv.height = 256;
+const ctx = cv.getContext('2d');
+/* ...在 cv 上画棋盘 / 渐变 / 文字... */
+
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); // UV 的 Y 轴朝上
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
+              gl.UNSIGNED_BYTE, cv);
+gl.generateMipmap(gl.TEXTURE_2D);              // 多级纹理，缩小不闪
+
+// GPU 侧：一个采样函数
+gl_FragColor = texture2D(uTex, vUv);`,
+      controls: [
+        { type: 'button', label: '棋盘格' },
+        { type: 'button', label: '渐变' },
+        { type: 'button', label: '文字贴图' },
+        { type: 'toggle', label: '自动旋转', value: true },
+        { type: 'range', label: '缩放', min: 0.5, max: 2, step: 0.05, value: 1 },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        function makeTexture(draw) {
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = 256;
+          const ctx = cv.getContext('2d');
+          draw(ctx, 256);
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          gl.generateMipmap(gl.TEXTURE_2D);
+          return tex;
+        }
+
+        const drawChecker = (ctx, S) => {
+          const n = 8, s = S / n;
+          for (let y = 0; y < n; y++) {
+            for (let x = 0; x < n; x++) {
+              ctx.fillStyle = (x + y) % 2 ? '#2b3a66' : '#dfe7ff';
+              ctx.fillRect(x * s, y * s, s, s);
+            }
+          }
+          ctx.fillStyle = '#ff6b9d';
+          ctx.fillRect(s * 3, s * 3, s * 2, s * 2);
+        };
+        const drawGrad = (ctx, S) => {
+          const g = ctx.createLinearGradient(0, 0, S, S);
+          g.addColorStop(0, '#b98bff');
+          g.addColorStop(0.5, '#7c9dff');
+          g.addColorStop(1, '#3fd8e8');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, S, S);
+          ctx.strokeStyle = 'rgba(10,16,32,0.5)';
+          ctx.lineWidth = 10;
+          for (let i = -S; i < S * 2; i += 44) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i + S, S);
+            ctx.stroke();
+          }
+        };
+        const drawText = (ctx, S) => {
+          ctx.fillStyle = '#0a1020';
+          ctx.fillRect(0, 0, S, S);
+          ctx.strokeStyle = '#7c9dff';
+          ctx.lineWidth = 8;
+          ctx.strokeRect(10, 10, S - 20, S - 20);
+          ctx.fillStyle = '#e7ecff';
+          ctx.font = 'bold 44px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('UV 贴图', S / 2, S / 2 - 8);
+          ctx.font = '24px monospace';
+          ctx.fillStyle = '#8b96bd';
+          ctx.fillText('canvas → texImage2D', S / 2, S / 2 + 40);
+        };
+
+        const vs = `
+attribute vec3 aP;
+attribute vec2 aU;
+uniform mat4 uMVP;
+varying vec2 vUv;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vUv = aU;
+}`;
+        const fs = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+void main() {
+  gl_FragColor = texture2D(uTex, vUv);
+}`;
+
+        const prog = program(gl, vs, fs);
+        const u = (n) => gl.getUniformLocation(prog, n);
+        const uMVP = u('uMVP');
+        const uTex = u('uTex');
+
+        const mesh = uploadMesh(gl, cubeGeo());
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+        gl.useProgram(prog);
+        gl.uniform1i(uTex, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        bindMesh(gl, prog, mesh, { uv: true });
+
+        const textures = {
+          棋盘格: makeTexture(drawChecker),
+          渐变: makeTexture(drawGrad),
+          文字贴图: makeTexture(drawText),
+        };
+        gl.bindTexture(gl.TEXTURE_2D, textures.棋盘格);
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+        const view = M4.translate(0, 0, -5.2);
+        let rx = -0.4, ry = 0.7;
+        let auto = true;
+        let scale = 1;
+
+        return {
+          api: {
+            texChecker() { gl.bindTexture(gl.TEXTURE_2D, textures.棋盘格); },
+            texGrad() { gl.bindTexture(gl.TEXTURE_2D, textures.渐变); },
+            texText() { gl.bindTexture(gl.TEXTURE_2D, textures.文字贴图); },
+            rotate(on) { auto = !!on; },
+            scale(v) { scale = Number(v); },
+          },
+          render(t, dt) {
+            fitCanvas(canvas, gl);
+            if (auto) { ry += dt * 0.5; rx = -0.4 + Math.sin(t * 0.4) * 0.3; }
+            const s = M4.identity();
+            s[0] = s[5] = s[10] = scale;
+            const model = M4.mul(M4.mul(M4.rotateX(rx), M4.rotateY(ry)), s);
+            const mvp = M4.mul(proj, M4.mul(view, model));
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.uniformMatrix4fv(uMVP, false, mvp);
+            gl.drawElements(gl.TRIANGLES, mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            Object.values(textures).forEach((t) => gl.deleteTexture(t));
+            deleteMesh(gl, mesh);
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+
+    /* ---------- 5 帧缓冲离屏渲染 ---------- */
+    fbo: {
+      title: '帧缓冲 · 先画到离屏，再当贴图用',
+      hint: '右下角那块「监控画面」本身就是一张纹理',
+      note: 'framebuffer 就是「把画面画到一张纹理上而不是屏幕上」：先 <code>bindFramebuffer</code> 切到离屏、正常画一遍场景，再切回屏幕、把那张纹理当贴图画一个小四边形——右下角的 PiP 画面就是。小地图、后处理、镜子（three 的 <code>Reflector</code>）全是这个套路，three 的 <code>EffectComposer</code> 内部就是一串 framebuffer 传来传去。滤镜按钮改的只是最后那一步 shader 采样。',
+      code: `// ① 建离屏画布：一张纹理 + 一份深度
+const tex = gl.createTexture();
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0,
+              gl.RGBA, gl.UNSIGNED_BYTE, null);
+const fbo = gl.createFramebuffer();
+gl.framebufferTexture2D(gl.FRAMEBUFFER,
+  gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+// 深度也要一份 renderbuffer，不然离屏里没有前后关系
+
+// ② 第一遍：画进离屏
+gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+gl.viewport(0, 0, 512, 512);
+drawScene();
+
+// ③ 第二遍：切回屏幕，把离屏纹理当贴图画 PiP
+gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+gl.viewport(0, 0, canvas.width, canvas.height);
+drawScene();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+drawQuad();  // gl_FragColor = texture2D(uTex, vUv);`,
+      controls: [
+        { type: 'toggle', label: '小地图', value: true },
+        { type: 'button', label: '切滤镜' },
+        { type: 'toggle', label: '自动旋转', value: true },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const sceneVS = `
+attribute vec3 aP;
+attribute vec3 aN;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+varying vec3 vN;
+varying vec3 vW;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vec4 w = uModel * vec4(aP, 1.0);
+  vW = w.xyz;
+  vN = mat3(uModel) * aN;
+}`;
+        const sceneFS = `
+precision mediump float;
+varying vec3 vN;
+varying vec3 vW;
+uniform vec3 uColor;
+void main() {
+  vec3 N = normalize(vN);
+  vec3 L = normalize(vec3(0.5, 0.9, 0.7));
+  float diff = max(dot(N, L), 0.0);
+  gl_FragColor = vec4(uColor * (0.25 + 0.75 * diff), 1.0);
+}`;
+        const quadVS = `
+attribute vec2 aP;
+attribute vec2 aU;
+varying vec2 vUv;
+void main() {
+  vUv = aU;
+  gl_Position = vec4(aP, 0.0, 1.0);
+}`;
+        const quadFS = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform float uFilter;
+void main() {
+  vec4 c = texture2D(uTex, vUv);
+  if (uFilter > 0.5 && uFilter < 1.5) {
+    float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+    c = vec4(vec3(g), 1.0);
+  } else if (uFilter > 1.5) {
+    c = vec4(1.0 - c.r, 1.0 - c.g, 1.0 - c.b, 1.0);
+  }
+  gl_FragColor = c;
+}`;
+
+        const progScene = program(gl, sceneVS, sceneFS);
+        const progQuad = program(gl, quadVS, quadFS);
+        const us = (n) => gl.getUniformLocation(progScene, n);
+        const uq = (n) => gl.getUniformLocation(progQuad, n);
+        const uMVP = us('uMVP'), uModel = us('uModel'), uColor = us('uColor');
+        const uTex = uq('uTex'), uFilter = uq('uFilter');
+
+        // 离屏画布：512 是 2 的幂，稳妥
+        const S = 512;
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        const depth = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, S, S);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        const cubes = [
+          { x: -2.3, color: [0.49, 0.61, 1.0], phase: 0 },
+          { x: 0, color: [0.13, 0.83, 0.93], phase: 2.1 },
+          { x: 2.3, color: [0.73, 0.55, 1.0], phase: 4.2 },
+        ].map((c) => ({ ...c, mesh: uploadMesh(gl, cubeGeo(0.72)) }));
+
+        // PiP 小四边形：NDC 坐标直接给
+        const quadBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+        // x: 0.52..0.94, y: -0.92..-0.5 → 右下角
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          0.52, -0.92, 0, 0,
+          0.94, -0.92, 1, 0,
+          0.52, -0.50, 0, 1,
+          0.94, -0.50, 1, 1,
+        ]), gl.STATIC_DRAW);
+        const qP = gl.getAttribLocation(progQuad, 'aP');
+        const qU = gl.getAttribLocation(progQuad, 'aU');
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+        const projS = M4.perspective(Math.PI / 4, 1, 0.1, 50);
+        const view = M4.translate(0, 0, -7.5);
+        const viewS = M4.mul(M4.translate(0, 0.6, -7), M4.rotateX(0.28));
+        let auto = true;
+        let filter = 0; // 0 原色 1 灰度 2 反色
+        let pip = true;
+
+        function drawCubes(t, projM, viewM) {
+          cubes.forEach((c) => {
+            const model = M4.mul(
+              M4.translate(c.x, Math.sin(t * 0.9 + c.phase) * 0.55, 0),
+              M4.mul(M4.rotateY(t * 0.8 + c.phase), M4.rotateX(t * 0.5))
+            );
+            const mvp = M4.mul(projM, M4.mul(viewM, model));
+            gl.uniformMatrix4fv(uMVP, false, mvp);
+            gl.uniformMatrix4fv(uModel, false, model);
+            gl.uniform3fv(uColor, c.color);
+            gl.drawElements(gl.TRIANGLES, c.mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+          });
+        }
+
+        function drawPip() {
+          gl.disable(gl.DEPTH_TEST);
+          gl.useProgram(progQuad);
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.uniform1i(uTex, 0);
+          gl.uniform1f(uFilter, filter);
+          gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+          gl.enableVertexAttribArray(qP);
+          gl.vertexAttribPointer(qP, 2, gl.FLOAT, false, 16, 0);
+          gl.enableVertexAttribArray(qU);
+          gl.vertexAttribPointer(qU, 2, gl.FLOAT, false, 16, 8);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          gl.enable(gl.DEPTH_TEST);
+        }
+
+        return {
+          api: {
+            pip(on) { pip = !!on; },
+            filter(btn) {
+              filter = (filter + 1) % 3;
+              btn.textContent = ['原色', '灰度', '反色'][filter];
+            },
+            rotate(on) { auto = !!on; },
+          },
+          render(t) {
+            fitCanvas(canvas, gl);
+            const spin = auto ? t : 2.4;
+
+            // 第一遍：画进离屏
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+            gl.viewport(0, 0, S, S);
+            gl.clearColor(0.05, 0.06, 0.11, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.useProgram(progScene);
+            drawCubes(spin, projS, viewS);
+
+            // 第二遍：画主画面
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0.03, 0.04, 0.08, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.useProgram(progScene);
+            drawCubes(spin, proj, view);
+
+            // 第三遍：把离屏纹理当贴图画 PiP
+            if (pip) drawPip();
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            cubes.forEach((c) => deleteMesh(gl, c.mesh));
+            gl.deleteBuffer(quadBuf);
+            gl.deleteFramebuffer(fbo);
+            gl.deleteRenderbuffer(depth);
+            gl.deleteTexture(tex);
+            gl.deleteProgram(progScene);
+            gl.deleteProgram(progQuad);
+          },
+        };
+      },
+    },
+
+    /* ---------- 6 颜色拾取 ---------- */
+    picking: {
+      title: '3D 拾取 · 颜色身份证方案',
+      hint: '点击方块选中 · 再点空白取消',
+      note: '原生 WebGL 没有「物体」的概念，只有三角形，所以「点了谁」要自己算。颜色拾取的思路：点击那一刻把场景<strong>再画一遍</strong>——每个物体用一个独一无二的纯色（身份证），关灯关抗锯齿，然后 <code>readPixels</code> 读回点击处那 1 个像素，颜色反查出编号。全程 GPU 并行，比逐个物体做射线求交便宜。three 的 <code>Raycaster</code> 走的是数学求交路线，但离屏渲染那套（第 5 面板）加上这个就是渲染目标拾取的完整拼图。',
+      code: `// 拾取通道：每个物体一个身份证色
+gl.bindFramebuffer(gl.FRAMEBUFFER, pickFbo);
+gl.useProgram(progPick);          // 只画纯色，不带光照
+cubes.forEach((c, i) => {
+  gl.uniform3f(uID, (i + 1) / 255, 0, 0);  // 编号藏在 R 通道
+  draw(c);
+});
+
+// 读回点击处 1 个像素
+const px = new Uint8Array(4);
+gl.readPixels(x, canvas.height - y, 1, 1,
+              gl.RGBA, gl.UNSIGNED_BYTE, px);
+const selected = px[0] > 0 ? px[0] - 1 : -1;`,
+      controls: [{ type: 'toggle', label: '自动旋转', value: true }],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const mainVS = `
+attribute vec3 aP;
+attribute vec3 aN;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+varying vec3 vN;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vN = mat3(uModel) * aN;
+}`;
+        const mainFS = `
+precision mediump float;
+varying vec3 vN;
+uniform vec3 uColor;
+void main() {
+  float diff = max(dot(normalize(vN), normalize(vec3(0.4, 0.9, 0.8))), 0.0);
+  gl_FragColor = vec4(uColor * (0.3 + 0.7 * diff), 1.0);
+}`;
+        const pickVS = `
+attribute vec3 aP;
+uniform mat4 uMVP;
+void main() { gl_Position = uMVP * vec4(aP, 1.0); }`;
+        const pickFS = `
+precision mediump float;
+uniform vec3 uID;
+void main() { gl_FragColor = vec4(uID, 1.0); }`;
+
+        const progMain = program(gl, mainVS, mainFS);
+        const progPick = program(gl, pickVS, pickFS);
+        const um = (n) => gl.getUniformLocation(progMain, n);
+        const up_ = (n) => gl.getUniformLocation(progPick, n);
+        const uMVP = um('uMVP'), uModel = um('uModel'), uColor = um('uColor');
+        const uMVP2 = up_('uMVP'), uID = up_('uID');
+
+        const COLORS = [
+          [0.49, 0.61, 1.0],
+          [0.13, 0.83, 0.93],
+          [0.73, 0.55, 1.0],
+          [0.98, 0.72, 0.36],
+          [0.42, 0.9, 0.55],
+        ];
+        const N = 5;
+        const cubes = [];
+        for (let i = 0; i < N; i++) {
+          cubes.push({
+            x: (i - (N - 1) / 2) * 1.75,
+            mesh: uploadMesh(gl, cubeGeo(0.6)),
+          });
+        }
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+        const view = M4.translate(0, 0, -8.5);
+
+        // 拾取目标：按画布尺寸建，尺寸变了才重建
+        let pickFbo = null, pickTex = null, pickDepth = null, pw = 0, ph = 0;
+        function ensurePick(w, h) {
+          if (pw === w && ph === h) return;
+          if (pickFbo) {
+            gl.deleteFramebuffer(pickFbo);
+            gl.deleteTexture(pickTex);
+            gl.deleteRenderbuffer(pickDepth);
+          }
+          pw = w; ph = h;
+          pickTex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, pickTex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          pickDepth = gl.createRenderbuffer();
+          gl.bindRenderbuffer(gl.RENDERBUFFER, pickDepth);
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+          pickFbo = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, pickFbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickTex, 0);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickDepth);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+
+        let selected = -1;
+        let auto = true;
+
+        // 拾取 HUD：右侧一枚小牌子
+        const tag = document.createElement('div');
+        tag.className = 'stage-hint';
+        tag.style.left = 'auto';
+        tag.style.right = '14px';
+        tag.style.color = '#9fe8ff';
+        tag.textContent = '未选中';
+        stageEl.appendChild(tag);
+
+        const onClick = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = Math.round(((e.clientX - rect.left) / rect.width) * canvas.width);
+          const y = Math.round((1 - (e.clientY - rect.top) / rect.height) * canvas.height);
+          ensurePick(canvas.width, canvas.height);
+
+          // 拾取通道：纯色重画一遍
+          gl.bindFramebuffer(gl.FRAMEBUFFER, pickFbo);
+          gl.viewport(0, 0, pw, ph);
+          gl.clearColor(0, 0, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.useProgram(progPick);
+          cubes.forEach((c, i) => {
+            const model = M4.mul(M4.translate(c.x, 0, 0), M4.rotateY(i * 0.6));
+            gl.uniformMatrix4fv(uMVP2, false, M4.mul(proj, M4.mul(view, model)));
+            gl.uniform3f(uID, (i + 1) / 255, 0, 0);
+            gl.drawElements(gl.TRIANGLES, c.mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+          });
+
+          const px = new Uint8Array(4);
+          gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          selected = px[0] > 0 && px[0] <= N ? px[0] - 1 : -1;
+          tag.textContent = selected >= 0 ? `已选 #${selected + 1} · R=${px[0]}` : '未选中';
+
+          // 关键：绑回默认帧缓冲并恢复 clearColor，
+          // 否则下一帧 render 的 clear 和绘制全部进离屏纹理，屏幕就冻结了
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.clearColor(0.03, 0.04, 0.08, 1);
+        };
+        stageEl.addEventListener('pointerdown', onClick);
+
+        return {
+          api: {
+            rotate(on) { auto = !!on; },
+          },
+          render(t, dt) {
+            fitCanvas(canvas, gl);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.useProgram(progMain);
+            cubes.forEach((c, i) => {
+              const wob = auto ? Math.sin(t * 1.1 + i * 0.9) * 0.22 : 0;
+              const model = M4.mul(
+                M4.translate(c.x, wob, 0),
+                M4.rotateY(i * 0.6 + (auto ? t * 0.4 : 0))
+              );
+              const mvp = M4.mul(proj, M4.mul(view, model));
+              gl.uniformMatrix4fv(uMVP, false, mvp);
+              gl.uniformMatrix4fv(uModel, false, model);
+              const base = COLORS[i];
+              const bright = i === selected ? [1.6, 1.6, 1.6] : [1, 1, 1];
+              gl.uniform3f(uColor,
+                Math.min(1, base[0] * bright[0]),
+                Math.min(1, base[1] * bright[1]),
+                Math.min(1, base[2] * bright[2]));
+              bindMesh(gl, progMain, c.mesh);
+              gl.drawElements(gl.TRIANGLES, c.mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+              if (i === selected && c.mesh.edge) {
+                // uColor 给 3：光照系数乘完仍然 ≥0.9，输出全白（shader 会自动 clamp）
+                gl.uniform3f(uColor, 3, 3, 3);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.mesh.edge);
+                gl.drawElements(gl.LINES, c.mesh.edgeCount, gl.UNSIGNED_SHORT, 0);
+              }
+            });
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            stageEl.removeEventListener('pointerdown', onClick);
+            if (tag.parentNode) tag.parentNode.removeChild(tag);
+            cubes.forEach((c) => deleteMesh(gl, c.mesh));
+            if (pickFbo) {
+              gl.deleteFramebuffer(pickFbo);
+              gl.deleteTexture(pickTex);
+              gl.deleteRenderbuffer(pickDepth);
+            }
+            gl.deleteProgram(progMain);
+            gl.deleteProgram(progPick);
+          },
+        };
+      },
+    },
+    /* ---------- 7 透明混合 ---------- */
+    blend: {
+      title: '透明混合 · 画错顺序就穿帮',
+      hint: '关「排序」看颜色乱掉 · 开「深度写入」看透明挡透明',
+      note: '半透明的全部机制就一行开关：<code>gl.enable(gl.BLEND)</code> + <code>blendFunc</code>，GPU 把新片元颜色和 framebuffer 里已有颜色按 alpha 加权。但要配两件事才不穿帮：① <code>关深度写入</code>（<code>depthMask(false)</code>）——透明的东西不该「挡住」后面的透明，关掉的只是写入，深度测试照常；② <code>从远到近画</code>——混合不可交换，1.0×红 + 0.5×蓝 ≠ 0.5×蓝 + 1.0×红，关掉排序按钮马上看到颜色错乱。three 里 <code>transparent: true</code> 自动替你做这三件事，排序按包围盒中心——所以嵌套、交错的透明物它自己也会翻车。',
+      code: `// ① 打开混合：新旧颜色按 alpha 加权
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+// ② 关深度写入：透明不该挡住后面的透明
+gl.depthMask(false);   // 只是不写入，深度测试照常进行
+
+// ③ 从远到近画：混合不可交换，顺序就是正确性
+quads.sort((a, b) => a.z - b.z)  // 相机在 +z，z 小的远
+  .forEach(draw);
+
+// three 里的 transparent:true，底下就是这三件事
+// 但它按包围盒中心排序，交错嵌套时也会穿帮`,
+      controls: [
+        { type: 'toggle', label: '混合', value: true },
+        { type: 'toggle', label: '排序', value: true },
+        { type: 'toggle', label: '深度写入', value: false },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const vs = `
+attribute vec3 aP;
+uniform mat4 uMVP;
+uniform vec4 uColor;
+varying vec4 vColor;
+void main() {
+  gl_Position = uMVP * vec4(aP, 1.0);
+  vColor = uColor;
+}`;
+        const fs = `
+precision mediump float;
+varying vec4 vColor;
+void main() {
+  gl_FragColor = vColor;
+}`;
+
+        const prog = program(gl, vs, fs);
+        const uMVP = gl.getUniformLocation(prog, 'uMVP');
+        const uColor = gl.getUniformLocation(prog, 'uColor');
+
+        // 一块朝向相机的方板
+        function plateGeo(s) {
+          return {
+            pos: [-s, -s, 0, s, -s, 0, s, s, 0, -s, s, 0],
+            nor: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+            idx: [0, 1, 2, 0, 2, 3],
+          };
+        }
+        const quads = [
+          { color: [0.49, 0.61, 1.0], phase: 0 },
+          { color: [0.13, 0.83, 0.93], phase: 1.1 },
+          { color: [0.98, 0.72, 0.36], phase: 2.2 },
+          { color: [0.73, 0.55, 1.0], phase: 3.3 },
+          { color: [0.42, 0.9, 0.55], phase: 4.4 },
+        ].map((q, i) => ({ ...q, mesh: uploadMesh(gl, plateGeo(1.3)), x: (i - 2) * 1.05 }));
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+        gl.useProgram(prog);
+
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+        const view = M4.translate(0, 0, -6.5);
+        const state = { blend: true, sort: true, dmask: false };
+
+        return {
+          api: {
+            blend(on) { state.blend = !!on; },
+            sort(on) { state.sort = !!on; },
+            dmask(on) { state.dmask = !!on; },
+          },
+          render(t) {
+            fitCanvas(canvas, gl);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.useProgram(prog);
+
+            const list = quads.map((q) => {
+              const z = Math.sin(t * 0.55 + q.phase) * 1.7;
+              const ry = Math.sin(t * 0.4 + q.phase) * 0.5;
+              return { q, z, model: M4.mul(M4.translate(q.x, 0, z), M4.rotateY(ry)) };
+            });
+            if (state.sort) {
+              // 相机在 +z 方向：z 越小越远 → 远的先画
+              list.sort((a, b) => a.z - b.z);
+            } else {
+              list.reverse(); // 固定乱序：故意让它穿帮
+            }
+
+            if (state.blend) {
+              gl.enable(gl.BLEND);
+              gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+              gl.depthMask(state.dmask);
+            } else {
+              gl.disable(gl.BLEND);
+              gl.depthMask(true);
+            }
+
+            const alpha = state.blend ? 0.5 : 1;
+            list.forEach(({ q, model }) => {
+              gl.uniformMatrix4fv(uMVP, false, M4.mul(proj, M4.mul(view, model)));
+              gl.uniform4f(uColor, q.color[0], q.color[1], q.color[2], alpha);
+              bindMesh(gl, prog, q.mesh);
+              gl.drawElements(gl.TRIANGLES, q.mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+            });
+
+            gl.depthMask(true); // 收尾恢复，别污染别的通道
+            gl.disable(gl.BLEND);
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 50);
+            proj.set(p);
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            quads.forEach((q) => deleteMesh(gl, q.mesh));
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+
+    /* ---------- 8 万级实例化 ---------- */
+    inst: {
+      title: '万级实例化 · 1 次 draw call 画一座城',
+      hint: '拖数量滑杆 · 点「逐个画对照」感受 CPU 的哀嚎',
+      note: '实例化渲染：几何顶点只传一份（±1 立方体），每个实例只多传三个数——偏移、高度、颜色，GPU 用 <code>vertexAttribDivisor</code> 让这些属性每画完一个实例才前进一格，再用 <code>drawElementsInstanced</code> 一次点名全部。同样画几千根柱子，CPU 提交成本从几千次 draw call 降到一次——three 的 <code>InstancedMesh</code> 底下就是这套。点「逐个画对照」切回传统路径逐个提交，右上角读数会告诉你 CPU 有多难受。',
+      code: `// WebGL1 需要扩展，WebGL2 原生支持
+const ext = gl.getExtension('ANGLE_instanced_arrays');
+
+// 偏移/颜色/高度都是「实例级」属性：每画完一个实例才前进一格
+gl.bindBuffer(gl.ARRAY_BUFFER, offsetBuf);
+gl.vertexAttribPointer(aOff, 2, gl.FLOAT, false, 0, 0);
+ext.vertexAttribDivisorANGLE(aOff, 1);  // 0=逐顶点 1=逐实例
+ext.vertexAttribDivisorANGLE(aScale, 1);
+ext.vertexAttribDivisorANGLE(aTint, 1);
+
+// 一次调用 = 一万个立方体，几何只存一份
+ext.drawElementsInstancedANGLE(
+  gl.TRIANGLES, idxCount, gl.UNSIGNED_SHORT, 0, 10000);`,
+      controls: [
+        { type: 'range', label: '数量', min: 400, max: 8100, step: 250, value: 4000 },
+        { type: 'button', label: '逐个画对照' },
+        { type: 'toggle', label: '自动旋转', value: true },
+      ],
+      init() {
+        const { canvas, gl } = makeGL();
+        fitCanvas(canvas, gl);
+
+        const ext = gl.getExtension('ANGLE_instanced_arrays');
+        if (!ext) throw new Error('当前浏览器不支持 ANGLE_instanced_arrays');
+
+        const vs = `
+attribute vec3 aP;
+attribute vec3 aN;
+attribute vec2 aOff;
+attribute float aScale;
+attribute vec3 aTint;
+uniform mat4 uVP;
+uniform mat4 uRot;
+uniform float uSolo;
+uniform vec2 uOff;
+uniform float uScale;
+uniform vec3 uTint;
+varying vec3 vN;
+varying vec3 vTint;
+void main() {
+  vec2 off = mix(aOff, uOff, uSolo);      // uSolo=1 时走 uniform（逐个画对照路径）
+  float sc = mix(aScale, uScale, uSolo);
+  vTint = mix(aTint, uTint, uSolo);
+  // 几何只存一份 ±1 立方体：水平用固定粗细，垂直按实例缩放 → 城市天际线
+  vec3 local = vec3(aP.x * 0.38, (aP.y + 1.0) * sc, aP.z * 0.38);
+  vec4 p = uRot * vec4(local + vec3(off.x, 0.0, off.y), 1.0);
+  gl_Position = uVP * p;
+  vN = mat3(uRot) * aN;
+}`;
+        const fs = `
+precision mediump float;
+varying vec3 vN;
+varying vec3 vTint;
+void main() {
+  float diff = max(dot(normalize(vN), normalize(vec3(0.4, 0.9, 0.7))), 0.0);
+  gl_FragColor = vec4(vTint * (0.3 + 0.7 * diff), 1.0);
+}`;
+
+        const prog = program(gl, vs, fs);
+        const uVP = gl.getUniformLocation(prog, 'uVP');
+        const uRot = gl.getUniformLocation(prog, 'uRot');
+        const uSolo = gl.getUniformLocation(prog, 'uSolo');
+        const uOff = gl.getUniformLocation(prog, 'uOff');
+        const uScale = gl.getUniformLocation(prog, 'uScale');
+        const uTint = gl.getUniformLocation(prog, 'uTint');
+
+        // 实例数据：90×90 = 8100 根柱子，颜色按高度从冷到暖
+        const GRID = 90;
+        const MAX = GRID * GRID;
+        const GAP = 1.0;
+        const offs = new Float32Array(MAX * 2);
+        const scales = new Float32Array(MAX);
+        const tints = new Float32Array(MAX * 3);
+        const h2r = (h) => {
+          const f = (n) => {
+            const k = (n + h * 6) % 6;
+            return 1 - Math.max(0, Math.min(1, Math.min(k, 4 - k)));
+          };
+          return [f(5), f(3), f(1)];
+        };
+        let k = 0;
+        for (let gx = 0; gx < GRID; gx++) {
+          for (let gz = 0; gz < GRID; gz++) {
+            offs[k * 2] = (gx - (GRID - 1) / 2) * GAP;
+            offs[k * 2 + 1] = (gz - (GRID - 1) / 2) * GAP;
+            // 伪随机高度：越靠中心越容易出高楼
+            const rnd = Math.abs(Math.sin(gx * 127.1 + gz * 311.7) * 43758.5453) % 1;
+            const centerBias = 1.2 - Math.hypot(gx - GRID / 2, gz - GRID / 2) / GRID * 1.6;
+            const s = 0.3 + 1.5 * Math.max(0, rnd * centerBias - 0.12);
+            scales[k] = s;
+            const hue = Math.max(0.02, 0.62 - s * 0.38);
+            const c = h2r(hue);
+            tints[k * 3] = c[0]; tints[k * 3 + 1] = c[1]; tints[k * 3 + 2] = c[2];
+            k++;
+          }
+        }
+
+        const mesh = uploadMesh(gl, cubeGeo(1.0));
+        const offBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, offBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, offs, gl.STATIC_DRAW);
+        const scaleBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, scaleBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, scales, gl.STATIC_DRAW);
+        const tintBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, tintBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, tints, gl.STATIC_DRAW);
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.03, 0.04, 0.08, 1);
+        gl.useProgram(prog);
+        bindMesh(gl, prog, mesh);
+
+        const aOff = gl.getAttribLocation(prog, 'aOff');
+        const aTint = gl.getAttribLocation(prog, 'aTint');
+        const aScale = gl.getAttribLocation(prog, 'aScale');
+        const aP = gl.getAttribLocation(prog, 'aP');
+        const aN = gl.getAttribLocation(prog, 'aN');
+        gl.bindBuffer(gl.ARRAY_BUFFER, offBuf);
+        gl.enableVertexAttribArray(aOff);
+        gl.vertexAttribPointer(aOff, 2, gl.FLOAT, false, 0, 0);
+        ext.vertexAttribDivisorANGLE(aOff, 1); // 实例级：每实例前进一格
+        gl.bindBuffer(gl.ARRAY_BUFFER, scaleBuf);
+        gl.enableVertexAttribArray(aScale);
+        gl.vertexAttribPointer(aScale, 1, gl.FLOAT, false, 0, 0);
+        ext.vertexAttribDivisorANGLE(aScale, 1);
+        gl.bindBuffer(gl.ARRAY_BUFFER, tintBuf);
+        gl.enableVertexAttribArray(aTint);
+        gl.vertexAttribPointer(aTint, 3, gl.FLOAT, false, 0, 0);
+        ext.vertexAttribDivisorANGLE(aTint, 1);
+        ext.vertexAttribDivisorANGLE(aP, 0);   // 几何属性保持逐顶点
+        ext.vertexAttribDivisorANGLE(aN, 0);
+
+        // 相机：高处俯瞰整片 90×90 的柱阵
+        const proj = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 400);
+        const view = M4.mul(M4.rotateX(0.53), M4.translate(0, -70, -120));
+        gl.uniformMatrix4fv(uVP, false, M4.mul(proj, view));
+
+        let count = 4000;
+        let solo = false;
+        let auto = true;
+
+        // 右上角读数牌：实例数 / draw calls / fps
+        const tag = document.createElement('div');
+        tag.className = 'stage-hint';
+        tag.style.left = 'auto';
+        tag.style.right = '14px';
+        tag.style.color = '#9fe8ff';
+        tag.textContent = '';
+        stageEl.appendChild(tag);
+        let fpsAcc = 0, fpsN = 0, fpsShown = 0;
+
+        return {
+          api: {
+            count(v) { count = Math.round(Number(v)); },
+            solo(btn) {
+              solo = !solo;
+              btn.textContent = solo ? '回到实例化' : '逐个画对照';
+              btn.classList.toggle('on', solo);
+            },
+            rotate(on) { auto = !!on; },
+          },
+          render(t, dt) {
+            fitCanvas(canvas, gl);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.useProgram(prog);
+            gl.uniformMatrix4fv(uRot, false, M4.rotateY(auto ? t * 0.15 : 0.6));
+            gl.uniform1f(uSolo, solo ? 1 : 0);
+
+            if (solo) {
+              // 传统路径：每根柱子单独一次 draw call
+              for (let i = 0; i < count; i++) {
+                gl.uniform2f(uOff, offs[i * 2], offs[i * 2 + 1]);
+                gl.uniform1f(uScale, scales[i]);
+                gl.uniform3f(uTint, tints[i * 3], tints[i * 3 + 1], tints[i * 3 + 2]);
+                gl.drawElements(gl.TRIANGLES, mesh.idxCount, gl.UNSIGNED_SHORT, 0);
+              }
+            } else {
+              // 实例化：一次调用点名全部
+              ext.drawElementsInstancedANGLE(gl.TRIANGLES, mesh.idxCount, gl.UNSIGNED_SHORT, 0, count);
+            }
+
+            fpsAcc += 1 / Math.max(dt, 0.001); fpsN++;
+            if (fpsN >= 30) { fpsShown = Math.round(fpsAcc / fpsN); fpsAcc = 0; fpsN = 0; }
+            tag.textContent = `实例 ${count} · draw calls ${solo ? count : 1} · ${fpsShown} fps`;
+          },
+          resize() {
+            const p = M4.perspective(Math.PI / 4, stageEl.clientWidth / Math.max(1, stageEl.clientHeight), 0.1, 300);
+            gl.uniformMatrix4fv(uVP, false, M4.mul(p, view));
+            fitCanvas(canvas, gl);
+          },
+          dispose() {
+            if (tag.parentNode) tag.parentNode.removeChild(tag);
+            gl.deleteMesh(gl, mesh);
+            gl.deleteBuffer(offBuf);
+            gl.deleteBuffer(scaleBuf);
+            gl.deleteBuffer(tintBuf);
+            gl.deleteProgram(prog);
+          },
+        };
+      },
+    },
+  };
+
+  const API_MAP = {
+    速度: 'speed',
+    湍流: 'turb',
+    蓝焰: 'blue',
+    立方体: 'cube',
+    球体: 'sphere',
+    椎体: 'cone',
+    缩放: 'scale',
+    自动旋转: 'rotate',
+    环境光: 'amb',
+    漫反射: 'diff',
+    高光: 'spec',
+    高光锐度: 'shiny',
+    光源方位: 'azim',
+    光源高度: 'height',
+    光源动画: 'move',
+    棋盘格: 'texChecker',
+    渐变: 'texGrad',
+    文字贴图: 'texText',
+    小地图: 'pip',
+    '切滤镜': 'filter',
+    混合: 'blend',
+    排序: 'sort',
+    深度写入: 'dmask',
+    数量: 'count',
+    '逐个画对照': 'solo',
+  };
+  const mapApi = (label) => API_MAP[label];
+
+  /* ============ 控件渲染 ============ */
+  function renderControls(demo, inst) {
+    ctlEl.innerHTML = '';
+    if (!demo.controls || !demo.controls.length) return;
+
+    demo.controls.forEach((c) => {
+      if (c.type === 'range') {
+        const wrap = document.createElement('label');
+        wrap.className = 'ctl';
+        const span = document.createElement('span');
+        span.textContent = c.label;
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = c.min;
+        input.max = c.max;
+        input.step = c.step;
+        input.value = c.value;
+        const val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = c.value;
+        input.addEventListener('input', () => {
+          val.textContent = input.value;
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(input.value);
+        });
+        wrap.append(span, input, val);
+        ctlEl.appendChild(wrap);
+      } else if (c.type === 'toggle') {
+        const btn = document.createElement('button');
+        btn.className = 'btn' + (c.value ? ' on' : '');
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => {
+          const on = !btn.classList.contains('on');
+          btn.classList.toggle('on', on);
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(on);
+        });
+        ctlEl.appendChild(btn);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => {
+          const fn = inst.api && inst.api[mapApi(c.label)];
+          if (fn) fn(btn);
+        });
+        ctlEl.appendChild(btn);
+      }
+    });
+  }
+
+  /* ============ 加载与切换 ============ */
+  let current = null;
+  let raf = 0;
+
+  function mount(id) {
+    if (current && current.dispose) current.dispose();
+    ctlEl.innerHTML = '';
+
+    const demo = DEMOS[id];
+    document.getElementById('dTitle').textContent = demo.title;
+    document.getElementById('dNote').innerHTML = demo.note;
+    document.getElementById('dCode').textContent = demo.code;
+    hintEl.textContent = demo.hint;
+
+    try {
+      current = demo.init();
+      renderControls(demo, current);
+    } catch (err) {
+      document.getElementById('loading').textContent = '初始化失败：' + err.message;
+      document.getElementById('loading').classList.remove('gone');
+      current = null;
+    }
+  }
+
+  let last = 0;
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+    last = now;
+    if (!current) return;
+    try {
+      current.render(now / 1000, dt);
+    } catch (err) {
+      console.error('render error', err);
+    }
+  }
+
+  const tabs = document.getElementById('tabs');
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    tabs.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === btn));
+    mount(btn.dataset.d);
+  });
+
+  window.addEventListener('resize', () => { current && current.resize && current.resize(); });
+
+  mount('fire');
+  raf = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
