@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>历史长河 · 中国王朝与世界文明</title>
+<style>
+  :root{
+    --bg:#070b16; --panel:rgba(14,20,38,.92); --line:rgba(255,209,102,.16);
+    --gold:#ffd166; --gold2:#ffb347; --text:#e8ecf7; --mid:#93a0bd; --dim:#5d6a86;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh}
+  header{padding:12px 20px 9px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  header h1{margin:0;font-size:19px;letter-spacing:2px;color:var(--gold)}
+  header .sub{font-size:12px;color:var(--mid);margin-top:3px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 20px;
+    border-bottom:1px solid var(--line);flex:0 0 auto}
+  .btn{background:rgba(255,209,102,.08);border:1px solid var(--line);color:var(--text);
+    padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:.18s}
+  .btn:hover{background:rgba(255,209,102,.2);border-color:var(--gold)}
+  .btn.on{background:var(--gold);color:#241a05;font-weight:700}
+  .search{flex:1;min-width:150px;max-width:280px;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);border-radius:6px;padding:7px 11px;color:var(--text);font-size:12px;outline:none}
+  .search:focus{border-color:var(--gold)}
+  .hint{font-size:11px;color:var(--dim)}
+  main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  #legend{position:absolute;left:14px;bottom:12px;font-size:11px;color:var(--mid);
+    background:rgba(7,11,22,.7);padding:7px 10px;border-radius:6px;pointer-events:none;line-height:1.7}
+  #legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  #tip{position:absolute;pointer-events:none;background:rgba(10,14,28,.96);border:1px solid var(--line);
+    color:var(--text);font-size:12px;padding:6px 9px;border-radius:6px;display:none;white-space:nowrap;z-index:5}
+  aside{width:330px;flex:0 0 330px;border-left:1px solid var(--line);background:var(--panel);
+    overflow-y:auto;padding:16px 18px}
+  aside h2{margin:0 0 4px;font-size:18px;color:var(--gold)}
+  aside .meta{font-size:12px;color:var(--mid);margin-bottom:12px}
+  aside .sec{border-top:1px dashed var(--line);padding-top:11px;margin-top:12px}
+  aside .lbl{font-size:10px;letter-spacing:1.5px;color:var(--gold2);text-transform:uppercase;margin-bottom:7px}
+  aside p{font-size:13px;line-height:1.8;color:#cdd6ea;margin:0 0 8px}
+  aside .tag{display:inline-block;font-size:11px;color:var(--gold2);border:1px solid var(--line);
+    border-radius:20px;padding:2px 9px;margin:0 5px 5px 0}
+  .emperors{font-size:12px;max-height:none}
+  .emperors .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .emperors .row .yr{color:var(--gold2);font-variant-numeric:tabular-nums;white-space:nowrap;margin-left:8px}
+  .knots{font-size:12px}
+  .knots .row{padding:4px 0;color:#cdd6ea;display:flex;justify-content:space-between;gap:8px}
+  .knots .row i{color:var(--gold2);font-style:normal;font-variant-numeric:tabular-nums;white-space:nowrap}
+  textarea{width:100%;min-height:90px;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:6px;color:var(--text);font-size:12px;line-height:1.7;padding:9px;resize:vertical;outline:none}
+  textarea:focus{border-color:var(--gold)}
+  .saved{font-size:11px;color:#7fd1a8;min-height:15px;margin-top:3px}
+  .addform input,.addform textarea{width:100%;margin-bottom:7px}
+  .addform input{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:6px;
+    color:var(--text);font-size:12px;padding:7px 9px;outline:none}
+  .addform input:focus{border-color:var(--gold)}
+  .empty{font-size:12px;color:var(--dim);line-height:1.8}
+  .minibar{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:12px;
+    color:var(--gold2);background:rgba(7,11,22,.78);padding:5px 12px;border-radius:20px;
+    border:1px solid var(--line);pointer-events:none;white-space:nowrap}
+  @media(max-width:800px){aside{display:none}#legend{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>历史长河</h1>
+    <div class="sub">黄色粒子汇成时间长河 · 中国王朝与文明古国同河并流 · 点人物气泡聚焦其生卒年，点朝代色带看帝王世系</div>
+  </header>
+  <div class="toolbar">
+    <button class="btn" id="reset">◀ 全貌复位</button>
+    <button class="btn on" id="layerCn">中国朝代</button>
+    <button class="btn on" id="layerWorld">世界诸国</button>
+    <button class="btn on" id="layerPeople">人物气泡</button>
+    <input class="search" id="search" placeholder="搜索人物 / 朝代 / 国家，回车聚焦">
+    <button class="btn" id="addBtn">＋ 补充人物</button>
+    <span class="hint">滚轮缩放 · 拖动平移</span>
+  </div>
+  <main>
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div class="minibar" id="minibar">时间标尺</div>
+      <div id="legend"></div>
+      <div id="tip"></div>
+    </div>
+    <aside id="side">
+      <h2 id="sTitle">从一条河说起</h2>
+      <div class="meta" id="sMeta">点击河上的元素查看详情</div>
+      <div id="sBody">
+        <p>这条路从夏商周流到今天，跨越五千余年。河的上方是中国王朝（并存朝代分上下层），下方是世界主要文明的时间条，河面漂浮的是一个个具体的人。</p>
+        <div class="sec">
+          <div class="lbl">怎么读这条河</div>
+          <p>· <b>点人物气泡</b>：河水平滑放大到他的一生，其他河段淡出；右栏是其生平，可自行编辑补充。<br>
+             · <b>点朝代色带</b>：展开该朝代全量帝王在位表。<br>
+             · <b>点国家时间条</b>：看该国分期与关键节点。<br>
+             · <b>滚轮 / 拖动</b>：任意缩放平移时间。</p>
+        </div>
+        <div class="sec">
+          <div class="lbl">说明</div>
+          <p>人物生平为公开资料整理的初始版本；你补充的内容只存在本机浏览器，不会丢失，也不会上传。</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script src="./data.js"></script>
+<script>
+(function(){
+  'use strict';
+  var D = window.HISTORY_DATA;
+  var CHINA=D.china, WORLD=D.world, PEOPLE=D.people.slice();
+  var MIN=-3200, MAX=2050;
+
+  // 合并本机自定义人物与补充生平
+  var LS_BIO='history.bio.', LS_CUSTOM='history.customPeople';
+  try{
+    var custom=JSON.parse(localStorage.getItem(LS_CUSTOM)||'[]');
+    PEOPLE=PEOPLE.concat(custom);
+  }catch(e){}
+  PEOPLE.forEach(function(p){
+    try{ var b=localStorage.getItem(LS_BIO+p.id); if(b) p.bio=b; }catch(e){}
+  });
+
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var stage=document.getElementById('stage'), tip=document.getElementById('tip');
+  var side=document.getElementById('sBody'), sTitle=document.getElementById('sTitle'), sMeta=document.getElementById('sMeta');
+  var minibar=document.getElementById('minibar');
+  var W=0,H=0,DPR=Math.min(window.devicePixelRatio||1,2);
+
+  var layers={cn:true,world:true,people:true};
+  var view={min:MIN,max:MAX}, target={min:MIN,max:MAX};
+  var focus=null; // {type,...}
+  var hover=null;
+  var hit=[]; // 命中区：{x,y,r,obj,type}
+
+  function resize(){
+    var r=stage.getBoundingClientRect(); W=r.width; H=r.height;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize); resize();
+
+  function fmt(t){ t=Math.round(t); return t<0?('前'+(-t)):(t+'年'); }
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function tx(t){ return (t-view.min)/(view.max-view.min)*W; }
+  function timeAt(x){ return view.min + x/W*(view.max-view.min); }
+  function ease(a,b,k){ return a+(b-a)*k; }
+
+  // 河流中心线（两层正弦叠加，随时间缓缓流动）
+  function riverY(x,now){
+    var base=H*0.52;
+    return base + 30*Math.sin(x*0.0075+now*0.00016) + 12*Math.sin(x*0.021-now*0.00011);
+  }
+
+  // 粒子（屏幕空间分布，始终铺满河道）
+  var PN=460, parts=[];
+  for(var i=0;i<PN;i++) parts.push({u:Math.random(),ph:Math.random()*Math.PI*2,sp:0.000025+Math.random()*0.00004,sz:0.6+Math.random()*1.6});
+  function drawRiver(now){
+    // 河床光带
+    ctx.save();
+    ctx.lineWidth=26; ctx.strokeStyle='rgba(255,179,71,.055)';
+    ctx.beginPath();
+    for(var x=0;x<=W;x+=6){var y=riverY(x,now); x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.stroke();
+    ctx.lineWidth=10; ctx.strokeStyle='rgba(255,209,102,.10)'; ctx.stroke();
+    // 粒子
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i]; p.u+=p.sp*16; if(p.u>1)p.u-=1;
+      var px=p.u*W, py=riverY(px,now)+Math.sin(p.ph+now*0.001)*13;
+      var a=0.35+0.5*Math.abs(Math.sin(p.ph+now*0.0013));
+      ctx.fillStyle='rgba(255,'+(190+Math.round(40*p.u))+',110,'+a.toFixed(2)+')';
+      ctx.beginPath(); ctx.arc(px,py,p.sz,0,6.283); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 时间刻度
+  function niceStep(span){
+    var raw=span/8, steps=[50,100,200,500,1000,2000,5000];
+    for(var i=0;i<steps.length;i++) if(steps[i]>=raw) return steps[i];
+    return 5000;
+  }
+  function drawScale(){
+    var step=niceStep(view.max-view.min);
+    var first=Math.ceil(view.min/step)*step;
+    ctx.save(); ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(147,160,189,.55)';
+    ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1; ctx.textAlign='center';
+    var y=H-24;
+    for(var t=first;t<=view.max;t+=step){
+      var x=tx(t); if(x<0||x>W)continue;
+      ctx.beginPath(); ctx.moveTo(x,y-6); ctx.lineTo(x,y+2); ctx.stroke();
+      ctx.fillText(fmt(t),x,y+14);
+    }
+    ctx.restore();
+    minibar.textContent=fmt(view.min)+'  ——  '+fmt(view.max)+'  ·  跨度 '+Math.round(view.max-view.min)+' 年';
+  }
+
+  // 聚焦淡出：元素离焦点时间越远越淡
+  function focusAlpha(mid){
+    if(!focus||!focus.center) return 1;
+    var span=Math.max(200,(view.max-view.min)*0.9);
+    var d=Math.abs(mid-focus.center);
+    return clamp(1-d/span*0.85,0.18,1);
+  }
+
+  // 朝代泳道（河流上方）
+  function drawChina(){
+    if(!layers.cn) return;
+    hit=hit.filter(function(h){return h.type!=='dyn';});
+    CHINA.forEach(function(d,idx){
+      var x1=tx(Math.min(d.s,d.e)), x2=tx(Math.max(d.s,d.e));
+      var w=x2-x1; if(x2<0||x1>W) return;
+      var laneY=42+d.L*34, mid=(d.s+d.e)/2, al=focusAlpha(mid);
+      var sel=focus&&focus.type==='dyn'&&focus.d===d;
+      // 朝代色带
+      ctx.fillStyle='rgba(122,180,255,'+(0.10*al).toFixed(3)+')';
+      ctx.fillRect(x1,laneY,Math.max(1,w),22);
+      ctx.strokeStyle=sel?'rgba(255,209,102,'+al+')':'rgba(122,180,255,'+(0.5*al).toFixed(3)+')';
+      ctx.lineWidth=sel?2:1; ctx.strokeRect(x1,laneY,Math.max(1,w),22);
+      // 帝王在位小竖线
+      (d.E||[]).forEach(function(e){
+        var a=tx(Math.min(e[2],e[3])), b=tx(Math.max(e[2],e[3]));
+        if(b<0||a>W)return;
+        ctx.fillStyle='rgba(255,209,102,'+(0.55*al).toFixed(3)+')';
+        ctx.fillRect(a,laneY+16,Math.max(1,b-a),6);
+      });
+      // 标签
+      if(w>30 && view.max-view.min<2600){
+        ctx.fillStyle='rgba(232,236,247,'+(0.9*al).toFixed(3)+')';
+        ctx.font='11px -apple-system,sans-serif'; ctx.textAlign='left';
+        ctx.fillText(d.n,x1+4,laneY+14,Math.max(0,w-8));
+      }
+      hit.push({x1:x1,x2:x2,y:laneY,y2:laneY+22,type:'dyn',d:d,mid:mid});
+    });
+  }
+
+  // 世界国家时间条（河流下方）
+  var WCOL={egypt:'#d9a441',greece:'#7fb3ff',rome:'#e06c6c',iran:'#7fd1a8',india:'#f0a35e',japan:'#f08fb0',russia:'#a78bfa',usa:'#6ec9d6'};
+  function drawWorld(){
+    if(!layers.world) return;
+    hit=hit.filter(function(h){return h.type!=='country';});
+    var top=H*0.79;
+    WORLD.forEach(function(c,i){
+      var x1=tx(c.s), x2=tx(c.e); if(x2<0||x1>W)return;
+      var y=top+i*20, mid=(c.s+c.e)/2, al=focusAlpha(mid);
+      var sel=focus&&focus.type==='country'&&focus.c===c;
+      ctx.fillStyle=c.color.replace(')',','+(0.22*al).toFixed(3)+')').replace('#','rgba('); // fallback below
+      // 用 hex→rgba
+      ctx.fillStyle=hexA(c.color,0.20*al);
+      ctx.fillRect(x1,y,Math.max(1,x2-x1),13);
+      ctx.strokeStyle=sel?'#ffd166':hexA(c.color,0.75*al);
+      ctx.lineWidth=sel?2:1; ctx.strokeRect(x1,y,Math.max(1,x2-x1),13);
+      if(x2-x1>34){
+        ctx.fillStyle='rgba(232,236,247,'+(0.85*al).toFixed(3)+')';
+        ctx.font='10px -apple-system,sans-serif'; ctx.textAlign='left';
+        ctx.fillText(c.n,x1+4,y+10,Math.max(0,x2-x1-8));
+      }
+      hit.push({x1:x1,x2:x2,y:y,y2:y+13,type:'country',c:c,mid:mid});
+    });
+  }
+  function hexA(hex,a){
+    var h=hex.replace('#',''); if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+
+  // 人物气泡（沿河分布）
+  function drawPeople(now){
+    if(!layers.people) return;
+    hit=hit.filter(function(h){return h.type!=='person';});
+    PEOPLE.forEach(function(p,i){
+      var yr=(p.s+p.e)/2, x=tx(yr); if(x< -20||x>W+20)return;
+      var ry=riverY(x,now);
+      // 按 region 给不同的上下偏移，避免堆叠
+      var off=personOffset(p,i);
+      var y=ry+off, al=focusAlpha(yr);
+      var sel=focus&&focus.type==='person'&&focus.p===p;
+      var col=p.region==='china'?'#ffd166':(WCOL[p.region]||'#9fb4ff');
+      var r=sel?11:6;
+      // 光晕
+      ctx.fillStyle=hexA(col,(sel?0.35:0.16)*al);
+      ctx.beginPath(); ctx.arc(x,y,r+7,0,6.283); ctx.fill();
+      ctx.fillStyle=hexA(col,al);
+      ctx.beginPath(); ctx.arc(x,y,r,0,6.283); ctx.fill();
+      ctx.strokeStyle='rgba(7,11,22,'+al+')'; ctx.lineWidth=1.5; ctx.stroke();
+      // 生卒区间条（聚焦时显示）
+      if(sel){
+        var a=tx(p.s),b=tx(p.e);
+        ctx.fillStyle=hexA(col,0.5); ctx.fillRect(a,ry-1,Math.max(2,b-a),2);
+        ctx.fillStyle='#fff'; ctx.font='bold 12px -apple-system,sans-serif'; ctx.textAlign='center';
+        ctx.fillText(p.n,x,y-r-10);
+      } else if(view.max-view.min<900 && al>0.5){
+        ctx.fillStyle='rgba(232,236,247,'+(0.8*al).toFixed(3)+')';
+        ctx.font='10px -apple-system,sans-serif'; ctx.textAlign='center';
+        ctx.fillText(p.n,x,y-r-6);
+      }
+      hit.push({x:x,y:y,r:sel?13:9,type:'person',p:p,mid:yr});
+    });
+  }
+  function personOffset(p,i){
+    // 中国人物在河上方散开，世界人物在河下方散开，用索引错层
+    var base=p.region==='china'? -34 : 34;
+    var lanes=[0,-13,13,-26,26];
+    return base+lanes[i%lanes.length];
+  }
+
+  function draw(now){
+    ctx.clearRect(0,0,W,H);
+    drawRiver(now);
+    drawScale();
+    drawChina();
+    drawWorld();
+    drawPeople(now);
+  }
+
+  function loop(now){
+    // 平滑过渡
+    var k=0.14;
+    view.min=ease(view.min,target.min,k);
+    view.max=ease(view.max,target.max,k);
+    if(Math.abs(view.min-target.min)<0.01)view.min=target.min;
+    if(Math.abs(view.max-target.max)<0.01)view.max=target.max;
+    draw(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---- 聚焦 ----
+  function focusPerson(p){
+    focus={type:'person',p:p,center:(p.s+p.e)/2};
+    var span=Math.max(140,(p.e-p.s)*2.6);
+    var mid=(p.s+p.e)/2;
+    target={min:mid-span/2,max:mid+span/2};
+    showPerson(p);
+  }
+  function focusDyn(d){
+    focus={type:'dyn',d:d,center:(d.s+d.e)/2};
+    var span=Math.max(120,(d.e-d.s)*1.4);
+    var mid=(d.s+d.e)/2;
+    target={min:mid-span/2,max:mid+span/2};
+    showDyn(d);
+  }
+  function focusCountry(c){
+    focus={type:'country',c:c,center:(c.s+c.e)/2};
+    var span=Math.max(120,(c.e-c.s)*1.3);
+    var mid=(c.s+c.e)/2;
+    target={min:mid-span/2,max:mid+span/2};
+    showCountry(c);
+  }
+  function reset(){
+    focus=null; target={min:MIN,max:MAX};
+    sTitle.textContent='从一条河说起'; sMeta.textContent='点击河上的元素查看详情';
+    side.innerHTML='<p>这条路从夏商周流到今天，跨越五千余年。河的上方是中国王朝（并存朝代分上下层），下方是世界主要文明的时间条，河面漂浮的是一个个具体的人。</p>'+
+      '<div class="sec"><div class="lbl">怎么读这条河</div><p>· <b>点人物气泡</b>：河水平滑放大到他的一生，其他河段淡出；右栏是其生平，可自行编辑补充。<br>'+
+      '· <b>点朝代色带</b>：展开该朝代全量帝王在位表。<br>· <b>点国家时间条</b>：看该国分期与关键节点。<br>· <b>滚轮 / 拖动</b>：任意缩放平移时间。</p></div>'+
+      '<div class="sec"><div class="lbl">说明</div><p>人物生平为公开资料整理的初始版本；你补充的内容只存在本机浏览器，不会丢失，也不会上传。</p></div>';
+  }
+  document.getElementById('reset').onclick=reset;
+
+  // ---- 详情面板 ----
+  function showPerson(p){
+    sTitle.textContent=p.n;
+    sMeta.textContent=fmt(p.s)+' — '+fmt(p.e)+'　·　'+(p.era||'')+'　·　'+(p.role||'');
+    var tags=(p.tags||[]).map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join('');
+    side.innerHTML='<div class="lbl">生平</div><p id="bioText">'+esc(p.bio||'（暂无生平，欢迎在下方补充）')+'</p>'+
+      (tags?'<div>'+tags+'</div>':'')+
+      '<div class="sec"><div class="lbl">我的补充（只存本机，不丢失）</div>'+
+      '<textarea id="bioEdit" placeholder="读到这里，写下你了解到的生平与理解…">'+esc(p.bio||'')+'</textarea>'+
+      '<div class="saved" id="saved"></div>'+
+      '<button class="btn" id="saveBio" style="margin-top:6px">保存补充</button></div>';
+    document.getElementById('saveBio').onclick=function(){
+      var v=document.getElementById('bioEdit').value;
+      try{ localStorage.setItem(LS_BIO+p.id,v);}catch(e){}
+      p.bio=v; document.getElementById('bioText').textContent=v||'（暂无生平）';
+      var s=document.getElementById('saved'); s.textContent='✓ 已保存到本机';
+      setTimeout(function(){s.textContent='';},2200);
+    };
+  }
+  function showDyn(d){
+    sTitle.textContent=d.n;
+    sMeta.textContent=fmt(d.s)+' — '+fmt(d.e)+'　·　都'+(d.cap||'—')+'　·　'+(d.E||[]).length+' 位帝王';
+    var rows=(d.E||[]).map(function(e){
+      var a=Math.min(e[2],e[3]),b=Math.max(e[2],e[3]);
+      return '<div class="row"><span>'+esc(e[0])+' <span style="color:#93a0bd">'+esc(e[1])+'</span></span><span class="yr">'+fmt(a)+(b!==a?'~'+fmt(b):'')+'</span></div>';
+    }).join('');
+    side.innerHTML='<div class="lbl">帝王世系（在位年）</div><div class="emperors">'+rows+'</div>'+
+      '<div class="sec"><div class="lbl">提示</div><p>并存朝代（如三国、南北朝、五代十国）在河上方分上下层绘制，避免时间重叠时互相遮挡。</p></div>';
+  }
+  function showCountry(c){
+    sTitle.textContent=c.n;
+    sMeta.textContent=c.region+'　·　'+fmt(c.s)+' — '+fmt(c.e);
+    var knots=(c.nodes||[]).map(function(k){
+      return '<div class="row"><i>'+fmt(Math.min(k[1],k[2]))+'</i><span>'+esc(k[0])+'</span></div>';
+    }).join('');
+    side.innerHTML='<div class="lbl">概览</div><p>'+esc(c.desc||'')+'</p>'+
+      '<div class="sec"><div class="lbl">关键分期</div><div class="knots">'+knots+'</div></div>';
+  }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  // ---- 命中检测 ----
+  function pick(mx,my){
+    // 气泡优先
+    for(var i=hit.length-1;i>=0;i--){
+      var h=hit[i];
+      if(h.type==='person'){
+        if((mx-h.x)*(mx-h.x)+(my-h.y)*(my-h.y) <= h.r*h.r) return h;
+      }
+    }
+    for(var j=hit.length-1;j>=0;j--){
+      var g=hit[j];
+      if(g.type!=='person' && mx>=g.x1&&mx<=g.x2&&my>=g.y&&my<=g.y2) return g;
+    }
+    return null;
+  }
+  function activate(h){
+    if(!h)return;
+    if(h.type==='person')focusPerson(h.p);
+    else if(h.type==='dyn')focusDyn(h.d);
+    else if(h.type==='country')focusCountry(h.c);
+  }
+  cv.addEventListener('mousemove',function(e){
+    if(drag.on){return;}
+    var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    var h=pick(mx,my); hover=h;
+    if(h){
+      var label=h.type==='person'?h.p.n+' · '+fmt((h.p.s+h.p.e)/2):h.type==='dyn'?h.d.n:h.c.n;
+      tip.textContent=label; tip.style.display='block';
+      tip.style.left=Math.min(mx+12,W-140)+'px'; tip.style.top=(my-34)+'px';
+      cv.style.cursor='pointer';
+    }else{ tip.style.display='none'; cv.style.cursor='grab'; }
+  });
+  cv.addEventListener('mouseleave',function(){tip.style.display='none';});
+  cv.addEventListener('click',function(e){
+    if(drag.moved)return;
+    var r=cv.getBoundingClientRect();
+    activate(pick(e.clientX-r.left,e.clientY-r.top));
+  });
+
+  // 滚轮缩放（以鼠标为锚）
+  cv.addEventListener('wheel',function(e){
+    e.preventDefault();
+    var r=cv.getBoundingClientRect(),mx=e.clientX-r.left;
+    var at=timeAt(mx), factor=e.deltaY>0?1.18:0.85;
+    var span=(target.max-target.min)*factor;
+    span=clamp(span,60,MAX-MIN);
+    target={min:at-(at-target.min)/((target.max-target.min)/span),max:0};
+    target.max=target.min+span;
+    focus=null;
+  },{passive:false});
+
+  // 拖拽平移
+  var drag={on:false,moved:false,x:0,v0:null};
+  cv.addEventListener('mousedown',function(e){
+    drag.on=true;drag.moved=false;drag.x=e.clientX;
+    drag.v0={min:target.min,max:target.max}; cv.classList.add('drag');
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!drag.on)return;
+    var dx=e.clientX-drag.x;
+    if(Math.abs(dx)>3)drag.moved=true;
+    var span=drag.v0.max-drag.v0.min;
+    var shift=dx/W*span;
+    var mn=clamp(drag.v0.min-shift,MIN,MAX-span), mx=mn+span;
+    view.min=mn;view.max=mx;target={min:mn,max:mx};
+  });
+  window.addEventListener('mouseup',function(){
+    if(drag.on && !drag.moved){/* click handled */}
+    drag.on=false; cv.classList.remove('drag');
+    setTimeout(function(){drag.moved=false;},0);
+  });
+
+  // 图层开关
+  function bindLayer(id,key){
+    var b=document.getElementById(id);
+    b.onclick=function(){layers[key]=!layers[key];b.classList.toggle('on',layers[key]);};
+  }
+  bindLayer('layerCn','cn');bindLayer('layerWorld','world');bindLayer('layerPeople','people');
+
+  // 搜索
+  document.getElementById('search').addEventListener('keydown',function(e){
+    if(e.key!=='Enter')return;
+    var q=this.value.trim(); if(!q)return;
+    var p=PEOPLE.find(function(x){return x.n.indexOf(q)>=0;});
+    if(p){focusPerson(p);return;}
+    var d=CHINA.find(function(x){return x.n.indexOf(q)>=0;});
+    if(d){focusDyn(d);return;}
+    var c=WORLD.find(function(x){return x.n.indexOf(q)>=0||x.region.indexOf(q)>=0;});
+    if(c){focusCountry(c);return;}
+    alert('没有找到：'+q);
+  });
+
+  // 补充人物
+  document.getElementById('addBtn').onclick=function(){
+    sTitle.textContent='补充一个人物'; sMeta.textContent='添加后会作为气泡出现在时间轴上（只存本机）';
+    side.innerHTML='<div class="addform">'+
+      '<input id="npName" placeholder="姓名">'+
+      '<input id="npEra" placeholder="朝代 / 国家（如：唐 / 古希腊）">'+
+      '<input id="npRole" placeholder="身份（如：诗人、科学家）">'+
+      '<input id="npS" type="number" placeholder="出生年（公元前填负数）">'+
+      '<input id="npE" type="number" placeholder="卒年（公元前填负数）">'+
+      '<textarea id="npBio" placeholder="生平 / 你了解到的故事"></textarea>'+
+      '<button class="btn" id="npSave">添加到长河</button><div class="saved" id="npMsg"></div></div>';
+    document.getElementById('npSave').onclick=function(){
+      var n=document.getElementById('npName').value.trim();
+      var s=parseInt(document.getElementById('npS').value,10), e=parseInt(document.getElementById('npE').value,10);
+      if(!n||isNaN(s)||isNaN(e)){document.getElementById('npMsg').textContent='姓名和生卒年必填';return;}
+      var p={id:'custom-'+Date.now(),n:n,s:s,e:e,region:'china',
+        era:document.getElementById('npEra').value.trim(),role:document.getElementById('npRole').value.trim(),
+        bio:document.getElementById('npBio').value.trim(),tags:['自补充'],custom:true};
+      PEOPLE.push(p);
+      try{var arr=JSON.parse(localStorage.getItem(LS_CUSTOM)||'[]');arr.push(p);localStorage.setItem(LS_CUSTOM,JSON.stringify(arr));}catch(e){}
+      document.getElementById('npMsg').textContent='✓ 已添加';
+      setTimeout(function(){focusPerson(p);},400);
+    };
+  };
+
+  // 图例
+  document.getElementById('legend').innerHTML=
+    '<div><i style="background:#ffd166"></i>中国人物　<i style="background:#7fb3ff"></i>希腊　<i style="background:#d9a441"></i>埃及　<i style="background:#e06c6c"></i>罗马</div>'+
+    '<div><i style="background:#7fd1a8"></i>伊朗　<i style="background:#f0a35e"></i>印度　<i style="background:#f08fb0"></i>日本　<i style="background:#a78bfa"></i>俄罗斯　<i style="background:#6ec9d6"></i>美国</div>';
+})();
+</script>
+</body>
+</html>

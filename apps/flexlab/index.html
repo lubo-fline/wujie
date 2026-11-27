@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>大屏适配实验室 · lib-flexible</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 82% -8%, #10303a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #141c3c 0%, transparent 62%),
+      #060a12;
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 22px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f7c8f; margin-bottom: 10px; }
+  header h1 { font-size: 27px; margin: 0 0 10px; letter-spacing: 1px; }
+  header h1 em { font-style: normal; color: #6fe3c4; }
+  header p { color: #8b9cbd; font-size: 13.5px; line-height: 1.85; margin: 0 0 8px; max-width: 880px; }
+  header .src { font-size: 12px; color: #5f7c8f; }
+  header .src b { color: #7fa8c4; font-weight: 600; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 26px; }
+  .tab {
+    padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,190,200,0.18);
+    color: #9fb2cd; transition: all .2s; user-select: none;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(120,200,210,0.45); }
+  .tab.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+  .tab .n { opacity: .55; font-size: 11px; margin-right: 5px; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .32s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.032); border: 1px solid rgba(120,190,200,0.14);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .4px; }
+  .card h3 small { font-weight: 400; color: #6f80a0; font-size: 11.5px; margin-left: 8px; letter-spacing: 1px; }
+  .card .note { color: #8b9cbd; font-size: 12.5px; line-height: 1.85; margin: 0 0 14px; }
+  .card .note b { color: #c6d4ec; font-weight: 600; }
+  .card .note code { color: #7fe0c8; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: center; margin: 6px 0 16px; }
+  .controls label { font-size: 12.5px; color: #9fb2cd; display: flex; align-items: center; gap: 9px; }
+  .controls input[type=range] { width: 220px; accent-color: #6fe3c4; }
+  .controls select, .controls input[type=number] {
+    background: rgba(255,255,255,.05); color: #e7ecff; border: 1px solid rgba(120,190,200,.28);
+    border-radius: 8px; padding: 6px 10px; font-size: 12.5px; outline: none;
+  }
+  .val { color: #6fe3c4; font-family: ui-monospace, Consolas, monospace; font-weight: 700; min-width: 46px; display: inline-block; }
+
+  .formula {
+    background: rgba(111,227,196,.07); border: 1px solid rgba(111,227,196,.24);
+    border-radius: 10px; padding: 12px 16px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 13px; color: #bff3e4; line-height: 1.9; margin-bottom: 14px;
+  }
+  .formula .hi { color: #ffd166; font-weight: 700; }
+
+  .stage-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #050b16; border: 1px solid rgba(120,190,200,0.16); }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .codebox {
+    background: #050b16; border: 1px solid rgba(120,190,200,.16); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.8px; line-height: 1.75; color: #b9c8e6; margin: 10px 0 0;
+  }
+  .codebox .k { color: #c792ea; } .codebox .s { color: #7fe0c8; }
+  .codebox .c { color: #5f7c8f; } .codebox .f { color: #82aaff; } .codebox .n { color: #ffd166; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px){ .grid2 { grid-template-columns: 1fr; } .controls input[type=range]{ width: 170px; } }
+
+  .warn {
+    background: rgba(255,180,80,.08); border: 1px solid rgba(255,180,80,.3);
+    border-radius: 10px; padding: 11px 14px; color: #ffcf94; font-size: 12.5px; line-height: 1.75;
+  }
+  .warn b { color: #ffd166; }
+  .tagx { display:inline-block; font-size:10.5px; letter-spacing:1px; padding:2px 8px; border-radius:6px; margin-left:8px; }
+  .tagx.g { background: rgba(111,227,196,.14); color:#6fe3c4; }
+  .tagx.o { background: rgba(255,180,80,.14); color:#ffcf94; }
+
+  .kpi { display:flex; flex-wrap:wrap; gap:14px; margin-top:4px; }
+  .kpi .item { flex:1; min-width:120px; background:rgba(255,255,255,.035); border:1px solid rgba(120,190,200,.14); border-radius:10px; padding:12px 14px; }
+  .kpi .item .lab { font-size:10.5px; letter-spacing:1px; color:#6f80a0; }
+  .kpi .item .num { font-size:20px; font-family:ui-monospace,Consolas,monospace; color:#6fe3c4; margin-top:5px; font-weight:700; }
+  .kpi .item .num.y { color:#ffd166; }
+  .kpi .item .num.r { color:#ff8f8f; }
+
+  .bar-row { display:flex; align-items:center; gap:10px; margin:9px 0; font-size:12px; color:#9fb2cd; }
+  .bar-row .name { width:118px; flex:none; }
+  .bar-track { flex:1; height:22px; background:rgba(255,255,255,.05); border-radius:6px; overflow:hidden; position:relative; }
+  .bar-fill { height:100%; border-radius:6px; transition:width .35s ease; }
+  .bar-row .pv { width:78px; flex:none; text-align:right; font-family:ui-monospace,Consolas,monospace; color:#c6d4ec; }
+
+  .srcline { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.8; color:#9fb2cd; }
+  .srcline .hot { color:#ffcf94; background:rgba(255,180,80,.1); padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">ADAPTATION LAB · 适配实验室</div>
+    <h1>lib-flexible <em>大屏适配方案</em></h1>
+    <p>把《lib-flexible适配大屏方案》里最核心的几个机制做成能拖、能看的交互：750 设计稿的 rem 换算、动态注入的 viewport / font-size、540 上限对大屏的影响、px2rem-loader 与 postcss-pxtorem 的配置差异，以及给行内样式兜底的 calculationRem。所有计算都是真算，拖滑块即时看结果。</p>
+    <p class="src">来源：<b>语雀《lib-flexible适配大屏方案》</b>（lubobo） · 零依赖、离线可跑</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="principle"><span class="n">01</span>rem 换算原理</div>
+    <div class="tab" data-p="dynamic"><span class="n">02</span>动态 font-size</div>
+    <div class="tab" data-p="cap"><span class="n">03</span>540 上限</div>
+    <div class="tab" data-p="build"><span class="n">04</span>配置对比</div>
+    <div class="tab" data-p="calc"><span class="n">05</span>calculationRem</div>
+  </div>
+
+  <!-- 01 换算原理 -->
+  <div class="panel on" id="panel-principle">
+    <div class="card">
+      <h3>1rem 是怎么来的 <small>DESIGN → CSS</small></h3>
+      <p class="note">lib-flexible 把 <code>html</code> 的 <code>font-size</code> 设为「屏幕宽度 ÷ 10」，所以 <b>1rem = 根节点 font-size</b>。设计稿宽 750px 时，1rem = 75px；量到 150px 的元素，CSS 就写 <code>width: 2rem</code>。下面换个设计稿宽度、拖一下测量值，实时看换算。</p>
+      <div class="formula" id="fmPrinciple">1rem = 750 ÷ 10 = <span class="hi">75px</span></div>
+      <div class="controls">
+        <label>设计稿宽度
+          <select id="pDesign">
+            <option value="750" selected>750px（移动端 2x 稿）</option>
+            <option value="375">375px（1x 稿）</option>
+            <option value="1920">1920px（大屏稿，需改造）</option>
+          </select>
+        </label>
+        <label>量得元素宽 <input id="pPx" type="range" min="0" max="1920" step="5" value="150"><span class="val" id="pPxV">150</span>px</label>
+      </div>
+      <div class="kpi">
+        <div class="item"><div class="lab">1REM 对应</div><div class="num" id="pOneRem">75px</div></div>
+        <div class="item"><div class="lab">CSS 应写</div><div class="num y" id="pRem">2rem</div></div>
+        <div class="item"><div class="lab">精确值</div><div class="num" id="pPrecise">2.0000</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>设计稿标尺 <small>可视化</small></h3>
+      <p class="note">青色段是量取的元素在设计稿里占的比例；高度按 rem 等比缩放，直观看到「px 值 → rem 值」的映射。</p>
+      <div class="stage-wrap"><canvas id="cvPrinciple" width="1080" height="220"></canvas></div>
+      <pre class="codebox" id="codePrinciple"></pre>
+    </div>
+  </div>
+
+  <!-- 02 动态 font-size -->
+  <div class="panel" id="panel-dynamic">
+    <div class="card">
+      <h3>viewport 与 font-size 的注入 <small>AUTO INJECT</small></h3>
+      <p class="note">引入 <code>import 'lib-flexible'</code> 后，它自动做两件事：在 <code>&lt;head&gt;</code> 注入带 dpr 缩放的 viewport；把 <code>html.style.fontSize</code> 设为 <code>clientWidth / 10</code>。拖屏幕宽度、切 dpr 看变化。</p>
+      <div class="controls">
+        <label>屏幕宽度 <input id="dWidth" type="range" min="320" max="2560" step="10" value="375"><span class="val" id="dWidthV">375</span>px</label>
+        <label>DPR
+          <select id="dDpr">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </label>
+      </div>
+      <div class="formula" id="dmFormula"></div>
+      <div class="codebox" id="dmViewport"></div>
+    </div>
+    <div class="card">
+      <h3>模拟渲染 <small>设备框里的 2rem 方块</small></h3>
+      <p class="note">框的宽度代表当前屏幕；里面青色块的 CSS 固定写 <code>width: 2rem</code>，看它在不同屏宽 / dpr 下实际占多宽。</p>
+      <div class="stage-wrap"><canvas id="cvDynamic" width="1080" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 03 540 上限 -->
+  <div class="panel" id="panel-cap">
+    <div class="card">
+      <h3>为什么大屏会「缩水」 <small>THE 540 CAP</small></h3>
+      <p class="note">lib-flexible 默认面向移动端：源码里把计算基准宽度<b>钳制在 540px</b>（<code>width &gt; 540 ? 540 : width</code>），且 <code>dpr</code> 默认为 1。这意味着在 1920 大屏上，它仍按 540 算 —— <code>1rem = 54px</code>，一个 <code>width: 10rem</code> 的元素只有 540px，占不满屏。这是它不适合直接做大屏的根因。</p>
+      <div class="controls">
+        <label>屏幕宽度 <input id="cWidth" type="range" min="375" max="2560" step="5" value="1920"><span class="val" id="cWidthV">1920</span>px</label>
+        <label>方案
+          <select id="cMode">
+            <option value="default" selected>原生 lib-flexible（上限540 / dpr=1）</option>
+            <option value="fixed">改造后（不设上限，按真实宽度）</option>
+          </select>
+        </label>
+      </div>
+      <div class="formula" id="cmFormula"></div>
+      <div class="kpi">
+        <div class="item"><div class="lab">参与计算的基准宽</div><div class="num y" id="cBase">540px</div></div>
+        <div class="item"><div class="lab">1REM</div><div class="num" id="cOneRem">54px</div></div>
+        <div class="item"><div class="lab">10REM 元素实宽</div><div class="num r" id="cTenRem">540px</div></div>
+        <div class="item"><div class="lab">占屏比例</div><div class="num" id="cRatio">28.1%</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>两种方案对比 <small>1920 大屏 · width:10rem</small></h3>
+      <div class="bar-row"><div class="name">原生（上限540）</div><div class="bar-track"><div class="bar-fill" id="barDefault" style="background:linear-gradient(90deg,#ff8f8f,#ffb46b)"></div></div><div class="pv" id="barDefaultP"></div></div>
+      <div class="bar-row"><div class="name">改造后（真实宽度）</div><div class="bar-track"><div class="bar-fill" id="barFixed" style="background:linear-gradient(90deg,#5fd8c4,#6f9dff)"></div></div><div class="pv" id="barFixedP"></div></div>
+      <p class="note" style="margin-top:14px">源码关键行（<code>node_modules/lib-flexible/flexible.js</code>）：</p>
+      <div class="codebox"><span class="c">// 原生：写死上限与 dpr</span>
+<span class="k">var</span> <span class="f">setRemUnit</span> = <span class="k">function</span> () {
+  <span class="k">var</span> <span class="n">width</span> = docEl.clientWidth
+  <span class="k">if</span> (width <span class="hot">&gt; 540</span>) { width = <span class="hot">540</span> }   <span class="c">// ← 大屏被钳制</span>
+  docEl.style.fontSize = width / <span class="n">10</span> + <span class="s">'px'</span>
+}
+<span class="k">var</span> <span class="n">dpr</span> = <span class="hot">window.devicePixelRatio || 1</span>  <span class="c">// ← 大屏 dpr 常非 1</span></div>
+      <div class="warn" style="margin-top:14px"><b>注意：</b>直接改 <code>node_modules</code> 里的源码不持久（<code>npm install</code> 会覆盖）。更稳的做法：fork 一份自己维护、用 <code>amfe-flexible</code>、或自己写 <code>setRem</code> / 直接用 vw 方案。</div>
+    </div>
+  </div>
+
+  <!-- 04 配置对比 -->
+  <div class="panel" id="panel-build">
+    <div class="grid2">
+      <div class="card">
+        <h3>vue-cli 2.x <small>px2rem-loader <span class="tagx g">生效</span></small></h3>
+        <p class="note">在 <code>build/utils.js</code> 的 <code>exports.cssLoaders</code> 里生成 loader，再挂到 <code>generateLoaders</code> 的 <code>loaders</code> 数组；重启 <code>npm run dev</code>。</p>
+        <div class="codebox"><span class="c">// build/utils.js</span>
+<span class="k">var</span> px2remLoader = {
+  loader: <span class="s">'px2rem-loader'</span>,
+  options: { <span class="n">remUnit</span>: <span class="n">75</span> }  <span class="c">// 设计稿750 → 1rem=75px</span>
+}
+<span class="k">function</span> <span class="f">generateLoaders</span>(loader) {
+  <span class="k">var</span> loaders = [cssLoader, <span class="f">px2remLoader</span>]
+  <span class="k">return</span> loaders.concat([loader])
+}
+<span class="c">// 安装</span>
+npm i lib-flexible px2rem-loader -D
+<span class="c">// main.js</span>
+<span class="k">import</span> <span class="s">'lib-flexible'</span></div>
+      </div>
+      <div class="card">
+        <h3>vue-cli 3.x <small>postcss-pxtorem <span class="tagx o">3.x 改用</span></small></h3>
+        <p class="note">3.x 下 px2rem-loader 未生效，改用 postcss 插件，效果一致。在 <code>vue.config.js</code> 配 <code>css.loaderOptions.postcss</code>，重启即可。</p>
+        <div class="codebox"><span class="c">// vue.config.js</span>
+<span class="k">module.exports</span> = {
+  css: {
+    loaderOptions: {
+      postcss: {
+        plugins: [
+          <span class="f">require</span>(<span class="s">'postcss-pxtorem'</span>)({
+            <span class="n">rootValue</span>: <span class="n">75</span>,
+            <span class="n">propList</span>: [<span class="s">'*'</span>],
+            <span class="n">exclude</span>: /node_modules/i
+          })
+        ]
+      }
+    }
+  }
+}
+<span class="c">// 安装</span>
+npm i postcss-pxtorem -D</div>
+      </div>
+    </div>
+    <div class="warn"><b>温馨提示：</b>postcss-pxtorem <b>对行内样式（<code>style="width:150px"</code>）无效</b> —— 它只处理打包时的 CSS 文件。行内样式、运行时动态写入的 px 需要用 JS 兜底（见下一页 calculationRem）。另外 <code>rootValue</code> 要和设计稿基准对应（750 稿填 75，375 稿填 37.5）。</div>
+  </div>
+
+  <!-- 05 calculationRem -->
+  <div class="panel" id="panel-calc">
+    <div class="card">
+      <h3>行内样式的兜底 <small>JS 实时算 px</small></h3>
+      <p class="note">对 px2rem / postcss 管不到的行内样式，直接按当前页面宽度算 px 再渲染。原方案以 <b>1920</b> 为基准：<code>parseInt((px / 1920) * clientWidth)</code>。下面把函数原样实现，输入设计稿 px 和页面宽度，即时看输出。</p>
+      <div class="controls">
+        <label>设计稿元素宽 <input id="aPx" type="number" min="0" value="960" style="width:100px"><span style="color:#6f80a0">px</span></label>
+        <label>页面宽度 <input id="aWidth" type="range" min="320" max="2560" step="1" value="1920"><span class="val" id="aWidthV">1920</span>px</label>
+        <label>基准宽
+          <select id="aBase">
+            <option value="1920" selected>1920（原文）</option>
+            <option value="750">750</option>
+            <option value="375">375</option>
+          </select>
+        </label>
+      </div>
+      <div class="formula" id="amFormula"></div>
+      <div class="kpi">
+        <div class="item"><div class="lab">折算后 px（取整）</div><div class="num" id="aResult">960px</div></div>
+        <div class="item"><div class="lab">占屏比例</div><div class="num y" id="aRatio">50.0%</div></div>
+      </div>
+      <pre class="codebox" id="aCode"></pre>
+    </div>
+    <div class="warn"><b>易错点：</b><code>parseInt</code> 会向下取整丢精度，需要小数时改用 <code>parseFloat</code> 或 <code>Math.round</code>；基准宽（1920）必须和设计稿标注时的宽度一致，否则整体比例会偏。这个函数返回的是 <b>px</b>，直接赋给行内样式即可，不要再乘 rem。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function fmt(n, d) { return Number(n).toFixed(d == null ? 0 : d); }
+
+  // ---- tab 切换 ----
+  var tabs = [].slice.call(document.querySelectorAll('#tabs .tab'));
+  function activate(name) {
+    tabs.forEach(function (t) { t.classList.toggle('on', t.getAttribute('data-p') === name); });
+    document.querySelectorAll('.panel').forEach(function (p) {
+      p.classList.toggle('on', p.id === 'panel-' + name);
+    });
+    if (name === 'principle') drawPrinciple();
+    if (name === 'dynamic') drawDynamic();
+  }
+  tabs.forEach(function (t) { t.onclick = function () { activate(t.getAttribute('data-p')); }; });
+
+  // ---- 01 换算原理 ----
+  var cvP = $('cvPrinciple'), ctxP = cvP.getContext('2d');
+  function drawPrinciple() {
+    var design = +$('pDesign').value, px = +$('pPx').value;
+    var one = design / 10, rem = px / one;
+    $('pPxV').textContent = px;
+    $('fmPrinciple').innerHTML = '1rem = ' + design + ' ÷ 10 = <span class="hi">' + fmt(one, 1) + 'px</span> &nbsp;·&nbsp; ' + px + 'px ÷ ' + fmt(one, 1) + 'px = <span class="hi">' + fmt(rem, 2) + 'rem</span>';
+    $('pOneRem').textContent = fmt(one, 1) + 'px';
+    $('pRem').textContent = fmt(rem, 2) + 'rem';
+    $('pPrecise').textContent = fmt(rem, 4);
+    $('codePrinciple').innerHTML =
+      '<span class="c">/* 设计稿 ' + design + 'px，量得元素 ' + px + 'px */</span>\n' +
+      'html { font-size: <span class="n">' + fmt(one, 1) + 'px</span>; }  <span class="c">/* = ' + design + '/10 */</span>\n' +
+      '.box { width: <span class="s">' + fmt(rem, 2) + 'rem</span>; }  <span class="c">/* = ' + px + '/' + fmt(one, 1) + ' */</span>';
+
+    var W = cvP.width, H = cvP.height, pad = 40;
+    ctxP.clearRect(0, 0, W, H);
+    ctxP.fillStyle = '#050b16'; ctxP.fillRect(0, 0, W, H);
+    var barW = W - pad * 2, barY = 92, barH = 46;
+    // 刻度底
+    ctxP.fillStyle = 'rgba(120,190,200,.08)'; ctxP.fillRect(pad, barY, barW, barH);
+    ctxP.strokeStyle = 'rgba(120,190,200,.28)'; ctxP.lineWidth = 1;
+    for (var i = 0; i <= 10; i++) {
+      var x = pad + barW * i / 10;
+      ctxP.beginPath(); ctxP.moveTo(x, barY - 8); ctxP.lineTo(x, barY + barH + 8); ctxP.stroke();
+      ctxP.fillStyle = '#5f7c8f'; ctxP.font = '11px monospace'; ctxP.textAlign = 'center';
+      ctxP.fillText((design * i / 10) + '', x, barY - 16);
+    }
+    // 元素段
+    var seg = Math.max(3, barW * Math.min(px, design) / design);
+    var g = ctxP.createLinearGradient(pad, 0, pad + seg, 0);
+    g.addColorStop(0, '#5fd8c4'); g.addColorStop(1, '#6f9dff');
+    ctxP.fillStyle = g; ctxP.fillRect(pad, barY, seg, barH);
+    ctxP.fillStyle = '#06131a'; ctxP.font = 'bold 14px monospace'; ctxP.textAlign = 'left';
+    if (seg > 90) ctxP.fillText(px + 'px  →  ' + fmt(rem, 2) + 'rem', pad + 12, barY + barH / 2 + 5);
+    ctxP.fillStyle = '#6f80a0'; ctxP.font = '11px sans-serif'; ctxP.textAlign = 'left';
+    ctxP.fillText('设计稿总宽 ' + design + 'px（刻度）', pad, barY - 34);
+  }
+  $('pDesign').onchange = drawPrinciple;
+  $('pPx').oninput = drawPrinciple;
+
+  // ---- 02 动态 font-size ----
+  var cvD = $('cvDynamic'), ctxD = cvD.getContext('2d');
+  function drawDynamic() {
+    var w = +$('dWidth').value, dpr = +$('dDpr').value;
+    var fs = w / 10, scale = 1 / dpr;
+    $('dWidthV').textContent = w;
+    $('dmFormula').innerHTML = 'html.fontSize = clientWidth ÷ 10 = ' + w + ' ÷ 10 = <span class="hi">' + fmt(fs, 1) + 'px</span> &nbsp;·&nbsp; 1rem = ' + fmt(fs, 1) + 'px';
+    $('dmViewport').innerHTML =
+      '<span class="c">&lt;!-- lib-flexible 自动注入 --&gt;</span>\n' +
+      '&lt;meta name="<span class="s">viewport</span>" content="width=device-width, initial-scale=<span class="n">' + fmt(scale, 4) + '</span>, maximum-scale=<span class="n">' + fmt(scale, 4) + '</span>, minimum-scale=<span class="n">' + fmt(scale, 4) + '</span>, user-scalable=no"&gt;\n' +
+      'html.style.fontSize = <span class="s">' + fmt(fs, 1) + 'px</span>  <span class="c">// dpr=' + dpr + ' 时 scale=1/' + dpr + '</span>';
+
+    var W = cvD.width, H = cvD.height;
+    ctxD.clearRect(0, 0, W, H); ctxD.fillStyle = '#050b16'; ctxD.fillRect(0, 0, W, H);
+    // 屏幕框：按宽度在画布内缩放显示
+    var maxW = W - 120, frameW = Math.max(60, maxW * w / 2560), frameH = 150;
+    var fx = (W - frameW) / 2, fy = 44;
+    ctxD.strokeStyle = 'rgba(120,190,200,.5)'; ctxD.lineWidth = 2;
+    ctxD.strokeRect(fx, fy, frameW, frameH);
+    ctxD.fillStyle = 'rgba(120,190,200,.05)'; ctxD.fillRect(fx, fy, frameW, frameH);
+    ctxD.fillStyle = '#6fe3c4'; ctxD.font = '11px monospace'; ctxD.textAlign = 'center';
+    ctxD.fillText('屏幕 ' + w + 'px  (dpr ' + dpr + ')', W / 2, fy - 12);
+    // 2rem 方块：实宽 = 2 * fs，按同比例映射
+    var boxReal = 2 * fs, boxW = maxW * boxReal / 2560;
+    ctxD.fillStyle = 'rgba(111,227,196,.85)';
+    ctxD.fillRect(fx + 14, fy + 20, Math.min(boxW, frameW - 28), 60);
+    ctxD.fillStyle = '#06131a'; ctxD.font = 'bold 13px monospace'; ctxD.textAlign = 'left';
+    if (boxW > 110) ctxD.fillText('width: 2rem = ' + fmt(boxReal, 0) + 'px', fx + 26, fy + 56);
+    ctxD.fillStyle = '#6f80a0'; ctxD.font = '11px sans-serif'; ctxD.textAlign = 'center';
+    ctxD.fillText('青块 CSS 固定 2rem，宽度随 font-size 变', W / 2, H - 20);
+  }
+  $('dWidth').oninput = drawDynamic;
+  $('dDpr').onchange = drawDynamic;
+
+  // ---- 03 540 上限 ----
+  function calcCap() {
+    var w = +$('cWidth').value, mode = $('cMode').value;
+    var base = mode === 'default' ? Math.min(w, 540) : w;
+    var one = base / 10, ten = one * 10, ratio = ten / w * 100;
+    $('cWidthV').textContent = w;
+    $('cmFormula').innerHTML = mode === 'default'
+      ? '基准宽 = min(' + w + ', <span class="hi">540</span>) = <span class="hi">540px</span> &nbsp;·&nbsp; 1rem = <span class="hi">54px</span> &nbsp;·&nbsp; 10rem = <span class="hi">540px</span>'
+      : '基准宽 = <span class="hi">' + w + 'px</span>（不设上限） &nbsp;·&nbsp; 1rem = <span class="hi">' + fmt(one, 1) + 'px</span> &nbsp;·&nbsp; 10rem = <span class="hi">' + fmt(ten, 0) + 'px</span>';
+    $('cBase').textContent = fmt(base, 0) + 'px';
+    $('cOneRem').textContent = fmt(one, 1) + 'px';
+    $('cTenRem').textContent = fmt(ten, 0) + 'px';
+    $('cRatio').textContent = fmt(ratio, 1) + '%';
+    // 对比条固定按 1920 场景
+    var dBase = 540, dTen = dBase, fTen = 1920;
+    $('barDefault').style.width = (dTen / 1920 * 100) + '%';
+    $('barFixed').style.width = (fTen / 1920 * 100) + '%';
+    $('barDefaultP').textContent = dTen + 'px';
+    $('barFixedP').textContent = fTen + 'px';
+  }
+  $('cWidth').oninput = calcCap;
+  $('cMode').onchange = calcCap;
+
+  // ---- 05 calculationRem ----
+  function calcA() {
+    var px = +$('aPx').value || 0, w = +$('aWidth').value, base = +$('aBase').value;
+    var res = parseInt((px / base) * w);
+    var ratio = w ? px / base * 100 : 0;
+    $('aWidthV').textContent = w;
+    $('amFormula').innerHTML = 'parseInt( (' + px + ' ÷ ' + base + ') × ' + w + ' ) = <span class="hi">' + res + 'px</span>';
+    $('aResult').textContent = res + 'px';
+    $('aRatio').textContent = fmt(ratio, 1) + '%';
+    $('aCode').innerHTML =
+      '<span class="f">calculationRem</span>(<span class="n">' + px + '</span>) {\n' +
+      '  <span class="k">let</span> clientWidth = document.body.clientWidth  <span class="c">// = ' + w + '</span>\n' +
+      '  <span class="k">let</span> rem = <span class="f">parseInt</span>((px / <span class="n">' + base + '</span>) * clientWidth)  <span class="c">// = ' + res + '</span>\n' +
+      '  <span class="k">return</span> rem  <span class="c">// 返回 px，直接赋给行内样式</span>\n' +
+      '}';
+  }
+  $('aPx').oninput = calcA;
+  $('aWidth').oninput = calcA;
+  $('aBase').onchange = calcA;
+
+  // init
+  drawPrinciple();
+  calcCap();
+  calcA();
+})();
+</script>
+</body>
+</html>

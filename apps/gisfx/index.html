@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GIS 大屏特效实验室 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 82% -8%, #10303a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #141c3c 0%, transparent 62%),
+      #04070e;
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 40px 22px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f7c8f; margin-bottom: 10px; }
+  header h1 { font-size: 27px; margin: 0 0 10px; letter-spacing: 1px; }
+  header h1 em { font-style: normal; color: #6fe3c4; }
+  header p { color: #8b9cbd; font-size: 13.5px; line-height: 1.85; margin: 0 0 8px; max-width: 900px; }
+  header .src { font-size: 12px; color: #5f7c8f; }
+  header .src a { color: #6fb9d8; text-decoration: none; }
+  header .src a:hover { text-decoration: underline; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 26px; }
+  .tab {
+    padding: 8px 15px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,190,200,0.18);
+    color: #9fb2cd; transition: all .2s; user-select: none;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(120,200,210,0.45); }
+  .tab.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .32s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.032); border: 1px solid rgba(120,190,200,0.14);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .4px; }
+  .card h3 small { font-weight: 400; color: #6f80a0; font-size: 11.5px; margin-left: 8px; letter-spacing: 1px; }
+  .card .note { color: #8b9cbd; font-size: 12.5px; line-height: 1.85; margin: 0 0 14px; }
+  .card .note b { color: #c6d4ec; font-weight: 600; }
+  .card .note code, .mapnote code { color: #7fe0c8; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  .stage-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #050b16; border: 1px solid rgba(120,190,200,0.16); }
+  canvas { display: block; width: 100%; height: auto; }
+  .hud-title { position: absolute; left: 14px; top: 12px; font-size: 11px; letter-spacing: 2px; color: #6fe3c4; text-shadow: 0 0 12px rgba(111,227,196,.6); pointer-events: none; }
+  .hud-sub { position: absolute; right: 14px; top: 12px; font-size: 10px; letter-spacing: 1px; color: #5f7c8f; pointer-events: none; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .btn {
+    padding: 7px 15px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(95,216,196,0.1); color: #b6ecd9;
+    border: 1px solid rgba(95,216,196,0.32); transition: all .18s; font-family: inherit;
+  }
+  .btn:hover { background: rgba(95,216,196,0.22); }
+  .btn.ghost { background: rgba(255,255,255,0.03); color: #9fb2cd; border-color: rgba(140,170,210,0.2); }
+  .btn.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+  label.mini { font-size: 11.5px; color: #8b9cbd; display: inline-flex; align-items: center; gap: 7px; }
+  label.mini input[type=range] { width: 120px; accent-color: #5fd8c4; }
+  .val { color: #6fe3c4; font-variant-numeric: tabular-nums; min-width: 34px; display: inline-block; }
+
+  pre.code {
+    margin: 14px 0 0; padding: 14px 16px; border-radius: 10px; overflow: auto;
+    background: rgba(4,10,20,0.7); border: 1px solid rgba(120,190,200,0.12);
+    color: #93a7c4; font-family: ui-monospace, Consolas, 'Courier New', monospace;
+    font-size: 11.5px; line-height: 1.7; white-space: pre;
+  }
+  pre.code em { color: #5f7c8f; font-style: normal; }
+  pre.code b { color: #7fe0c8; font-weight: 600; }
+  pre.code i { color: #f0b86a; font-style: normal; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 880px) { .grid2 { grid-template-columns: 1fr; } }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:10.5px; letter-spacing:.5px; background: rgba(111,227,196,.1); color:#6fe3c4; border:1px solid rgba(111,227,196,.25); margin-left:8px; }
+  footer { margin-top: 30px; color: #53627d; font-size: 11.5px; line-height: 1.9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">CESIUM / GIS EXAMPLES · 配套 DEMO</div>
+    <h1>GIS 大屏特效实验室 <em>纯 Canvas 版</em></h1>
+    <p>把 CSDN「GIS 开发」专栏与 jiawanlong / three-cesium-examples 案例库里反复出现的<b>大屏高频特效</b>拆开跑一遍：雷达扫描、城市飞线、建筑泛光、粒子爆炸、风场流线、热力图，最后合成一张大屏。每个效果都能实时看动画、调参数、改颜色，并附 Cesium 里对应的实现思路。全部零依赖、单文件、打开即跑。</p>
+    <p class="src">配套文章：<a href="https://my.feishu.cn/docx/VSOCdXTVRoSgTxxrcQBcFUUtnUA" target="_blank">CSDN GIS 专栏清单</a> · <a href="https://my.feishu.cn/docx/Z5uvd4o0ooidwKxDtaDc4Fjkn4b" target="_blank">Cesium-Examples 示例库</a></p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="radar">雷达扫描</div>
+    <div class="tab" data-p="flight">城市飞线</div>
+    <div class="tab" data-p="bloom">建筑泛光</div>
+    <div class="tab" data-p="particle">粒子爆炸</div>
+    <div class="tab" data-p="wind">风场流线</div>
+    <div class="tab" data-p="heat">热力图</div>
+    <div class="tab" data-p="screen">合成大屏</div>
+  </div>
+
+  <!-- ============ 1 雷达扫描 ============ -->
+  <section class="panel on" id="p-radar">
+    <div class="card">
+      <h3>雷达 / 卫星扫描 <small>RADAR SWEEP</small></h3>
+      <p class="note">旋转扫描扇 + 若干随机目标点，扫过瞬间点亮再衰减。对应专栏里「相控雷达扫描」「绘制雷达扫描」「卫星雷达传感器」「卫星扫描 + 地面雷达」那一组。核心是<b>极坐标扫描角 + 角度差判定命中</b>，跟底图是二维还是三维无关。</p>
+      <div class="stage-wrap"><div class="hud-title">RADAR · SCAN</div><div class="hud-sub" id="radarStat">—</div><canvas id="cv-radar" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn ghost" id="radarPause">暂停</button>
+        <label class="mini">转速 <input id="radarSpeed" type="range" min="0.2" max="3" step="0.1" value="1"><span class="val" id="radarSpeedV">1.0</span></label>
+        <label class="mini">扫描余晖 <input id="radarTrail" type="range" min="0.02" max="0.4" step="0.02" value="0.12"><span class="val" id="radarTrailV">0.12</span></label>
+        <button class="btn ghost" id="radarReseed">重置目标</button>
+      </div>
+      <pre class="code"><em>// Cesium 里换皮不换骨：一个旋转的扇形 geometry + 距离衰减材质</em>
+const angle = (t * speed) % (Math.PI * 2);
+const diff = Math.abs(((targetAngle - angle + Math.PI*3) % (Math.PI*2)) - Math.PI);
+<b>if (diff &lt; sweepWidth) target.glow = 1;</b>   <em>// 被扫到，点亮</em>
+target.glow *= decay;                            <em>// 每帧衰减</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 2 城市飞线 ============ -->
+  <section class="panel" id="p-flight">
+    <div class="card">
+      <h3>城市飞线 / 流动线 <small>FLOW LINES</small></h3>
+      <p class="note">节点之间用二次贝塞尔画弧线，一颗亮点沿曲线跑并拖尾。对应「流动线」「卫星通信过境」「动态缓冲区」「路径漫游」那类效果。关键是<b>用参数 t 在贝塞尔上取点</b>，线本身只是背景。</p>
+      <div class="stage-wrap"><div class="hud-title">FLOW · BEZIER</div><div class="hud-sub" id="flightStat">—</div><canvas id="cv-flight" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn ghost" id="flightPause">暂停</button>
+        <label class="mini">飞行速度 <input id="flightSpeed" type="range" min="0.02" max="0.4" step="0.02" value="0.12"><span class="val" id="flightSpeedV">0.12</span></label>
+        <label class="mini">弧高 <input id="flightArc" type="range" min="0.1" max="1" step="0.05" value="0.5"><span class="val" id="flightArcV">0.50</span></label>
+        <button class="btn ghost" id="flightReseed">换连线</button>
+      </div>
+      <pre class="code"><em>// 二次贝塞尔：P0 起点，P1 控制点（抬高 = 弧线），P2 终点</em>
+function bez(p0,p1,p2,t){
+  const u = 1-t;
+  return { x: u*u*p0.x + 2*u*t*p1.x + t*t*p2.x,
+           y: u*u*p0.y + 2*u*t*p1.y + t*t*p2.y };
+}
+<b>const head = bez(a, ctrl, b, t);</b>  <em>// 亮点位置，拖尾取 t-δ 的几个点</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 3 建筑泛光 ============ -->
+  <section class="panel" id="p-bloom">
+    <div class="card">
+      <h3>动态柱状图 / 建筑光效 <small>BLOOM BARS</small></h3>
+      <p class="note">一排柱体按数据起伏，顶端带泛光呼吸，模拟数字孪生里「动态柱状图」「建筑光效 / 自定义着色器」「3dtiles 泛光涟漪」。核心是<b>数据驱动高度 + shadowBlur 发光</b>，柱子高度平滑趋近目标值。</p>
+      <div class="stage-wrap"><div class="hud-title">BLOOM · BARS</div><div class="hud-sub" id="bloomStat">—</div><canvas id="cv-bloom" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn ghost" id="bloomPause">暂停</button>
+        <button class="btn" id="bloomResize">刷新数据</button>
+        <label class="mini">泛光强度 <input id="bloomGlow" type="range" min="0" max="40" step="1" value="18"><span class="val" id="bloomGlowV">18</span></label>
+        <label class="mini">柱色 <input id="bloomColor" type="color" value="#5fd8c4"></label>
+      </div>
+      <pre class="code"><em>// 每根柱子的当前高度向目标缓动，做出数据起伏</em>
+bar.h += (bar.target - bar.h) * 0.08;
+ctx.shadowColor = color; <b>ctx.shadowBlur = glow;</b>  <em>// 泛光</em>
+ctx.fillRect(bar.x, baseY - bar.h, bar.w, bar.h);
+ctx.shadowBlur = 0;</pre>
+    </div>
+  </section>
+
+  <!-- ============ 4 粒子爆炸 ============ -->
+  <section class="panel" id="p-particle">
+    <div class="card">
+      <h3>粒子效果 · 火焰 / 爆炸 / 烟 <small>PARTICLES</small></h3>
+      <p class="note">点击画布任意位置触发一次爆炸，粒子按径向速度飞散、受重力下坠、颜色随寿命从亮黄转暗红。对应「粒子效果：火焰、水枪、爆炸、喷雾、烟」。核心是<b>粒子池 + 生命周期 + 速度衰减</b>。</p>
+      <div class="stage-wrap"><div class="hud-title">PARTICLES · CLICK TO BURST</div><div class="hud-sub" id="particleStat">—</div><canvas id="cv-particle" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn" id="particleBurst">立即爆炸</button>
+        <button class="btn ghost" id="particleClear">清空</button>
+        <label class="mini">粒子数 <input id="particleCount" type="range" min="40" max="400" step="20" value="160"><span class="val" id="particleCountV">160</span></label>
+        <button class="btn ghost" id="particlePause">暂停</button>
+      </div>
+      <pre class="code"><em>// 一个粒子 = 位置 + 速度 + 寿命；每帧更新并回收</em>
+p.x += p.vx; p.y += p.vy;
+p.vy += gravity;       <em>// 重力</em>
+p.vx *= 0.98; p.vy *= 0.98;  <em>// 阻尼</em>
+<b>p.life -= dt;</b>        <em>// 寿命到 0 就移除</em>
+const color = lerpColor('#ffe27a', '#8a1c00', 1 - p.life/p.max);</pre>
+    </div>
+  </section>
+
+  <!-- ============ 5 风场流线 ============ -->
+  <section class="panel" id="p-wind">
+    <div class="card">
+      <h3>三维风场 / 流场可视化 <small>WIND FIELD</small></h3>
+      <p class="note">用一组噪声向量场驱动粒子流动，粒子拖出短迹，形成风力线的感觉。对应「三维风场」「风场」「海流」「等值面」那类可视化。核心是<b>向量场采样 + 粒子沿场前进 + 定期重生</b>。</p>
+      <div class="stage-wrap"><div class="hud-title">WIND · FLOW FIELD</div><div class="hud-sub" id="windStat">—</div><canvas id="cv-wind" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn ghost" id="windPause">暂停</button>
+        <button class="btn ghost" id="windReseed">换风场</button>
+        <label class="mini">粒子数 <input id="windCount" type="range" min="200" max="1600" step="100" value="800"><span class="val" id="windCountV">800</span></label>
+        <label class="mini">流速 <input id="windSpeed" type="range" min="0.3" max="3" step="0.1" value="1"><span class="val" id="windSpeedV">1.0</span></label>
+      </div>
+      <pre class="code"><em>// 用两层正弦叠出连续向量场，粒子沿场走</em>
+function field(x,y,t){
+  const a = Math.sin(x*0.008 + t) + Math.cos(y*0.009 - t*0.7);
+  const b = Math.cos(x*0.007 - t*0.8) + Math.sin(y*0.011 + t);
+  return { x: a, y: b };
+}
+<b>p.x += f.x*speed; p.y += f.y*speed;</b>  <em>// 迹线用半透明清屏累积</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 6 热力图 ============ -->
+  <section class="panel" id="p-heat">
+    <div class="card">
+      <h3>热力图 / 3D 热力 <small>HEATMAP</small></h3>
+      <p class="note">若干热点用径向渐变叠加，再用调色带把密度映射成蓝→绿→黄→红。对应「热力图」「3d 热力图」「克里金」。核心是<b>离屏画布累积灰度密度 + 调色板重映射</b>，这里用合成模式近似。</p>
+      <div class="stage-wrap"><div class="hud-title">HEAT · DENSITY</div><div class="hud-sub" id="heatStat">—</div><canvas id="cv-heat" width="1000" height="560"></canvas></div>
+      <div class="row">
+        <button class="btn ghost" id="heatPause">暂停</button>
+        <button class="btn ghost" id="heatReseed">换热点</button>
+        <label class="mini">半径 <input id="heatRadius" type="range" min="40" max="180" step="10" value="110"><span class="val" id="heatRadiusV">110</span></label>
+        <label class="mini">强度 <input id="heatPower" type="range" min="0.1" max="1" step="0.05" value="0.6"><span class="val" id="heatPowerV">0.60</span></label>
+      </div>
+      <pre class="code"><em>// 真实热力：先在离屏 canvas 用径向渐变叠灰度，再按像素查调色板</em>
+g.globalCompositeOperation = 'lighter';
+const g1 = g.createRadialGradient(x,y,0,x,y,r);
+g1.addColorStop(0,'rgba(255,255,255,<i>power</i>)');
+g1.addColorStop(1,'rgba(255,255,255,0)');
+<b>g.fillStyle = g1; g.fillRect(...);</b>  <em>// 再 map 到蓝→红</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 7 合成大屏 ============ -->
+  <section class="panel" id="p-screen">
+    <div class="card">
+      <h3>综合应用 · 数字孪生大屏 <small>COMPOSITE</small> <span class="pill">全部图层叠加</span></h3>
+      <p class="note">对应「智慧城市 / 数字城市可视化 / 城市调度模拟」那类综合案例：底图网格 + 雷达扫描 + 飞线 + 建筑柱 + 热点 + 流场粒子，一次性合成。勾选图层单独开关，看每层贡献。</p>
+      <div class="stage-wrap"><div class="hud-title">CITY · DIGITAL TWIN</div><div class="hud-sub" id="screenStat">—</div><canvas id="cv-screen" width="1000" height="600"></canvas></div>
+      <div class="row" id="screenLayers">
+        <label class="mini"><input type="checkbox" data-layer="grid" checked> 底图网格</label>
+        <label class="mini"><input type="checkbox" data-layer="radar" checked> 雷达扫描</label>
+        <label class="mini"><input type="checkbox" data-layer="heat" checked> 热力</label>
+        <label class="mini"><input type="checkbox" data-layer="bars" checked> 建筑柱</label>
+        <label class="mini"><input type="checkbox" data-layer="flight" checked> 飞线</label>
+        <label class="mini"><input type="checkbox" data-layer="wind" checked> 流场粒子</label>
+        <button class="btn ghost" id="screenPause">暂停全部</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>这些效果在 Cesium 里怎么落 <small>MAPPING</small></h3>
+        <p class="note" style="margin:0">
+          · <b>雷达/扫描</b> → 旋转的 <code>Geometry</code> + 半透明 <code>Material</code>，或 <code>Entity</code> 每帧改属性。<br>
+          · <b>飞线</b> → <code>PolylineGlowMaterialProperty</code> + 沿线运动的点，或用 <code>CallbackProperty</code> 动态算位置。<br>
+          · <b>建筑泛光</b> → 3D Tiles 的 <code>CustomShader</code> 按高度/属性染色，或 <code>Entity</code> 拉伸体 + 发光材质。<br>
+          · <b>粒子</b> → <code>ParticleSystem</code>，配 <code>Burst</code> 发射器与 <code>Color/Size</code> 生命周期。<br>
+          · <b>风场/热力</b> → 贴图图层（<code>SingleTileImageryProvider</code>）或自定义 <code>Primitive</code>。
+        </p>
+      </div>
+      <div class="card">
+        <h3>为什么做成纯 Canvas <small>WHY</small></h3>
+        <p class="note" style="margin:0">
+          真 Cesium 地球见旁边的 <b>Cesium 实验室</b>（需联网加载地球）。这里把这批案例库共通的<b>渲染原理</b>用 Canvas 2D 拆开——不依赖底图、不依赖 token、离线也能跑，适合先搞懂「它到底在算什么」，再回到 Cesium 里换 API。六个效果覆盖了大屏里 80% 的视觉元素。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    数据均为本地程序生成，无外部请求。对应文章已同步至飞书技术分类与个人网站「学习笔记 · 技术」。<br>
+    配套实验：Three.js 实验室 / WebGL 原生实验室 / Cesium 实验室 · 本页为纯静态子应用。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- 通用工具 ----------
+  var TAU = Math.PI * 2;
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function hexRgb(hex) {
+    var h = hex.replace('#', '');
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+  function ctxOf(id) {
+    var c = document.getElementById(id);
+    return { c: c, ctx: c.getContext('2d'), w: c.width, h: c.height };
+  }
+  function fitDPR(c) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cssW = c.clientWidth || c.width;
+    var cssH = cssW * (c.height / c.width);
+    c.width = Math.round(cssW * dpr);
+    c.height = Math.round(cssH * dpr);
+    var ctx = c.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: cssW, h: cssH };
+  }
+
+  // 每个 demo 的状态
+  var state = {};       // 由各 init 填
+  var running = {};     // id -> bool
+
+  // 统一渲染循环：只跑当前可见 panel 的 demo
+  var active = 'radar';
+  var demos = {};       // id -> { draw(t, dt), resize() }
+
+  function loop(now) {
+    var t = now / 1000;
+    var d = demos[active];
+    if (d) {
+      d.draw(t);
+      var st = document.getElementById(active + 'Stat');
+      if (st && st.__tick !== undefined) { st.textContent = st.__tick; }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 1 雷达扫描 ----------
+  (function () {
+    var o = ctxOf('cv-radar'); var ctx = o.ctx, w = o.w, h = o.h;
+    var targets = [];
+    var speed = 1, trail = 0.12, paused = false;
+    function seed() {
+      targets = [];
+      for (var i = 0; i < 9; i++) {
+        targets.push({ a: rnd(0, TAU), r: rnd(0.18, 0.9), glow: 0, size: rnd(2.5, 5) });
+      }
+    }
+    seed();
+    var cx = w * 0.5, cy = h * 0.5, R = Math.min(w, h) * 0.42;
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = 'rgba(4,10,20,' + trail + ')';
+      ctx.fillRect(0, 0, w, h);
+      // 同心环 + 十字
+      ctx.strokeStyle = 'rgba(95,216,196,0.16)'; ctx.lineWidth = 1;
+      for (var r = 0.2; r <= 1.001; r += 0.2) {
+        ctx.beginPath(); ctx.arc(cx, cy, R * r, 0, TAU); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+      ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+      // 扫描扇
+      var ang = (t * speed) % TAU;
+      var steps = 30, span = 0.6;
+      for (var s = 0; s < steps; s++) {
+        var a0 = ang - span + (span * s / steps);
+        var alpha = 0.02 + 0.16 * (s / steps);
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, R, a0, a0 + span / steps + 0.01);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(95,216,196,' + alpha + ')';
+        ctx.fill();
+      }
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+      ctx.strokeStyle = 'rgba(140,255,225,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+      // 目标
+      var hit = 0;
+      targets.forEach(function (p) {
+        var diff = Math.abs(((p.a - ang + Math.PI * 3) % TAU) - Math.PI);
+        if (diff < span + 0.08) p.glow = 1;
+        p.glow *= 0.965;
+        if (p.glow > 0.15) hit++;
+        var x = cx + Math.cos(p.a) * p.r * R, y = cy + Math.sin(p.a) * p.r * R;
+        ctx.beginPath(); ctx.arc(x, y, p.size + p.glow * 3, 0, TAU);
+        ctx.fillStyle = 'rgba(255,120,90,' + (0.25 + p.glow * 0.75) + ')'; ctx.fill();
+        if (p.glow > 0.3) {
+          ctx.beginPath(); ctx.arc(x, y, p.size + 6 + (1 - p.glow) * 14, 0, TAU);
+          ctx.strokeStyle = 'rgba(255,120,90,' + (p.glow * 0.5) + ')'; ctx.lineWidth = 1; ctx.stroke();
+        }
+      });
+      var st = document.getElementById('radarStat');
+      st.__tick = targets.length + ' 目标 · ' + hit + ' 命中 · ' + (speed.toFixed(1)) + 'x';
+    }
+    demos.radar = { draw: draw, resize: function () {} };
+    document.getElementById('radarPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+    document.getElementById('radarSpeed').oninput = function () { speed = +this.value; document.getElementById('radarSpeedV').textContent = speed.toFixed(1); };
+    document.getElementById('radarTrail').oninput = function () { trail = +this.value; document.getElementById('radarTrailV').textContent = trail.toFixed(2); if (trail > 0.3) ctx.fillStyle = '#040e14'; };
+    document.getElementById('radarReseed').onclick = function () { seed(); ctx.clearRect(0, 0, w, h); };
+  })();
+
+  // ---------- 2 城市飞线 ----------
+  (function () {
+    var o = ctxOf('cv-flight'); var ctx = o.ctx, w = o.w, h = o.h;
+    var nodes = [], links = [];
+    var speed = 0.12, arc = 0.5, paused = false;
+    function bez(p0, p1, p2, t) {
+      var u = 1 - t;
+      return { x: u*u*p0.x + 2*u*t*p1.x + t*t*p2.x, y: u*u*p0.y + 2*u*t*p1.y + t*t*p2.y };
+    }
+    function seed() {
+      nodes = []; links = [];
+      var n = 11;
+      for (var i = 0; i < n; i++) nodes.push({ x: rnd(80, w-80), y: rnd(70, h-70), r: rnd(3, 6) });
+      for (var j = 0; j < n; j++) {
+        var k = (j + 1 + Math.floor(rnd(0, 3))) % n;
+        links.push({ a: nodes[j], b: nodes[k], t: Math.random() });
+      }
+    }
+    seed();
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = '#050b16'; ctx.fillRect(0, 0, w, h);
+      // 底图淡网格
+      ctx.strokeStyle = 'rgba(90,150,180,0.07)'; ctx.lineWidth = 1;
+      for (var gx = 0; gx < w; gx += 50) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
+      for (var gy = 0; gy < h; gy += 50) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+      links.forEach(function (L, idx) {
+        var mx = (L.a.x + L.b.x) / 2, my = (L.a.y + L.b.y) / 2;
+        var dx = L.b.x - L.a.x, dy = L.b.y - L.a.y;
+        var len = Math.hypot(dx, dy) || 1;
+        var ctrl = { x: mx - dy/len * len * arc * 0.5, y: my + dx/len * len * arc * 0.5 };
+        // 弧线底
+        ctx.beginPath(); ctx.moveTo(L.a.x, L.a.y); ctx.quadraticCurveTo(ctrl.x, ctrl.y, L.b.x, L.b.y);
+        ctx.strokeStyle = 'rgba(95,216,196,0.18)'; ctx.lineWidth = 1.5; ctx.stroke();
+        // 飞行头 + 拖尾
+        var tt = L.t;
+        for (var s = 6; s >= 0; s--) {
+          var pt = bez(L.a, ctrl, L.b, clamp(tt - s * 0.018, 0, 1));
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, s === 0 ? 3.2 : 2.2 - s * 0.2, 0, TAU);
+          ctx.fillStyle = s === 0 ? 'rgba(180,255,240,0.95)' : 'rgba(111,227,196,' + (0.5 - s * 0.06) + ')';
+          ctx.fill();
+        }
+        L.t += speed;
+        if (L.t > 1) L.t = 0;
+      });
+      nodes.forEach(function (p) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fillStyle = '#6f9dff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, TAU);
+        ctx.strokeStyle = 'rgba(111,157,255,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+      });
+      var st = document.getElementById('flightStat');
+      st.__tick = nodes.length + ' 节点 · ' + links.length + ' 条飞线';
+    }
+    demos.flight = { draw: draw, resize: function () {} };
+    document.getElementById('flightPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+    document.getElementById('flightSpeed').oninput = function () { speed = +this.value; document.getElementById('flightSpeedV').textContent = speed.toFixed(2); };
+    document.getElementById('flightArc').oninput = function () { arc = +this.value; document.getElementById('flightArcV').textContent = arc.toFixed(2); };
+    document.getElementById('flightReseed').onclick = seed;
+  })();
+
+  // ---------- 3 建筑泛光 ----------
+  (function () {
+    var o = ctxOf('cv-bloom'); var ctx = o.ctx, w = o.w, h = o.h;
+    var bars = [], paused = false, glow = 18, color = '#5fd8c4';
+    function seed() {
+      bars = [];
+      var n = 16, gap = 12, bw = (w - gap * (n + 1)) / n;
+      for (var i = 0; i < n; i++) {
+        bars.push({ x: gap + i * (bw + gap), w: bw, h: rnd(40, 260), target: rnd(40, 300), phase: rnd(0, TAU) });
+      }
+    }
+    seed();
+    var baseY = h - 60;
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = '#050b16'; ctx.fillRect(0, 0, w, h);
+      // 地面
+      ctx.fillStyle = 'rgba(95,216,196,0.06)'; ctx.fillRect(0, baseY, w, h - baseY);
+      ctx.strokeStyle = 'rgba(95,216,196,0.25)'; ctx.beginPath(); ctx.moveTo(0, baseY); ctx.lineTo(w, baseY); ctx.stroke();
+      if (Math.random() < 0.02) bars.forEach(function (b) { b.target = rnd(40, 320); });
+      bars.forEach(function (b, i) {
+        b.h += (b.target - b.h) * 0.06;
+        var breathe = 0.6 + 0.4 * Math.sin(t * 2 + b.phase);
+        ctx.shadowColor = color; ctx.shadowBlur = glow * breathe;
+        var g = ctx.createLinearGradient(0, baseY - b.h, 0, baseY);
+        var c = hexRgb(color);
+        g.addColorStop(0, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.95)');
+        g.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.18)');
+        ctx.fillStyle = g;
+        ctx.fillRect(b.x, baseY - b.h, b.w, b.h);
+        ctx.shadowBlur = 0;
+        // 顶帽
+        ctx.fillStyle = '#eafff9';
+        ctx.fillRect(b.x, baseY - b.h - 3, b.w, 3);
+      });
+      var st = document.getElementById('bloomStat');
+      st.__tick = bars.length + ' 柱 · 泛光 ' + glow;
+    }
+    demos.bloom = { draw: draw, resize: function () {} };
+    document.getElementById('bloomPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+    document.getElementById('bloomResize').onclick = function () { bars.forEach(function (b) { b.target = rnd(40, 320); }); };
+    document.getElementById('bloomGlow').oninput = function () { glow = +this.value; document.getElementById('bloomGlowV').textContent = glow; };
+    document.getElementById('bloomColor').oninput = function () { color = this.value; };
+  })();
+
+  // ---------- 4 粒子爆炸 ----------
+  (function () {
+    var o = ctxOf('cv-particle'); var ctx = o.ctx, w = o.w, h = o.h;
+    var parts = [], paused = false, count = 160;
+    function burst(x, y) {
+      for (var i = 0; i < count; i++) {
+        var a = rnd(0, TAU), sp = rnd(0.5, 6);
+        var life = rnd(0.5, 1.4);
+        parts.push({ x: x, y: y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 1, life: life, max: life, size: rnd(1.5, 4) });
+      }
+    }
+    burst(w*0.5, h*0.5);
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = 'rgba(5,11,22,0.28)'; ctx.fillRect(0, 0, w, h);
+      for (var i = parts.length - 1; i >= 0; i--) {
+        var p = parts[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.09; p.vx *= 0.985; p.vy *= 0.985; p.life -= 0.016;
+        if (p.life <= 0) { parts.splice(i, 1); continue; }
+        var k = p.life / p.max;
+        var r = Math.round(255), g = Math.round(60 + 170 * k), b = Math.round(20 * k);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (0.4 + k), 0, TAU);
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + clamp(k + 0.1, 0, 1) + ')';
+        ctx.fill();
+      }
+      var st = document.getElementById('particleStat');
+      st.__tick = parts.length + ' 活跃粒子';
+    }
+    demos.particle = { draw: draw, resize: function () {} };
+    document.getElementById('cv-particle').addEventListener('click', function (e) {
+      var rect = this.getBoundingClientRect();
+      burst((e.clientX - rect.left) * (w / rect.width), (e.clientY - rect.top) * (h / rect.height));
+    });
+    document.getElementById('particleBurst').onclick = function () { burst(w*0.5, h*0.5); };
+    document.getElementById('particleClear').onclick = function () { parts = []; ctx.clearRect(0,0,w,h); };
+    document.getElementById('particleCount').oninput = function () { count = +this.value; document.getElementById('particleCountV').textContent = count; };
+    document.getElementById('particlePause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+  })();
+
+  // ---------- 5 风场流线 ----------
+  (function () {
+    var o = ctxOf('cv-wind'); var ctx = o.ctx, w = o.w, h = o.h;
+    var ps = [], paused = false, count = 800, spd = 1, seedK = 0.01;
+    function spawn(p) { p.x = rnd(0, w); p.y = rnd(0, h); p.age = rnd(0, 100); p.hue = rnd(160, 200); }
+    function initPs() {
+      ps = [];
+      for (var i = 0; i < count; i++) { var p = {}; spawn(p); ps.push(p); }
+      ctx.fillStyle = '#050b16'; ctx.fillRect(0, 0, w, h);
+    }
+    initPs();
+    function field(x, y, t) {
+      var a = Math.sin(x*seedK + t) + Math.cos(y*seedK*1.2 - t*0.7);
+      var b = Math.cos(x*seedK*0.9 - t*0.8) + Math.sin(y*seedK*1.4 + t);
+      return { x: a, y: b };
+    }
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = 'rgba(5,11,22,0.09)'; ctx.fillRect(0, 0, w, h);
+      ctx.lineWidth = 1;
+      for (var i = 0; i < ps.length; i++) {
+        var p = ps[i];
+        var f = field(p.x, p.y, t * 0.3);
+        var nx = p.x + f.x * spd * 1.6, ny = p.y + f.y * spd * 1.6;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(nx, ny);
+        ctx.strokeStyle = 'hsla(' + p.hue + ',80%,65%,0.5)'; ctx.stroke();
+        p.x = nx; p.y = ny; p.age++;
+        if (p.age > 100 || p.x < 0 || p.x > w || p.y < 0 || p.y > h) spawn(p);
+      }
+      var st = document.getElementById('windStat');
+      st.__tick = ps.length + ' 流场粒子';
+    }
+    demos.wind = { draw: draw, resize: function () {} };
+    document.getElementById('windPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+    document.getElementById('windReseed').onclick = function () { seedK = rnd(0.006, 0.02); initPs(); };
+    document.getElementById('windCount').oninput = function () { count = +this.value; document.getElementById('windCountV').textContent = count; initPs(); };
+    document.getElementById('windSpeed').oninput = function () { spd = +this.value; document.getElementById('windSpeedV').textContent = spd.toFixed(1); };
+  })();
+
+  // ---------- 6 热力图 ----------
+  (function () {
+    var o = ctxOf('cv-heat'); var ctx = o.ctx, w = o.w, h = o.h;
+    var pts = [], paused = false, radius = 110, power = 0.6;
+    var off = document.createElement('canvas'); off.width = w; off.height = h;
+    var g = off.getContext('2d');
+    var palette = [
+      [0,0,0], [0,0,220], [0,200,220], [60,230,90], [255,220,40], [255,90,20], [220,20,20]
+    ];
+    function seed() {
+      pts = [];
+      for (var i = 0; i < 14; i++) pts.push({ x: rnd(60, w-60), y: rnd(60, h-60), w: rnd(0.4, 1) });
+    }
+    seed();
+    function mapColor(px) {
+      // px: 0..1 density (alpha channel)
+      var idx = clamp(px, 0, 0.999) * (palette.length - 1);
+      var i = Math.floor(idx), f = idx - i;
+      var a = palette[i], b = palette[i+1] || a;
+      return [Math.round(a[0]+(b[0]-a[0])*f), Math.round(a[1]+(b[1]-a[1])*f), Math.round(a[2]+(b[2]-a[2])*f)];
+    }
+    function draw(t) {
+      if (paused) return;
+      // 1) 离屏累积灰度
+      g.clearRect(0, 0, w, h);
+      g.globalCompositeOperation = 'lighter';
+      pts.forEach(function (p) {
+        var r = radius * (0.7 + 0.3 * Math.sin(t * 1.5 + p.x));
+        var gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        gr.addColorStop(0, 'rgba(255,255,255,' + (power * p.w) + ')');
+        gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = gr; g.fillRect(p.x - r, p.y - r, r*2, r*2);
+      });
+      g.globalCompositeOperation = 'source-over';
+      // 2) 调色板映射
+      var img = g.getImageData(0, 0, w, h), d = img.data;
+      for (var i = 0; i < d.length; i += 4) {
+        var den = d[i + 3] / 255;
+        if (den < 0.02) { d[i] = 5; d[i+1] = 11; d[i+2] = 22; d[i+3] = 255; continue; }
+        var c = mapColor(den);
+        d[i] = c[0]; d[i+1] = c[1]; d[i+2] = c[2]; d[i+3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      var st = document.getElementById('heatStat');
+      st.__tick = pts.length + ' 热点 · r=' + radius;
+    }
+    demos.heat = { draw: draw, resize: function () {} };
+    document.getElementById('heatPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续' : '暂停'; };
+    document.getElementById('heatReseed').onclick = seed;
+    document.getElementById('heatRadius').oninput = function () { radius = +this.value; document.getElementById('heatRadiusV').textContent = radius; };
+    document.getElementById('heatPower').oninput = function () { power = +this.value; document.getElementById('heatPowerV').textContent = power.toFixed(2); };
+  })();
+
+  // ---------- 7 合成大屏 ----------
+  (function () {
+    var o = ctxOf('cv-screen'); var ctx = o.ctx, w = o.w, h = o.h;
+    var layers = { grid: true, radar: true, heat: true, bars: true, flight: true, wind: true };
+    var paused = false;
+    // 预置数据
+    var bars = [], heats = [], nodes = [], links = [], winds = [];
+    for (var i = 0; i < 14; i++) bars.push({ x: 40 + i * ((w-80)/14), h: rnd(30, 180), target: rnd(30, 200), ph: rnd(0,TAU) });
+    for (var j = 0; j < 10; j++) heats.push({ x: rnd(60, w-60), y: rnd(60, h-60), w: rnd(.4,1) });
+    for (var k = 0; k < 9; k++) nodes.push({ x: rnd(80, w-80), y: rnd(70, h-80) });
+    for (var m = 0; m < 9; m++) links.push({ a: nodes[m], b: nodes[(m+2)%nodes.length], t: Math.random() });
+    for (var n = 0; n < 240; n++) winds.push({ x: rnd(0,w), y: rnd(0,h), age: rnd(0,100) });
+    function bez(a,c,b,t){ var u=1-t; return {x:u*u*a.x+2*u*t*c.x+t*t*b.x, y:u*u*a.y+2*u*t*c.y+t*t*b.y}; }
+    var cx = w*0.5, cy = h*0.48, R = Math.min(w,h)*0.34;
+    function draw(t) {
+      if (paused) return;
+      ctx.fillStyle = 'rgba(5,11,22,0.22)'; ctx.fillRect(0, 0, w, h);
+      // grid
+      if (layers.grid) {
+        ctx.strokeStyle = 'rgba(90,150,180,0.09)'; ctx.lineWidth = 1;
+        for (var gx=0; gx<w; gx+=46){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
+        for (var gy=0; gy<h; gy+=46){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+        ctx.strokeStyle='rgba(95,216,196,0.12)';
+        for(var rr=0.25; rr<=1; rr+=0.25){ ctx.beginPath(); ctx.arc(cx,cy,R*rr,0,TAU); ctx.stroke(); }
+      }
+      // heat (soft)
+      if (layers.heat) {
+        heats.forEach(function(p){
+          var gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,90);
+          gr.addColorStop(0,'rgba(255,140,40,'+(0.14*p.w)+')');
+          gr.addColorStop(1,'rgba(255,140,40,0)');
+          ctx.fillStyle=gr; ctx.fillRect(p.x-90,p.y-90,180,180);
+        });
+      }
+      // bars
+      var baseY = h - 40;
+      if (layers.bars) {
+        if (Math.random()<0.02) bars.forEach(function(b){ b.target=rnd(30,210); });
+        bars.forEach(function(b,i){
+          b.h += (b.target-b.h)*0.05;
+          ctx.shadowColor='#6fe3c4'; ctx.shadowBlur=10*(0.6+0.4*Math.sin(t*2+b.ph));
+          ctx.fillStyle='rgba(111,227,196,0.55)';
+          ctx.fillRect(b.x, baseY-b.h, (w-80)/14-8, b.h);
+          ctx.shadowBlur=0;
+        });
+      }
+      // radar
+      if (layers.radar) {
+        var ang=(t*0.8)%TAU;
+        for(var s=0;s<24;s++){
+          var a0=ang-0.5+0.5*s/24;
+          ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,R,a0,a0+0.5/24+0.01); ctx.closePath();
+          ctx.fillStyle='rgba(95,216,196,'+(0.015+0.09*s/24)+')'; ctx.fill();
+        }
+      }
+      // flight
+      if (layers.flight) {
+        links.forEach(function(L){
+          var mx=(L.a.x+L.b.x)/2, my=(L.a.y+L.b.y)/2;
+          var dx=L.b.x-L.a.x, dy=L.b.y-L.a.y, len=Math.hypot(dx,dy)||1;
+          var c={x:mx-dy/len*len*0.25, y:my+dx/len*len*0.25};
+          ctx.beginPath(); ctx.moveTo(L.a.x,L.a.y); ctx.quadraticCurveTo(c.x,c.y,L.b.x,L.b.y);
+          ctx.strokeStyle='rgba(111,157,255,0.22)'; ctx.lineWidth=1.2; ctx.stroke();
+          var pt=bez(L.a,c,L.b,L.t);
+          ctx.beginPath(); ctx.arc(pt.x,pt.y,2.6,0,TAU); ctx.fillStyle='rgba(180,220,255,0.9)'; ctx.fill();
+          L.t+=0.009; if(L.t>1)L.t=0;
+        });
+        nodes.forEach(function(p){ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,TAU); ctx.fillStyle='#6f9dff'; ctx.fill(); });
+      }
+      // wind particles
+      if (layers.wind) {
+        ctx.lineWidth=1;
+        for(var i=0;i<winds.length;i++){
+          var p=winds[i];
+          var fx=Math.sin(p.x*0.01+t)+Math.cos(p.y*0.012-t*0.7);
+          var fy=Math.cos(p.x*0.009-t*0.8)+Math.sin(p.y*0.011+t);
+          ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+fx*1.4,p.y+fy*1.4);
+          ctx.strokeStyle='rgba(120,220,210,0.28)'; ctx.stroke();
+          p.x+=fx*1.4; p.y+=fy*1.4; p.age++;
+          if(p.age>90||p.x<0||p.x>w||p.y<0||p.y>h){ p.x=rnd(0,w); p.y=rnd(0,h); p.age=0; }
+        }
+      }
+      var st=document.getElementById('screenStat');
+      var on=Object.keys(layers).filter(function(k){return layers[k];});
+      st.__tick = on.length + '/6 图层 · 实时';
+    }
+    demos.screen = { draw: draw, resize: function () {} };
+    document.querySelectorAll('#screenLayers input[type=checkbox]').forEach(function (el) {
+      el.onchange = function () { layers[this.getAttribute('data-layer')] = this.checked; };
+    });
+    document.getElementById('screenPause').onclick = function () { paused = !paused; this.textContent = paused ? '继续全部' : '暂停全部'; };
+  })();
+
+  // ---------- tab 切换 ----------
+  document.querySelectorAll('#tabs .tab').forEach(function (tab) {
+    tab.onclick = function () {
+      document.querySelectorAll('#tabs .tab').forEach(function (t) { t.classList.remove('on'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('on'); });
+      this.classList.add('on');
+      var id = this.getAttribute('data-p');
+      document.getElementById('p-' + id).classList.add('on');
+      active = id;
+    };
+  });
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

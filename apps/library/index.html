@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>吾界图书馆 · 推开一扇门</title>
+<style>
+  :root{
+    --ink:#e9dfc7; --muted:#a89a7e; --warm:#d8a24a; --wood:#6b4a2f;
+    --panel:rgba(20,16,10,.86); --line:rgba(216,162,74,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0906;color:var(--ink);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",serif}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  .brand{position:fixed;top:18px;left:24px;z-index:10;pointer-events:none}
+  .brand h1{margin:0;font-size:19px;letter-spacing:3px;font-weight:500;color:#f0e4c6}
+  .brand p{margin:3px 0 0;font-size:11px;letter-spacing:.5px;color:var(--muted)}
+
+  .doorway{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1c150c 0%,#080603 75%);
+    transition:opacity 1s ease}
+  .doorway.gone{opacity:0;pointer-events:none}
+  .doorframe{position:relative;width:min(320px,64vw);height:min(460px,64vh);
+    perspective:1200px;margin-bottom:34px}
+  .door{position:absolute;inset:0;transform-origin:left center;transform-style:preserve-3d;
+    transition:transform 1.6s cubic-bezier(.6,.05,.25,1);
+    background:linear-gradient(100deg,#4a3018,#6b4a2f 40%,#7c5738 60%,#53371d);
+    border:7px solid #2e1e10;border-radius:4px;
+    box-shadow:inset 0 0 0 3px #8a6a42, 0 20px 60px rgba(0,0,0,.7)}
+  .door::before{content:"";position:absolute;inset:26px;border:2px solid rgba(216,162,74,.45);border-radius:2px}
+  .door::after{content:"";position:absolute;inset:46px;border:1px solid rgba(216,162,74,.28)}
+  .knob{position:absolute;right:26px;top:50%;width:18px;height:18px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#ffe6a8,#b8892f);box-shadow:0 2px 6px #000}
+  .door.open{transform:rotateY(-108deg)}
+  .doorway h2{font-size:22px;letter-spacing:6px;font-weight:400;margin:0 0 8px}
+  .doorway p{color:var(--muted);font-size:13px;margin:0 0 22px;letter-spacing:1px}
+  .enter-btn{padding:12px 34px;border:1px solid var(--warm);background:transparent;color:var(--warm);
+    font-size:14px;letter-spacing:3px;cursor:pointer;border-radius:2px;transition:all .25s}
+  .enter-btn:hover{background:var(--warm);color:#1a1208}
+
+  .hud{position:fixed;left:0;right:0;bottom:0;z-index:10;padding:14px 24px 16px;
+    background:linear-gradient(transparent,rgba(8,6,3,.9));display:flex;gap:7px;
+    align-items:center;flex-wrap:wrap;opacity:0;transition:opacity .8s}
+  .hud.show{opacity:1}
+  .hud .hlabel{font-size:11px;color:var(--muted);margin-right:4px;letter-spacing:1px}
+  .cat-btn{padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    border-radius:99px;font-size:11.5px;cursor:pointer;transition:all .2s;white-space:nowrap}
+  .cat-btn:hover,.cat-btn.active{color:#1a1208;background:var(--warm);border-color:var(--warm)}
+  .cat-btn .n{opacity:.65;font-size:10px;margin-left:3px}
+  .hud .tip{margin-left:auto;color:var(--muted);font-size:10.5px}
+
+  .info{position:fixed;right:24px;top:24px;z-index:20;width:310px;max-width:82vw;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;
+    backdrop-filter:blur(8px);transform:translateX(120%);opacity:0;transition:all .35s}
+  .info.show{transform:none;opacity:1}
+  .info .cat{font-size:11px;color:var(--warm);letter-spacing:2px}
+  .info h3{margin:8px 0 4px;font-size:20px;color:#f3e8cd;line-height:1.4}
+  .info .author{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .info .meta-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+  .info .tag{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+  .info .tag.score{color:#f7d98a;border-color:rgba(247,217,138,.4)}
+  .info .tag.done{color:#8fdcb0;border-color:rgba(143,220,176,.4)}
+  .info .tag.reading{color:#f0b46a;border-color:rgba(240,180,106,.4)}
+  .info .note{font-size:12.5px;line-height:1.8;color:#cbbfa2;margin-bottom:10px;word-break:break-all}
+  .info a{display:inline-block;margin-top:8px;padding:8px 16px;background:var(--warm);
+    color:#1a1208;text-decoration:none;border-radius:6px;font-size:12px}
+  .info .close{position:absolute;right:12px;top:10px;cursor:pointer;color:var(--muted);font-size:18px}
+
+  .hint{position:fixed;left:24px;bottom:74px;z-index:10;color:var(--muted);font-size:11px;opacity:0;transition:opacity .8s}
+  .hint.show{opacity:1}
+  .loading{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+    background:#0b0906;color:var(--muted);font-size:13px;transition:opacity .5s}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">正在点亮图书馆…</div>
+<div id="app"></div>
+
+<div class="brand">
+  <h1>吾界图书馆</h1>
+  <p id="brandSub">书单来自飞书「书籍信息总览」 · 点击书脊看详情</p>
+</div>
+
+<div class="doorway" id="doorway">
+  <div class="doorframe"><div class="door" id="door"><span class="knob"></span></div></div>
+  <h2>吾 界 图 书 馆</h2>
+  <p>每一本书，都是你读过的一块世界</p>
+  <button class="enter-btn" id="enterBtn">推 门 进 入</button>
+</div>
+
+<div class="hint" id="hint">拖拽旋转视角 · 滚轮缩放 · 点击书脊看详情</div>
+<div class="hud" id="hud"></div>
+<div class="info" id="info">
+  <span class="close" id="infoClose">✕</span>
+  <div class="cat" id="iCat"></div>
+  <h3 id="iTitle"></h3>
+  <div class="author" id="iAuthor"></div>
+  <div class="meta-row" id="iMeta"></div>
+  <div class="note" id="iNote"></div>
+  <a id="iLink" href="#" target="_blank" rel="noopener">在飞书查看这本书 ↗</a>
+</div>
+
+<script type="module">
+import { BOOKS, CATEGORIES, ZONE_COLOR } from './books.js';
+
+const THREE = await import('../three/vendor/three.module.min.js');
+document.getElementById('brandSub').textContent =
+  `飞书书单 · ${BOOKS.length} 本 · ${CATEGORIES.length} 个分区 · 点击书脊看详情`;
+
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#171009');
+scene.fog = new THREE.FogExp2('#171009', 0.010);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 240);
+camera.position.set(0, 2.2, 10);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+app.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight('#ffe8c0', 1.05));
+const lamp = new THREE.PointLight('#ffcf87', 3.2, 80); lamp.position.set(0, 7, 0); scene.add(lamp);
+const lamp2 = new THREE.PointLight('#ffb45e', 2.0, 60); lamp2.position.set(0, 5, -20); scene.add(lamp2);
+const lamp3 = new THREE.PointLight('#ffcf87', 1.6, 55); lamp3.position.set(0, 5, -44); scene.add(lamp3);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 180),
+  new THREE.MeshStandardMaterial({ color:'#2a1c10', roughness:0.85 }));
+floor.rotation.x = -Math.PI/2; scene.add(floor);
+const carpet = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 170),
+  new THREE.MeshStandardMaterial({ color:'#5a2f22', roughness:1 }));
+carpet.rotation.x = -Math.PI/2; carpet.position.y = 0.01; scene.add(carpet);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(80, 180),
+  new THREE.MeshStandardMaterial({ color:'#1a1209', roughness:1 }));
+ceil.rotation.x = Math.PI/2; ceil.position.y = 9; scene.add(ceil);
+function wall(x,z,ry){ const m=new THREE.Mesh(new THREE.PlaneGeometry(180,9),
+  new THREE.MeshStandardMaterial({color:'#241a10',roughness:1,side:THREE.DoubleSide}));
+  m.position.set(x,4.5,z); m.rotation.y=ry; scene.add(m); }
+wall(-16,-70,Math.PI/2); wall(16,-70,-Math.PI/2); wall(0,-92,0); wall(0,16,Math.PI);
+
+const woodMat = new THREE.MeshStandardMaterial({ color:'#5b3d22', roughness:0.8 });
+const shelfMat = new THREE.MeshStandardMaterial({ color:'#3d2814', roughness:0.9 });
+const bookMeshes = [];
+
+// 每个书架 4 层、每层放 maxPerShelf 本；一个分区按书数拆成多个书架沿走廊排布
+const SHELF_W = 6, SHELF_H = 5.2, SHELF_D = 0.8, LEVELS = [0.25,1.5,2.75,4.0];
+function makeShelf(x, z, ry, books, color){
+  const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y = ry;
+  const sideGeo = new THREE.BoxGeometry(0.16,SHELF_H,SHELF_D);
+  [-SHELF_W/2,SHELF_W/2].forEach(sx=>{ const s=new THREE.Mesh(sideGeo,woodMat); s.position.set(sx,SHELF_H/2,0); g.add(s); });
+  LEVELS.forEach(y=>{ const s=new THREE.Mesh(new THREE.BoxGeometry(SHELF_W,0.13,SHELF_D),shelfMat); s.position.set(0,y,0); g.add(s); });
+  const back=new THREE.Mesh(new THREE.BoxGeometry(SHELF_W,SHELF_H,0.06),shelfMat); back.position.set(0,SHELF_H/2,-SHELF_D/2+0.03); g.add(back);
+  const strip=new THREE.Mesh(new THREE.BoxGeometry(SHELF_W,0.07,0.22),new THREE.MeshBasicMaterial({color}));
+  strip.position.set(0,SHELF_H+0.12,0); g.add(strip);
+
+  const perLevel = 20;
+  books.forEach((b,i)=>{
+    const level = Math.min(3, Math.floor(i/perLevel));
+    const idx = i - level*perLevel;
+    const bw = 0.2 + ((i*7)%3)*0.035;
+    const bh = 0.92 + ((i*5)%4)*0.06;
+    // 按细分类微调同色系深浅
+    const col = new THREE.Color(b.color);
+    const shade = 0.78 + ((i*3)%5)*0.06;
+    col.multiplyScalar(shade);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(bw,bh,0.6),
+      new THREE.MeshStandardMaterial({color:col,roughness:0.65}));
+    const sx = -SHELF_W/2 + 0.4 + idx*( (SHELF_W-0.8)/perLevel );
+    mesh.position.set(Math.min(sx,SHELF_W/2-0.25), LEVELS[level]+0.07+bh/2, 0.06);
+    mesh.userData = { book:b };
+    g.add(mesh); bookMeshes.push(mesh);
+  });
+  scene.add(g);
+}
+
+function makeLabel(text, count, x, z, ry, color){
+  const c=document.createElement('canvas'); c.width=640; c.height=128;
+  const g=c.getContext('2d');
+  g.fillStyle='rgba(20,14,8,.92)'; g.fillRect(0,0,640,128);
+  g.strokeStyle=color; g.lineWidth=5; g.strokeRect(4,4,632,120);
+  g.fillStyle='#f0e4c6'; g.font='bold 50px sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(`${text} · ${count}`, 320, 66);
+  const tex=new THREE.CanvasTexture(c);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(4.4,0.88),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide}));
+  m.position.set(x,6.0,z); m.rotation.y=ry; scene.add(m);
+}
+
+// 分区沿走廊左右两侧排布：每区占若干连续书架，深度依次后退
+const zoneSlots = [];
+let cursorZ = -5;
+CATEGORIES.forEach(cat=>{
+  const books = BOOKS.filter(b=>b.cat===cat);
+  const color = ZONE_COLOR[cat] || '#d8a24a';
+  const perShelf = 80; // 4层×20本
+  const shelfCount = Math.max(1, Math.ceil(books.length/perShelf));
+  const startZ = cursorZ;
+  for(let s=0;s<shelfCount;s++){
+    const z = startZ - s*7.6;
+    const chunk = books.slice(s*perShelf,(s+1)*perShelf);
+    makeShelf(-8.5, z, Math.PI/2, chunk, color);       // 左
+    makeShelf( 8.5, z-3.8, -Math.PI/2, [], color);     // 右（留空位，视觉对称）
+  }
+  makeLabel(cat, books.length, -8.5, startZ-2, Math.PI/2, color);
+  zoneSlots.push({ cat, z: startZ-2, color });
+  cursorZ = startZ - shelfCount*7.6 - 2;
+});
+
+// 射线拾取
+const raycaster=new THREE.Raycaster(); const pointer=new THREE.Vector2();
+function pick(e){
+  pointer.x=(e.clientX/innerWidth)*2-1; pointer.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  const hits=raycaster.intersectObjects(bookMeshes);
+  return hits.length?hits[0].object:null;
+}
+renderer.domElement.addEventListener('click',e=>{ const o=pick(e); if(o&&o.userData.book) openInfo(o.userData.book); });
+renderer.domElement.addEventListener('mousemove',e=>{ renderer.domElement.style.cursor=pick(e)?'pointer':'grab'; });
+
+// 手写轨道控制
+let yaw=0,pitch=0,dist=10,dragging=false,px=0,py=0;
+const target=new THREE.Vector3(0,2.2,-6);
+function updateCamera(){
+  camera.position.x=target.x+dist*Math.sin(yaw)*Math.cos(pitch);
+  camera.position.y=target.y+dist*Math.sin(pitch)+1.5;
+  camera.position.z=target.z+dist*Math.cos(yaw)*Math.cos(pitch);
+  camera.lookAt(target);
+}
+updateCamera();
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;px=e.clientX;py=e.clientY;});
+window.addEventListener('pointerup',()=>dragging=false);
+window.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  yaw=Math.max(-1.15,Math.min(1.15,yaw-(e.clientX-px)*0.0035));
+  pitch=Math.max(-0.2,Math.min(0.6,pitch+(e.clientY-py)*0.003));
+  px=e.clientX;py=e.clientY;updateCamera();
+});
+renderer.domElement.addEventListener('wheel',e=>{dist=Math.max(4,Math.min(40,dist+e.deltaY*0.014));updateCamera();},{passive:true});
+
+// HUD：分区定位
+const hud=document.getElementById('hud');
+const hlabel=document.createElement('span'); hlabel.className='hlabel'; hlabel.textContent='分区：'; hud.appendChild(hlabel);
+function mkBtn(text,onclick,active){ const b=document.createElement('button'); b.className='cat-btn'+(active?' active':''); b.textContent=text; b.onclick=onclick; hud.appendChild(b); return b; }
+const allBtn=mkBtn('全景',()=>{target.set(0,2.2,-6);dist=10;yaw=0;pitch=0;updateCamera();setActive(null);},true);
+function setActive(el){ document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active')); (el||allBtn).classList.add('active'); }
+zoneSlots.forEach(s=>{
+  const n=BOOKS.filter(b=>b.cat===s.cat).length;
+  const b=mkBtn(`${s.cat} <span class="n">${n}</span>`,()=>{
+    target.set(-5,2.4,s.z); dist=9; yaw=-0.45; pitch=0.05; updateCamera(); setActive(b);
+  },false);
+  b.innerHTML=`${s.cat} <span class="n">${n}</span>`;
+});
+
+// 信息卡
+const info=document.getElementById('info');
+const STATUS_LABEL={'完成阅读笔记':'完成笔记','已完成阅读':'已读','进行中':'在读','计划看':'计划','未开始':'想读'};
+function openInfo(b){
+  document.getElementById('iCat').textContent=b.cat;
+  document.getElementById('iTitle').textContent=b.title;
+  document.getElementById('iAuthor').textContent=b.author;
+  let tags=`<span class="tag">${(b.types||[]).join(' / ')||b.cat}</span>`;
+  if(b.score) tags+=`<span class="tag score">★ ${b.score}</span>`;
+  if(b.status){ const cls=b.status==='进行中'?'reading':(b.status.includes('完成')||b.status==='已完成阅读')?'done':'';
+    tags+=`<span class="tag ${cls}">${STATUS_LABEL[b.status]||b.status}</span>`; }
+  document.getElementById('iMeta').innerHTML=tags;
+  document.getElementById('iNote').textContent=b.note||'（飞书里还没写读书笔记）';
+  document.getElementById('iLink').href=b.feishu;
+  info.classList.add('show');
+}
+document.getElementById('infoClose').onclick=()=>info.classList.remove('show');
+
+// 开门
+const doorway=document.getElementById('doorway');
+document.getElementById('enterBtn').onclick=()=>{
+  document.getElementById('door').classList.add('open');
+  setTimeout(()=>{ doorway.classList.add('gone');
+    document.getElementById('hud').classList.add('show');
+    document.getElementById('hint').classList.add('show'); },900);
+};
+
+function animate(){ requestAnimationFrame(animate);
+  lamp.intensity=3.2+Math.sin(Date.now()*0.002)*0.1;
+  renderer.render(scene,camera); }
+animate();
+window.addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+document.getElementById('loading').style.opacity='0';
+setTimeout(()=>document.getElementById('loading').remove(),500);
+</script>
+</body>
+</html>

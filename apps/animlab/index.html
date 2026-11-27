@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M6 22 L12 10 L18 22 Z' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='25' cy='9' r='4' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>前端动效实验室 · 42篇掘金收藏全落地</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; min-height:100%;
+    background: radial-gradient(1200px 600px at 20% -10%, #131a33 0%, #070a14 55%, #05070e 100%);
+    color:#e7ecff; font-family:'Inter','PingFang SC','Microsoft YaHei',sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:40px 22px 90px; }
+  .kicker { font-size:11px; letter-spacing:5px; color:#5f6c96; margin-bottom:10px; }
+  header h1 { font-size:28px; margin:0 0 10px; letter-spacing:1px; }
+  header p { color:#8b96bd; font-size:13.5px; line-height:1.85; margin:0 0 8px; }
+  header .stat { display:flex; gap:18px; flex-wrap:wrap; margin-top:18px; }
+  header .stat b { display:block; font-size:22px; color:#a8c6ff; }
+  header .stat span { font-size:11px; color:#6f7ba5; letter-spacing:1px; }
+  .tabs { display:flex; flex-wrap:wrap; gap:8px; margin:30px 0 8px; position:sticky; top:0; z-index:20;
+    background:linear-gradient(#070a14 70%, transparent); padding:10px 0 16px; }
+  .tab { padding:9px 17px; border-radius:999px; cursor:pointer; font-size:13px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(140,165,255,.16);
+    color:#9fabd4; transition:all .2s; }
+  .tab:hover { color:#e7ecff; border-color:rgba(140,165,255,.4); }
+  .tab.on { background:linear-gradient(135deg,#7c9dff,#b98bff); color:#0a1020; font-weight:600; border-color:transparent; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin-top:18px; }
+  @media(max-width:860px){ .grid{ grid-template-columns:1fr; } }
+  .card { background:rgba(255,255,255,.035); border:1px solid rgba(140,165,255,.14);
+    border-radius:16px; padding:18px 20px 20px; display:flex; flex-direction:column; min-width:0; }
+  .card h3 { margin:0 0 4px; font-size:15px; }
+  .card .meta { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .card .num { font-size:11px; color:#0a1020; background:linear-gradient(135deg,#7c9dff,#b98bff);
+    border-radius:6px; padding:2px 8px; font-weight:700; }
+  .card .tag { font-size:10.5px; color:#8090bd; border:1px solid rgba(140,165,255,.18);
+    border-radius:99px; padding:2px 9px; }
+  .card .desc { color:#95a0c4; font-size:12px; line-height:1.7; margin:0 0 14px; }
+  .stage { position:relative; border-radius:12px; background:rgba(0,0,0,.34);
+    border:1px solid rgba(140,165,255,.12); min-height:180px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; padding:16px; }
+  .src { display:inline-block; margin-top:12px; font-size:11.5px; color:#7c9dff; text-decoration:none; }
+  .src:hover { text-decoration:underline; }
+  .hint { font-size:10.5px; color:#5f6c96; margin-top:8px; }
+  .btn { padding:7px 15px; border-radius:8px; cursor:pointer; font-size:12px;
+    background:rgba(124,157,255,.15); color:#cfd8ff; border:1px solid rgba(140,165,255,.3); }
+  .btn:hover { background:rgba(124,157,255,.28); }
+  .reslist { display:grid; grid-template-columns:1fr; gap:12px; }
+  .resitem { display:flex; gap:12px; align-items:flex-start; padding:13px 15px;
+    background:rgba(255,255,255,.03); border:1px solid rgba(140,165,255,.12); border-radius:11px; }
+  .resitem a { color:#a8c6ff; text-decoration:none; font-size:13px; }
+  .resitem a:hover { text-decoration:underline; }
+  .resitem .d { color:#8894bb; font-size:11.5px; line-height:1.6; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">JUJIN COLLECTION · 42 ARTICLES · ALL IN ONE</div>
+    <h1>前端动效实验室</h1>
+    <p>掘金「前端动画 / 特效」收藏夹 42 篇全部落地：可运行效果逐篇提炼，原生实现、零依赖，点开即玩。资源盘点类文章整理成清单。所有代码都可展开查看，附原文链接。</p>
+    <div class="stat">
+      <div><b id="stArt">42</b><span>篇文章</span></div>
+      <div><b id="stDemo">0</b><span>可运行 Demo</span></div>
+      <div><b id="stCat">6</b><span>个分类</span></div>
+    </div>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<script>window.DEMOS=[];</script>
+<script src="demos-css.js"></script>
+<script src="demos-canvas.js"></script>
+<script src="demos-game.js"></script>
+<script src="demos-lib.js"></script>
+<script src="demos-lib2.js"></script>
+<script src="demos-extra.js"></script>
+<script src="demos-res.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

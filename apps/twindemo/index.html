@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数字孪生最小闭环 · 数据驱动</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #03060e; color: #d7e6ff;
+    font-family: 'Bahnschrift','DIN Alternate','Inter','PingFang SC','Microsoft YaHei',sans-serif; font-variant-numeric: tabular-nums; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  header { flex: none; height: 58px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; border-bottom: 1px solid rgba(90,150,220,.18);
+    background: linear-gradient(90deg, rgba(34,211,238,.07), rgba(139,92,246,.05)); }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: .5px; }
+  header h1 b { color: #22d3ee; }
+  header .sub { font-size: 11px; color: #6f88ab; margin-top: 3px; }
+  .live { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #7ef7c0; }
+  .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 10px #34d399; animation: bp 1.4s infinite; }
+  @keyframes bp { 50% { opacity: .35; } }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #stage { flex: 1; position: relative; min-width: 0; }
+  #stage canvas { display: block; }
+  #stageTip { position: absolute; left: 16px; bottom: 14px; font-size: 11px; color: #5f7a9e; pointer-events: none; }
+  .legend { position: absolute; right: 16px; bottom: 14px; font-size: 11px; color: #6f88ab; text-align: right; line-height: 1.7; pointer-events: none; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; }
+  aside { flex: none; width: 320px; border-left: 1px solid rgba(90,150,220,.18); padding: 18px 18px 14px;
+    background: linear-gradient(180deg, rgba(10,18,34,.9), rgba(4,8,18,.95)); overflow-y: auto; }
+  .panel-t { font-size: 11px; letter-spacing: 1.5px; color: #4d6a92; text-transform: uppercase; margin-bottom: 12px; }
+  .stat { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(90,150,220,.1); }
+  .stat .k { font-size: 12px; color: #8aa4c8; }
+  .stat .v { font-size: 22px; font-weight: 600; color: #e8f3ff; }
+  .stat .v small { font-size: 11px; color: #5f7a9e; font-weight: 400; margin-left: 3px; }
+  .bar { height: 4px; border-radius: 2px; background: rgba(90,150,220,.14); margin-top: 7px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 2px; transition: width .25s, background .25s; }
+  .flow { margin-top: 20px; padding: 12px; border: 1px solid rgba(139,92,246,.25); border-radius: 8px; background: rgba(139,92,246,.05); }
+  .flow h3 { font-size: 11px; color: #b79cff; letter-spacing: 1px; margin-bottom: 9px; }
+  .flow .row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #9fb4d4; padding: 4px 0; }
+  .flow .row b { color: #22d3ee; font-weight: 500; min-width: 62px; }
+  .flow .arrow { color: #4d6a92; }
+  .modes { margin-top: 18px; }
+  .modes h3 { font-size: 11px; color: #4d6a92; letter-spacing: 1.2px; margin-bottom: 10px; }
+  .mode-btn { width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 7px; border: 1px solid rgba(90,150,220,.2);
+    border-radius: 7px; background: rgba(12,22,40,.7); color: #b9cdea; font-size: 12px; cursor: pointer; transition: .2s; }
+  .mode-btn:hover { border-color: rgba(34,211,238,.5); }
+  .mode-btn.on { border-color: #22d3ee; background: rgba(34,211,238,.1); color: #eaffff; }
+  .mode-btn small { display: block; color: #5f7a9e; font-size: 10px; margin-top: 2px; }
+  .status-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .s-normal { background: rgba(52,211,153,.15); color: #6ee7b7; }
+  .s-warn { background: rgba(251,191,36,.15); color: #fcd34d; }
+  .s-fault { background: rgba(248,113,113,.18); color: #fca5a5; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #03060e; color: #6f88ab; font-size: 13px; z-index: 5; transition: opacity .5s; }
+  #loading.gone { opacity: 0; pointer-events: none; visibility: hidden; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>数字孪生最小闭环 · <b>实时数据 → 模型状态</b></h1>
+      <div class="sub">Blender 造模型 · Three.js 渲染 · 模拟数据源推送 · 数据驱动叶片转速/机身温度色/故障告警</div>
+    </div>
+    <div class="live"><span class="dot"></span><span id="liveTxt">数据源连接中…</span></div>
+  </header>
+  <div id="main">
+    <div id="stage">
+      <div id="loading">正在加载风机模型…</div>
+      <div id="stageTip">拖拽旋转 · 滚轮缩放</div>
+      <div class="legend">模型颜色映射数据：
+        <div>正常 <i style="background:#22d3ee"></i> 预警 <i style="background:#fbbf24"></i> 故障 <i style="background:#f87171"></i></div>
+      </div>
+    </div>
+    <aside>
+      <div class="panel-t">设备实时状态 / Equipment 01</div>
+      <div class="stat"><span class="k">运行状态</span><span id="vStatus" class="status-pill s-normal">正常</span></div>
+      <div class="stat"><span class="k">转速</span><span class="v"><span id="vRpm">0</span><small>RPM</small></span></div>
+      <div class="bar"><i id="bRpm" style="width:0%;background:#22d3ee"></i></div>
+      <div class="stat"><span class="k">轴承温度</span><span class="v"><span id="vTemp">0</span><small>°C</small></span></div>
+      <div class="bar"><i id="bTemp" style="width:0%;background:#22d3ee"></i></div>
+      <div class="stat"><span class="k">振动幅度</span><span class="v"><span id="vVib">0</span><small>mm/s</small></span></div>
+      <div class="bar"><i id="bVib" style="width:0%;background:#22d3ee"></i></div>
+
+      <div class="flow">
+        <h3>数据驱动链路 (DEMO 核心)</h3>
+        <div class="row"><b>数据源</b><span class="arrow">→</span><span id="fSrc">模拟传感器 · 500ms 推送</span></div>
+        <div class="row"><b>转速</b><span class="arrow">→</span><span>叶片旋转角速度</span></div>
+        <div class="row"><b>温度</b><span class="arrow">→</span><span>机身颜色 + 发光</span></div>
+        <div class="row"><b>故障</b><span class="arrow">→</span><span>警示灯红色脉冲</span></div>
+      </div>
+
+      <div class="modes">
+        <h3>切换数据场景（看模型实时响应）</h3>
+        <button class="mode-btn on" data-mode="normal">正常运行<small>转速 1200 · 温度 45°C · 平稳</small></button>
+        <button class="mode-btn" data-mode="warn">过载预警<small>转速 2400 · 温度 78°C · 振动升高</small></button>
+        <button class="mode-btn" data-mode="fault">故障告警<small>转速骤降 · 温度 95°C · 红灯脉冲</small></button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../three/vendor/three.module.min.js",
+    "three/addons/": "../three/vendor/addons/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/GLTFLoader.js';
+
+const stage = document.getElementById('stage');
+const loading = document.getElementById('loading');
+
+// ---------- 场景 ----------
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x03060e, 0.045);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x88bbff, 0x0a1020, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(4, 7, 5); scene.add(key);
+const rim = new THREE.PointLight(0x8b5cf6, 30, 20); rim.position.set(-4, 2, -3); scene.add(rim);
+const fill = new THREE.PointLight(0x22d3ee, 18, 20); fill.position.set(3, 1, 4); scene.add(fill);
+
+// 地面网格
+const grid = new THREE.GridHelper(30, 30, 0x1e5a8a, 0x102a44);
+grid.position.y = -0.02; grid.material.transparent = true; grid.material.opacity = 0.5;
+scene.add(grid);
+
+// ---------- 模型 ----------
+let rotor = null, fanBody = null, beacon = null;
+const loader = new GLTFLoader();
+loader.load('./models/fan.glb', (gltf) => {
+  const root = gltf.scene;
+  root.traverse((o) => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      if (o.name === 'FanBody') fanBody = o;
+      if (o.name === 'Beacon') beacon = o;
+    }
+    if (o.name === 'Rotor') rotor = o;
+  });
+  scene.add(root);
+  loading.classList.add('gone');
+  setStatus('connected');
+}, undefined, (err) => {
+  loading.textContent = '模型加载失败：' + err.message;
+});
+
+// ---------- 数据驱动状态 ----------
+const state = { rpm: 1200, temp: 45, vib: 0.8, mode: 'normal' };
+const MODE_TARGETS = {
+  normal: { rpm: 1200, temp: 45, vib: 0.8, status: '正常', cls: 's-normal' },
+  warn:   { rpm: 2400, temp: 78, vib: 4.2, status: '过载预警', cls: 's-warn' },
+  fault:  { rpm: 180,  temp: 95, vib: 7.6, status: '故障告警', cls: 's-fault' },
+};
+let target = MODE_TARGETS.normal;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function setStatus(s) {
+  const el = document.getElementById('liveTxt');
+  el.textContent = s === 'connected' ? '数据源已连接 · 模拟传感器 500ms' : '数据源连接中…';
+}
+
+// 模拟数据源：每 500ms 推送一帧带噪声的数据（真实项目里换成 WebSocket/MQTT）
+setInterval(() => {
+  const t = MODE_TARGETS[state.mode];
+  const n = () => (Math.random() - 0.5);
+  // 数据向目标值平滑逼近 + 噪声，模拟真实传感器
+  state.rpm  = lerp(state.rpm,  t.rpm,  0.25) + n() * t.rpm * 0.02;
+  state.temp = lerp(state.temp, t.temp, 0.22) + n() * 1.2;
+  state.vib  = Math.max(0, lerp(state.vib, t.vib, 0.25) + n() * 0.4);
+  renderData();
+}, 500);
+
+function renderData() {
+  const pct = (v, min, max) => Math.max(0, Math.min(100, (v - min) / (max - min) * 100));
+  document.getElementById('vRpm').textContent = Math.round(state.rpm);
+  document.getElementById('vTemp').textContent = state.temp.toFixed(1);
+  document.getElementById('vVib').textContent = state.vib.toFixed(1);
+  const st = document.getElementById('vStatus');
+  st.textContent = target.status; st.className = 'status-pill ' + target.cls;
+
+  const setBar = (id, v, color) => { const b = document.getElementById(id); b.style.width = v + '%'; b.style.background = color; };
+  const warnColor = state.temp > 70 ? '#fbbf24' : '#22d3ee';
+  const faultColor = state.temp > 88 ? '#f87171' : warnColor;
+  setBar('bRpm', pct(state.rpm, 0, 2600), '#22d3ee');
+  setBar('bTemp', pct(state.temp, 20, 100), faultColor);
+  setBar('bVib', pct(state.vib, 0, 9), state.vib > 5 ? '#f87171' : state.vib > 2 ? '#fbbf24' : '#22d3ee');
+}
+
+// 模式按钮
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    state.mode = btn.dataset.mode;
+    target = MODE_TARGETS[state.mode];
+  });
+});
+
+// ---------- 数据 → 模型映射（每帧） ----------
+const cyan = new THREE.Color(0x22d3ee), amber = new THREE.Color(0xfbbf24), red = new THREE.Color(0xf87171);
+const tmpColor = new THREE.Color();
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.getElapsedTime();
+
+  // 转速 → 叶片角速度
+  if (rotor) rotor.rotation.z -= state.rpm / 1200 * 3.2 * dt;
+
+  // 温度 → 机身颜色（青→黄→红）
+  if (fanBody) {
+    if (state.temp < 70) tmpColor.copy(cyan).lerp(amber, (state.temp - 45) / 25);
+    else tmpColor.copy(amber).lerp(red, Math.min(1, (state.temp - 70) / 20));
+    fanBody.material.color.lerp(tmpColor, 0.08);
+    fanBody.material.emissive = fanBody.material.emissive || new THREE.Color();
+    fanBody.material.emissive.copy(tmpColor).multiplyScalar(state.temp > 70 ? 0.35 : 0.08);
+  }
+
+  // 故障 → 警示灯红色脉冲
+  if (beacon) {
+    beacon.material.emissive = beacon.material.emissive || new THREE.Color();
+    if (state.mode === 'fault') {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 9);
+      beacon.material.color.setHex(0xf87171);
+      beacon.material.emissive.setHex(0xff2020);
+      beacon.material.emissiveIntensity = 0.4 + pulse * 2.2;
+      beacon.scale.setScalar(1 + pulse * 0.25);
+    } else if (state.mode === 'warn') {
+      beacon.material.color.setHex(0xfbbf24);
+      beacon.material.emissive.setHex(0xffaa00);
+      beacon.material.emissiveIntensity = 0.8;
+      beacon.scale.setScalar(1);
+    } else {
+      beacon.material.color.setHex(0x34d399);
+      beacon.material.emissive.setHex(0x00cc66);
+      beacon.material.emissiveIntensity = 0.6;
+      beacon.scale.setScalar(1);
+    }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ---------- 交互：拖拽旋转 + 滚轮缩放 ----------
+let yaw = 0, pitch = 0.1, dist = 6.2, dragging = false, px = 0, py = 0;
+const controls = { update() {
+  camera.position.set(Math.sin(yaw) * Math.cos(pitch) * dist, 1.9 + Math.sin(pitch) * dist, Math.cos(yaw) * Math.cos(pitch) * dist);
+  camera.lookAt(0, 1.5, 0);
+} };
+renderer.domElement.addEventListener('pointerdown', e => { dragging = true; px = e.clientX; py = e.clientY; });
+window.addEventListener('pointerup', () => dragging = false);
+window.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  yaw += (e.clientX - px) * 0.006; pitch = Math.max(-0.6, Math.min(1, pitch + (e.clientY - py) * 0.004));
+  px = e.clientX; py = e.clientY;
+});
+renderer.domElement.addEventListener('wheel', e => { dist = Math.max(3.2, Math.min(11, dist + e.deltaY * 0.004)); e.preventDefault(); }, { passive: false });
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+}
+window.addEventListener('resize', resize); resize();
+renderData(); animate();
+</script>
+</body>
+</html>

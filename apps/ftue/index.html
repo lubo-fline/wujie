@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FTUE 新手引导设计实验室 · 前 5 分钟留住玩家</title>
+<style>
+  * { box-sizing: border-box; }
+  :root{
+    --bg:#080c16; --ink:#e8edff; --mut:#93a4c4; --dim:#62738f;
+    --line:rgba(126,168,200,.16); --card:rgba(255,255,255,.035);
+    --good:#58e3b0; --bad:#ff7a90; --warm:#ffcf87; --blue:#7fa8ff;
+  }
+  html,body{margin:0;padding:0;min-height:100%;background:
+      radial-gradient(900px 520px at 82% -8%, #11313a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #161d40 0%, transparent 62%),
+      var(--bg);
+    color:var(--ink);font-family:'Inter','PingFang SC','Microsoft YaHei',sans-serif;}
+  .wrap{max-width:1120px;margin:0 auto;padding:38px 22px 90px;}
+  .kicker{font-size:11px;letter-spacing:5px;color:#5f7c8f;margin-bottom:10px;}
+  header h1{font-size:26px;margin:0 0 10px;letter-spacing:.5px;}
+  header h1 em{font-style:normal;color:var(--good);}
+  header p{color:var(--mut);font-size:13.5px;line-height:1.85;margin:0 0 6px;max-width:920px;}
+  header .src{font-size:12px;color:var(--dim);margin-top:8px;}
+  header .src a{color:#7fa8c4;}
+
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 26px;}
+  .tab{padding:9px 15px;border-radius:999px;cursor:pointer;font-size:13px;background:rgba(255,255,255,.04);
+    border:1px solid var(--line);color:#9fb2cd;transition:.2s;user-select:none;}
+  .tab:hover{color:var(--ink);border-color:rgba(120,200,210,.45);}
+  .tab.on{background:linear-gradient(135deg,#5fd8c4,#6f9dff);color:#06131a;font-weight:700;border-color:transparent;}
+  .tab .n{opacity:.55;font-size:11px;margin-right:5px;}
+
+  .panel{display:none;} .panel.on{display:block;animation:fade .32s ease both;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:16px;}
+  .card h3{margin:0 0 4px;font-size:15px;letter-spacing:.3px;}
+  .card h3 small{font-weight:400;color:#6f80a0;font-size:11px;margin-left:8px;}
+  .note{color:var(--mut);font-size:12.5px;line-height:1.85;margin:6px 0 14px;}
+  .note b{color:#cdd9f0;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;margin:0 4px 4px 0;border:1px solid var(--line);}
+  .btn{padding:8px 14px;border:1px solid rgba(120,200,210,.35);border-radius:8px;background:rgba(95,216,196,.08);
+    color:#bfe9df;cursor:pointer;font-size:12.5px;transition:.2s;}
+  .btn:hover{background:rgba(95,216,196,.18);}
+  .btn.primary{background:linear-gradient(135deg,#5fd8c4,#6f9dff);color:#06131a;border:0;font-weight:700;}
+
+  /* 好坏对比 */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .stage{position:relative;border-radius:14px;min-height:330px;padding:20px;overflow:hidden;border:1px solid var(--line);}
+  .stage.bad{background:linear-gradient(160deg,#2a1418,#160c11);}
+  .stage.good{background:linear-gradient(160deg,#122431,#0b151f);}
+  .stage .tag{font-size:11px;letter-spacing:2px;padding:4px 10px;border-radius:999px;display:inline-block;margin-bottom:14px;}
+  .stage.bad .tag{background:rgba(255,122,144,.15);color:var(--bad);}
+  .stage.good .tag{background:rgba(88,227,176,.15);color:var(--good);}
+  .scene{min-height:220px;border-radius:10px;background:rgba(0,0,0,.28);padding:16px;position:relative;
+    display:flex;flex-direction:column;gap:9px;}
+  .dot{position:absolute;width:20px;height:20px;border-radius:50%;background:#ffcf87;color:#1a1208;
+    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 4px rgba(255,207,135,.2);animation:pulse 1.4s infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 0 9px rgba(255,207,135,0)}}
+  .msg{font-size:12.5px;line-height:1.6;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.05);color:#cbd6ec;
+    opacity:0;transform:translateY(6px);transition:.35s;}
+  .msg.show{opacity:1;transform:none;}
+  .stage.bad .msg{border-left:3px solid var(--bad);}
+  .stage.good .msg{border-left:3px solid var(--good);}
+  .stage.good .cinema{font-size:12px;color:#9fb8c9;line-height:1.75;font-style:italic;text-align:center;margin:auto 0;}
+  .bar{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;}
+  .meter{height:6px;border-radius:99px;background:rgba(255,255,255,.08);flex:1;min-width:120px;overflow:hidden;}
+  .meter i{display:block;height:100%;width:0;transition:width .8s cubic-bezier(.2,.8,.2,1);border-radius:99px;}
+  .stage.bad .meter i{background:var(--bad);} .stage.good .meter i{background:var(--good);}
+  .retain{font-size:11px;color:var(--dim);}
+
+  /* 自检清单 */
+  .check-item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;
+    border:1px solid var(--line);margin-bottom:9px;cursor:pointer;transition:.2s;background:rgba(255,255,255,.02);}
+  .check-item:hover{border-color:rgba(120,200,210,.4);}
+  .check-item.done{background:rgba(88,227,176,.07);border-color:rgba(88,227,176,.35);}
+  .box{width:20px;height:20px;flex:0 0 20px;border-radius:6px;border:1.5px solid #5f7c8f;margin-top:2px;
+    display:flex;align-items:center;justify-content:center;font-size:13px;color:#06131a;}
+  .check-item.done .box{background:var(--good);border-color:var(--good);}
+  .check-item .t{font-size:13px;color:#dbe4f6;} .check-item .d{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.6;}
+  .score{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;margin-top:6px;
+    background:linear-gradient(135deg,rgba(95,216,196,.1),rgba(111,157,255,.08));border:1px solid var(--line);}
+  .score .num{font-size:30px;font-weight:800;color:var(--good);}
+  .score .lab{font-size:12px;color:var(--mut);line-height:1.6;}
+
+  /* 步骤流程 */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:.25s;position:relative;}
+  .step:hover{transform:translateY(-3px);border-color:rgba(120,200,210,.45);}
+  .step.on{border-color:var(--good);background:rgba(88,227,176,.08);}
+  .step .idx{font-size:11px;color:var(--dim);letter-spacing:2px;}
+  .step h4{margin:8px 0;font-size:14px;} .step p{font-size:11.5px;color:var(--mut);line-height:1.7;margin:0;}
+  .step-detail{margin-top:16px;padding:18px 20px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.2);min-height:110px;}
+  .step-detail h4{margin:0 0 8px;color:var(--good);font-size:14px;}
+  .step-detail ul{margin:0;padding-left:18px;} .step-detail li{font-size:12.5px;color:var(--mut);line-height:1.9;}
+
+  /* 留存金字塔 */
+  .pyramid{display:flex;flex-direction:column;align-items:center;gap:6px;margin:8px 0 4px;}
+  .pyr-row{height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:14px;
+    font-size:13px;color:#08131a;font-weight:700;transition:.4s;cursor:default;}
+  .pyr-row .r{font-size:11px;opacity:.75;}
+  .pyr-note{text-align:center;font-size:12px;color:var(--mut);line-height:1.8;margin-top:12px;}
+  .pyr-note b{color:var(--warm);}
+
+  /* 激励四象限 */
+  .quad{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .q{border-radius:14px;padding:16px 18px;border:1px solid var(--line);background:var(--card);}
+  .q h4{margin:0 0 4px;font-size:14px;} .q .en{font-size:11px;color:var(--dim);letter-spacing:1px;}
+  .q p{font-size:12px;color:var(--mut);line-height:1.75;margin:10px 0 0;}
+  .q.pos{border-left:3px solid var(--good);} .q.neg{border-left:3px solid var(--bad);}
+  .q .eff{display:inline-block;margin-top:10px;font-size:11px;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.06);}
+  .reflex{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
+  .reflex .r{border-radius:12px;padding:14px 16px;border:1px solid var(--line);background:rgba(0,0,0,.18);}
+  .reflex .r h4{margin:0 0 6px;font-size:13px;color:var(--blue);}
+  .reflex .r p{font-size:12px;color:var(--mut);line-height:1.75;margin:0;}
+
+  footer{margin-top:36px;font-size:11.5px;color:var(--dim);line-height:1.9;border-top:1px solid var(--line);padding-top:16px;}
+  footer a{color:#7fa8c4;}
+  @media(max-width:760px){.compare,.quad,.reflex{grid-template-columns:1fr;}.steps{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">FTUE · FIRST TIME USER EXPERIENCE</div>
+    <h1>新手引导设计<em>实验室</em></h1>
+    <p>前 5 分钟留不住玩家，问题往往不在「教学」做得不够，而在没把核心体验传达出去。这个实验室把《SIFU》案例背后的 FTUE 方法拆成 5 个可动手的部分——规则是皮相，核心体验才是骨相。</p>
+    <div class="src">配套笔记：<a href="https://mp.weixin.qq.com/s/zrn0ffxkOc-0J6QYluYHYg" target="_blank" rel="noopener">游戏葡萄《前5分钟都留不住玩家》</a> · Wenlon · 2022-11-08</div>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="compare"><span class="n">01</span>好坏对比</div>
+    <div class="tab" data-p="check"><span class="n">02</span>三要素自检</div>
+    <div class="tab" data-p="steps"><span class="n">03</span>设计 4 步曲</div>
+    <div class="tab" data-p="pyramid"><span class="n">04</span>留存率</div>
+    <div class="tab" data-p="reward"><span class="n">05</span>激励模型</div>
+  </div>
+
+  <!-- 01 好坏对比 -->
+  <section class="panel on" id="compare">
+    <div class="note">同一款游戏，两种开场。点各自按钮，看玩家留存曲线怎么走。<b>填鸭式</b>把规则一次推给你；<b>电影式</b>先给你一个非玩不可的理由。</div>
+    <div class="compare">
+      <div class="stage bad">
+        <span class="tag">✕ 填鸭式 · 红点引导</span>
+        <div class="scene" id="badScene">
+          <div class="dot" style="top:24px;right:24px">1</div>
+          <div class="msg" data-i="0">点这里 → 领取新手礼包</div>
+          <div class="msg" data-i="1">再点这里 → 给角色装备武器</div>
+          <div class="msg" data-i="2">继续 → 完成 3 个日常任务</div>
+          <div class="msg" data-i="3">还有 12 个功能未解锁，请依次点击…</div>
+        </div>
+        <div class="bar">
+          <button class="btn" id="badBtn">播放这段引导 →</button>
+        </div>
+        <div class="bar"><span class="retain">预计留存</span><div class="meter"><i id="badMeter"></i></div><span class="retain" id="badPct">—</span></div>
+      </div>
+      <div class="stage good">
+        <span class="tag">✓ 电影式 · 核心体验直给</span>
+        <div class="scene" id="goodScene">
+          <div class="cinema" id="cine">雨夜。父亲倒在院中。<br>镜头一转——八年后，你在血色里握紧拳头。<br><b style="color:#ff9aae">血海深仇。</b></div>
+          <div class="msg" data-i="0">没有教程。开局就是一场打斗——这就是你要反复磨炼的核心。</div>
+          <div class="msg" data-i="1">「你不该再回来。」——对话侧面交代身份，埋下悬念。</div>
+          <div class="msg" data-i="2">找到那几个凶手。长线目标，就此建立。</div>
+        </div>
+        <div class="bar">
+          <button class="btn primary" id="goodBtn">播放这段体验 →</button>
+        </div>
+        <div class="bar"><span class="retain">预计留存</span><div class="meter"><i id="goodMeter"></i></div><span class="retain" id="goodPct">—</span></div>
+        <div class="bar"><span class="retain">三要素：核心体验 ✓ · 目标感 ✓ · 规则引导 ✓</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 自检 -->
+  <section class="panel" id="check">
+    <div class="note">给你正在做的设计打分。点一条勾一条——这是 FTUE 三要素拆出的 9 项检查点，来自文章的核心体验传达 / 目标感养成 / 基础规则引导。</div>
+    <div class="card" id="checkList"></div>
+    <div class="score"><div class="num" id="scoreNum">0/9</div><div class="lab" id="scoreLab">还没开始。点上面的条目逐项自检。<br>分数只是提醒——真正重要的是有没有把核心体验传达出去。</div></div>
+  </section>
+
+  <!-- 03 步骤 -->
+  <section class="panel" id="steps">
+    <div class="note">FTUE 设计 4 步曲。点每一步看要点。</div>
+    <div class="steps" id="stepGrid"></div>
+    <div class="step-detail" id="stepDetail"></div>
+  </section>
+
+  <!-- 04 留存率 -->
+  <section class="panel" id="pyramid">
+    <div class="note">「学习金字塔」：从被动到主动，平均内容留存率递增。这解释了为什么游戏比课程学得快——它天然融合了视听、演示、实践和即时反馈。</div>
+    <div class="card">
+      <div class="pyramid" id="pyramid"></div>
+      <div class="pyr-note">SLG 这类需要理解底层机制的游戏，只用红点+文字，吸收效果极差。<br>改用<b>演示 + 非强制引导 + 试错</b>，初期慢一点，却避免了反复教学——75% 对 10%，事半功倍。</div>
+    </div>
+  </section>
+
+  <!-- 05 激励 -->
+  <section class="panel" id="reward">
+    <div class="note">操作性条件反射（斯金纳）：行为之后紧跟一个结果，会改变该行为未来的发生频率。四种组合，别搞混「强化」和「惩罚」——看目的是增强行为还是减弱行为。</div>
+    <div class="quad">
+      <div class="q pos"><h4>正强化 <span class="en">Positive Reinforcement</span></h4><p>给予想要的东西 → 行为增强。打赢给奖励、首次通关给成就。</p><span class="eff">行为 ↑</span></div>
+      <div class="q pos"><h4>负强化 <span class="en">Negative Reinforcement</span></h4><p>移除不想要的东西 → 行为增强。完成任务消除恼人的红点提示。</p><span class="eff">行为 ↑</span></div>
+      <div class="q neg"><h4>正惩罚 <span class="en">Positive Punishment</span></h4><p>施加负面影响 → 行为减弱。错误操作扣血、失败重来。</p><span class="eff">行为 ↓</span></div>
+      <div class="q neg"><h4>负惩罚 <span class="en">Negative Punishment</span></h4><p>移除想要的东西 → 行为减弱。违规失去已获得的资源。</p><span class="eff">行为 ↓</span></div>
+    </div>
+    <div class="reflex">
+      <div class="r"><h4>身体条件反射 · 动作类</h4><p>速度快、潜意识、适应变化差。用声音/颜色/形态传达——敌人出招前摇统一红闪，玩家练成肌肉记忆。</p></div>
+      <div class="r"><h4>逻辑思考反射 · 策略类</h4><p>固定模式、需思考、能迁移、举一反三。把内在逻辑讲清（枪兵克骑兵），换主将升级后仍能判断。</p></div>
+    </div>
+    <div class="note" style="margin-top:14px;color:#ffc9a0">⚠ 反面案例：策略游戏前期过度依赖闪烁红点，玩家只点击不动脑，脱离红点后举步维艰。<b>别让引导替代思考。</b></div>
+  </section>
+
+  <footer>
+    原理来源：FTUE / 玩家首次体验设计 · 游戏葡萄 Wenlon · 2022-11-08。本站为学习配套交互 demo，数据与观点归原作者，示例数值为示意。
+  </footer>
+</div>
+
+<script>
+/* 标签切换 */
+const tabs=document.getElementById('tabs');
+tabs.addEventListener('click',e=>{
+  const t=e.target.closest('.tab'); if(!t)return;
+  tabs.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  t.classList.add('on'); document.getElementById(t.dataset.p).classList.add('on');
+});
+
+/* 01 好坏对比 */
+function play(stage,msgs,meterId,pctId,pct,cinema){
+  const nodes=[...stage.querySelectorAll('.msg')];
+  nodes.forEach(n=>n.classList.remove('show'));
+  if(cinema) cinema.style.opacity='1';
+  document.getElementById(meterId).style.width='0';
+  document.getElementById(pctId).textContent='—';
+  nodes.forEach((n,i)=>setTimeout(()=>{
+    n.classList.add('show');
+    if(cinema && i===0) cinema.style.opacity='.25';
+  }, 400+i*620));
+  setTimeout(()=>{document.getElementById(meterId).style.width=pct+'%';
+    document.getElementById(pctId).textContent=pct+'%';}, 400+nodes.length*620+150);
+}
+document.getElementById('badBtn').onclick=()=>play(
+  document.getElementById('badScene'),null,'badMeter','badPct',22,null);
+document.getElementById('goodBtn').onclick=()=>play(
+  document.getElementById('goodScene'),null,'goodMeter','goodPct',68,
+  document.getElementById('cine'));
+
+/* 02 自检清单 */
+const CHECKS=[
+  ['核心体验：开局就让玩家感到吸引力，而不是先教规则','叙事悬念 / 玩法乐趣 / 情感代入，至少占一样'],
+  ['核心体验：前 5 分钟迅速进入情境，熟悉 3C','角色 / 控制 / 镜头'],
+  ['目标感：有清晰的短期目标与正反馈','单局或局部目标明确'],
+  ['目标感：有相对清晰的长期方向','给玩家离线后还回来的理由'],
+  ['规则引导：非强制，熟手能快速跳过','不同操作触发不同提示，满足条件即跳过'],
+  ['规则引导：演示 + 实践，而非红点 + 文字','练习掌握 > 知道但不会用'],
+  ['关卡设计：纯粹、递进、少干扰','有成长感，举一反三'],
+  ['叙事：冲突/悬念代入，角色贯穿不来回切','叙事与玩法不割裂，避免信息过载'],
+  ['基调：内容序列有设计，不是平铺直叙','像蒙太奇一样安排顺序，制造意义']
+];
+const list=document.getElementById('checkList');
+CHECKS.forEach((c,i)=>{
+  const d=document.createElement('div'); d.className='check-item';
+  d.innerHTML='<div class="box"></div><div><div class="t">'+c[0]+'</div><div class="d">'+c[1]+'</div></div>';
+  d.onclick=()=>{d.classList.toggle('done');
+    document.querySelector('.box',d).textContent=d.classList.contains('done')?'✓':'';
+    updateScore();};
+  list.appendChild(d);
+});
+function updateScore(){
+  const n=list.querySelectorAll('.check-item.done').length;
+  document.getElementById('scoreNum').textContent=n+'/9';
+  let lab;
+  if(n<=2) lab='核心体验还没传达出来。<br>先问：玩家为什么要继续玩下去？';
+  else if(n<=5) lab='骨架有了，还差临门一脚。<br>重点补目标感和非强制引导。';
+  else if(n<9) lab='很接近了。<br>再检查规则教学有没有盖过体验本身。';
+  else lab='满分。<br>但记住：清单是提醒，体验是否心动还得靠真实玩家验证。';
+  document.getElementById('scoreLab').innerHTML=lab;
+}
+
+/* 03 步骤 */
+const STEPS=[
+  ['I · 规划引导优先级','细颗粒理解整体机制，安排内容顺序。',[
+    '英雄体验核心：能力维度 / 成长开放梯度 / 练度梯度',
+    '强关联且有趣的场景交互机制',
+    '单英雄 → 多英雄的过渡与搭配组合',
+    '用「蒙太奇」安排序列：中后期矛盾前置、倒叙制造悬念'
+  ]],
+  ['II · 关卡设计','像对待刚到新世界的孩子：包容，给成长发挥的空间。',[
+    '设计两条线：好奇探索的上限 / 创造破坏的底线',
+    '儿童友好：无 Bug、不卡住、不中断；进阶到颜色 / 结构 / 互动友好',
+    '纯粹（减干扰）、递进（有成长感）',
+    '即时激励 + 负反馈纠正，无多余边界情况'
+  ]],
+  ['III · 任务系统','底层逻辑共通（UE4 用条件判断节点）。',[
+    '强制引导：单一条件 + 单一反馈，熟手也得一步步点 ✕',
+    '非强制引导：不同操作触发不同提示，满足即跳过 ✓',
+    '范例：Supercell《部落冲突》',
+    '新手得针对性提示，熟手流畅跳过 → 整体更顺'
+  ]],
+  ['IV · 叙事','叙事最容易和玩法割裂，也最容易被跳过。',[
+    '用矛盾冲突 / 悬念代入，角色贯穿不来回切',
+    '冲突设计与玩法、内容序列结合',
+    '减少：复杂规则信息，避免过载，循序渐进',
+    '增加：精彩内容预告，给成长目标感'
+  ]]
+];
+const grid=document.getElementById('stepGrid'),detail=document.getElementById('stepDetail');
+STEPS.forEach((s,i)=>{
+  const d=document.createElement('div'); d.className='step'+(i===0?' on':'');
+  d.innerHTML='<div class="idx">0'+(i+1)+'</div><h4>'+s[0]+'</h4><p>'+s[1]+'</p>';
+  d.onclick=()=>{grid.querySelectorAll('.step').forEach(x=>x.classList.remove('on'));
+    d.classList.add('on');showStep(i);};
+  grid.appendChild(d);
+});
+function showStep(i){const s=STEPS[i];
+  detail.innerHTML='<h4>'+s[0]+'</h4><ul>'+s[2].map(x=>'<li>'+x+'</li>').join('')+'</ul>';}
+showStep(0);
+
+/* 04 留存金字塔 */
+const PYR=[['听讲',10,'#3a4a66'],['阅读',20,'#46608a'],['视听',50,'#5a86b8'],
+  ['演示',65,'#5fb3b0'],['讨论',70,'#63c9a8'],['实践',75,'#58e3b0'],['教授他人',90,'#a8f0cf']];
+const pyr=document.getElementById('pyramid');
+PYR.forEach((p,i)=>{
+  const d=document.createElement('div'); d.className='pyr-row';
+  d.style.width=(32+i*9)+'%'; d.style.background=p[2];
+  d.innerHTML=p[0]+' <span class="r">'+p[1]+'%</span>';
+  pyr.appendChild(d);
+});
+</script>
+</body>
+</html>

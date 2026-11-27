@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>前端排错实验室 · 卡顿 / 注入 / Vite 踩坑</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 82% -8%, #10303a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #141c3c 0%, transparent 62%),
+      #060a12;
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 22px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f7c8f; margin-bottom: 10px; }
+  header h1 { font-size: 27px; margin: 0 0 10px; letter-spacing: 1px; }
+  header h1 em { font-style: normal; color: #6fe3c4; }
+  header p { color: #8b9cbd; font-size: 13.5px; line-height: 1.85; margin: 0 0 8px; max-width: 900px; }
+  header .src { font-size: 12px; color: #5f7c8f; }
+  header .src b { color: #7fa8c4; font-weight: 600; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 26px; }
+  .tab {
+    padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,190,200,0.18);
+    color: #9fb2cd; transition: all .2s; user-select: none;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(120,200,210,0.45); }
+  .tab.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+  .tab .n { opacity: .55; font-size: 11px; margin-right: 5px; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .32s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.032); border: 1px solid rgba(120,190,200,0.14);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .4px; }
+  .card h3 small { font-weight: 400; color: #6f80a0; font-size: 11.5px; margin-left: 8px; letter-spacing: 1px; }
+  .card .note { color: #8b9cbd; font-size: 12.5px; line-height: 1.85; margin: 0 0 14px; }
+  .card .note b { color: #c6d4ec; font-weight: 600; }
+  .card .note code { color: #7fe0c8; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  .btn {
+    display:inline-block; padding:9px 16px; border-radius:9px; cursor:pointer; font-size:12.5px;
+    border:1px solid rgba(120,190,200,.32); background:rgba(255,255,255,.05); color:#cfe0f5;
+    transition:all .18s; user-select:none;
+  }
+  .btn:hover { border-color:rgba(120,200,210,.6); color:#fff; }
+  .btn.primary { background:linear-gradient(135deg,#5fd8c4,#6f9dff); color:#06131a; font-weight:700; border-color:transparent; }
+  .btn.danger { background:rgba(255,143,143,.12); border-color:rgba(255,143,143,.4); color:#ffb3b3; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 16px 26px; align-items: center; margin: 6px 0 16px; }
+  .controls label { font-size: 12.5px; color: #9fb2cd; display: flex; align-items: center; gap: 9px; }
+  .controls input[type=range] { width: 200px; accent-color: #6fe3c4; }
+  .controls select { background:rgba(255,255,255,.05); color:#e7ecff; border:1px solid rgba(120,190,200,.28); border-radius:8px; padding:6px 10px; font-size:12.5px; outline:none; }
+  .val { color: #6fe3c4; font-family: ui-monospace, Consolas, monospace; font-weight: 700; min-width: 46px; display: inline-block; }
+
+  .stage-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #050b16; border: 1px solid rgba(120,190,200,0.16); }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .hud { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+  .hud .chip { background:rgba(255,255,255,.04); border:1px solid rgba(120,190,200,.16); border-radius:9px; padding:8px 13px; font-size:11.5px; color:#9fb2cd; }
+  .hud .chip b { font-family:ui-monospace,Consolas,monospace; font-size:14px; margin-left:6px; color:#6fe3c4; }
+  .hud .chip.warn b { color:#ffcf94; } .hud .chip.bad b { color:#ff8f8f; }
+
+  .progress { height:10px; background:rgba(255,255,255,.05); border-radius:6px; overflow:hidden; margin:12px 0 4px; }
+  .progress i { display:block; height:100%; width:0; background:linear-gradient(90deg,#5fd8c4,#6f9dff); transition:width .08s linear; }
+
+  .formula {
+    background: rgba(111,227,196,.07); border: 1px solid rgba(111,227,196,.24);
+    border-radius: 10px; padding: 12px 16px; font-family: ui-monospace, Consolas, monospace;
+    font-size: 13px; color: #bff3e4; line-height: 1.9; margin-bottom: 14px;
+  }
+  .formula .hi { color: #ffd166; font-weight: 700; }
+
+  .codebox {
+    background: #050b16; border: 1px solid rgba(120,190,200,.16); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-family: ui-monospace, Consolas, monospace;
+    font-size: 11.8px; line-height: 1.75; color: #b9c8e6; margin: 10px 0 0;
+    white-space: pre;
+  }
+  .codebox .k { color: #c792ea; } .codebox .s { color: #7fe0c8; }
+  .codebox .c { color: #5f7c8f; } .codebox .f { color: #82aaff; } .codebox .n { color: #ffd166; }
+  .codebox .bad { color:#ff8f8f; text-decoration:line-through; opacity:.7; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px){ .grid2 { grid-template-columns: 1fr; } }
+
+  .warn {
+    background: rgba(255,180,80,.08); border: 1px solid rgba(255,180,80,.3);
+    border-radius: 10px; padding: 11px 14px; color: #ffcf94; font-size: 12.5px; line-height: 1.75;
+  }
+  .warn b { color: #ffd166; }
+  .good {
+    background: rgba(111,227,196,.08); border: 1px solid rgba(111,227,196,.3);
+    border-radius: 10px; padding: 11px 14px; color: #bff3e4; font-size: 12.5px; line-height: 1.75;
+  }
+  .good b { color:#6fe3c4; }
+
+  .bar-row { display:flex; align-items:center; gap:10px; margin:10px 0; font-size:12px; color:#9fb2cd; }
+  .bar-row .name { width:112px; flex:none; }
+  .bar-track { flex:1; height:24px; background:rgba(255,255,255,.05); border-radius:6px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:6px; transition:width .5s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:8px; font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:#06131a; font-weight:700; }
+
+  .flow { position:relative; padding-left:22px; }
+  .flow:before { content:''; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background:rgba(120,190,200,.2); }
+  .flow .step { position:relative; margin-bottom:14px; font-size:12.5px; color:#9fb2cd; line-height:1.75; }
+  .flow .step:before { content:''; position:absolute; left:-20px; top:6px; width:10px; height:10px; border-radius:50%; background:#6fe3c4; box-shadow:0 0 0 4px rgba(111,227,196,.14); }
+  .flow .step.bad:before { background:#ff8f8f; box-shadow:0 0 0 4px rgba(255,143,143,.14); }
+  .flow .step b { color:#c6d4ec; }
+
+  .pill { display:inline-block; font-size:10.5px; letter-spacing:1px; padding:2px 8px; border-radius:6px; }
+  .pill.g { background:rgba(111,227,196,.14); color:#6fe3c4; }
+  .pill.r { background:rgba(255,143,143,.14); color:#ff9b9b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">DEBUG LAB · 前端排错实验室</div>
+    <h1>卡顿 / 注入 / Vite 踩坑 <em>三主题排错演练</em></h1>
+    <p>把三批文章里最值得亲手试一次的场景做成交互：1.7w 点位「同步遍历卡死 vs 分片渲染」实时对照（含页面心跳计数器）、网卡限速模拟；HTTP 明文注入脚本的过程与防护；vue3+vite+pnpm 两个高频报错的修复对照。所有对比都是真跑，不是写死的动画。</p>
+    <p class="src">来源：<b>博客园 布条麻绳 / CSDN xiamoziqian、qq_21275565、lihaiweio、qq_37715639、m0_67392182</b> · 零依赖、离线可跑</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="lag"><span class="n">01</span>卡顿模拟</div>
+    <div class="tab" data-p="inject"><span class="n">02</span>HTTP 注入</div>
+    <div class="tab" data-p="vite"><span class="n">03</span>Vite 踩坑</div>
+  </div>
+
+  <!-- 01 卡顿模拟 -->
+  <div class="panel on" id="panel-lag">
+    <div class="card">
+      <h3>1.7w 点位：同步遍历 vs 分片渲染 <small>REAL RUN</small></h3>
+      <p class="note">下面两种模式都是<b>真跑</b>同一批点位。看两个指标：<b>耗时</b>（performance.now 实测）和<b>页面心跳</b>（requestAnimationFrame 每帧 +1，页面被阻塞时心跳停住）。同步模式会在主线程一次性遍历+绘制，页面假死；分片模式每帧处理一批，页面始终响应。</p>
+      <div class="controls">
+        <label>点位数 <input id="lagCount" type="range" min="2000" max="30000" step="1000" value="17000"><span class="val" id="lagCountV">17000</span></label>
+        <button class="btn danger" id="lagSync">▶ 同步遍历（模拟卡死）</button>
+        <button class="btn primary" id="lagAsync">▶ 分片渲染（rAF）</button>
+        <button class="btn" id="lagReset">重置</button>
+      </div>
+      <div class="hud">
+        <div class="chip">耗时<b id="lagTime">—</b></div>
+        <div class="chip" id="lagHeartChip">页面心跳<b id="lagHeart">0</b></div>
+        <div class="chip warn">已绘制<b id="lagDrawn">0</b></div>
+      </div>
+      <div class="progress"><i id="lagBar"></i></div>
+      <div class="stage-wrap"><canvas id="cvLag" width="1080" height="300"></canvas></div>
+      <div class="formula" id="lagDiag" style="margin-top:14px">点「同步遍历」或「分片渲染」开始。</div>
+    </div>
+
+    <div class="card">
+      <h3>为什么卡：Content Download 分流法 <small>定位思路</small></h3>
+      <div class="flow">
+        <div class="step"><b>看 Network → Timing 里 Content Download 是否有值。</b></div>
+        <div class="step bad">有值（数据已下完）→ 与后端/网速无关，<b>前端 JS 处理太久</b>：遍历、渲染、死循环。</div>
+        <div class="step bad">无值 → 后端接口 / 网关 / 网络问题。</div>
+        <div class="step"><b>前端侧三板斧：</b>分页减量 → gzip 压缩 → Chrome Performance 的 Call Tree 定位耗时方法；渲染瓶颈上虚拟列表 / 地图聚合 / Canvas 叠加层。</div>
+        <div class="step"><b>死循环类：</b>Console 看 <code>Maximum recursive updates exceeded</code>，用注释法逐段排查（min&gt;max、无用的 watch 回调都会中招）。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>网卡限速模拟 <small>别漏了本机设置</small></h3>
+      <p class="note">用户经验补充：网卡被手动限速（10M/s、100M/s）也会导致莫名卡顿/下载异常，<b>改回自适应即可</b>。假设 1.7w 点位约 3.4MB，看不同速率下纯传输耗时：</p>
+      <div class="controls">
+        <label>数据量 <select id="netSize"><option value="3.4">3.4 MB（1.7w 点位）</option><option value="10">10 MB</option><option value="50">50 MB</option></select></label>
+        <label>网卡模式 <select id="netMode"><option value="10">手动限速 10 M/s</option><option value="100">手动限速 100 M/s</option><option value="auto" selected>自适应（千兆）</option></select></label>
+      </div>
+      <div class="formula" id="netFormula"></div>
+      <div class="bar-row"><div class="name">10 M/s</div><div class="bar-track"><div class="bar-fill" id="netBar10" style="background:linear-gradient(90deg,#ff8f8f,#ffb46b)"></div></div></div>
+      <div class="bar-row"><div class="name">100 M/s</div><div class="bar-track"><div class="bar-fill" id="netBar100" style="background:linear-gradient(90deg,#ffd166,#ffb46b)"></div></div></div>
+      <div class="bar-row"><div class="name">自适应(≈1G)</div><div class="bar-track"><div class="bar-fill" id="netBarAuto" style="background:linear-gradient(90deg,#5fd8c4,#6f9dff)"></div></div></div>
+    </div>
+  </div>
+
+  <!-- 02 HTTP 注入 -->
+  <div class="panel" id="panel-inject">
+    <div class="card">
+      <h3>明文 HTTP 是怎么被塞脚本的 <small>劫持过程</small></h3>
+      <p class="note">HTTP 明文传输，链路上任何节点（运营商 / 代理 / 网关缓存）都能篡改响应体塞进 <code>&lt;script&gt;</code>。点按钮切换「HTTP 被注入 / HTTPS 加密」，看响应体与请求瀑布的变化。</p>
+      <div class="controls">
+        <button class="btn danger" id="injHttp">▶ 模拟 HTTP 访问</button>
+        <button class="btn primary" id="injHttps">▶ 切换到 HTTPS</button>
+        <button class="btn" id="injReset">重置</button>
+      </div>
+      <div class="stage-wrap"><canvas id="cvInject" width="1080" height="280"></canvas></div>
+      <div class="formula" id="injDiag" style="margin-top:14px">待访问…</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>现象 <small> Symptoms <span class="pill r">HTTP</span></small></h3>
+        <div class="flow">
+          <div class="step bad">下载 xlsx 触发<b>两次请求</b>，中间夹一个 <code>flash.js</code>（或 build.js）。</div>
+          <div class="step bad">注入脚本篡改下载逻辑 → 重复请求、<b>白页</b>、广告跳转。</div>
+          <div class="step bad">F12 Network 瀑布流里看到多余脚本，响应体被加了 &lt;script&gt;。</div>
+        </div>
+        <div class="warn">改浏览器设置禁用脚本只能自测；<b>不能要求每个用户改浏览器</b>，不是最终解法。</div>
+      </div>
+      <div class="card">
+        <h3>防护 <small>Fixes <span class="pill g">HTTPS</span></small></h3>
+        <div class="flow">
+          <div class="step"><b>上 HTTPS + HSTS（根本解）</b>：加密后中间节点无法篡改响应体。</div>
+          <div class="step"><b>CSP 内容安全策略</b>：<code>script-src</code> 白名单 + nonce，挡未授权脚本。</div>
+          <div class="step"><b>SRI 子资源完整性</b>：静态资源加 <code>integrity</code> 哈希，被改则拒绝加载。</div>
+          <div class="step">服务端校验响应体、针对注入特征拦截 —— 治标不治本。</div>
+        </div>
+        <div class="good"><b>关键认知：</b>这类问题前端代码本身没问题，根在明文传输链路。一键止血是 HTTPS，长期靠 CSP+SRI 纵深防御。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 Vite 踩坑 -->
+  <div class="panel" id="panel-vite">
+    <div class="grid2">
+      <div class="card">
+        <h3>坑 1 <small>Dynamic require of "path"</small></h3>
+        <div class="warn" style="margin-bottom:10px">报错：<code>Dynamic require of "path" is not supported</code></div>
+        <p class="note"><b>原因：</b>vite 3.1.x 不支持 commonJS 动态 require。<b>修复：</b>改 ESM 具名导入。</p>
+        <div class="codebox"><span class="bad"><span class="k">const</span> path = <span class="f">require</span>(<span class="s">'path'</span>)</span>
+<span class="k">import</span> { resolve } <span class="k">from</span> <span class="s">'path'</span>   <span class="c">// ✅ ESM</span></div>
+        <p class="note" style="margin-top:12px">pnpm 场景还要注意幽灵依赖：未声明的包 import 不到，需显式 <code>pnpm add</code>。</p>
+      </div>
+      <div class="card">
+        <h3>坑 2 <small>Failed to resolve router-view</small></h3>
+        <div class="warn" style="margin-bottom:10px">报错：<code>Failed to resolve component: router-view</code></div>
+        <p class="note"><b>原因：</b><code>app.use(router)</code> 放在了 <code>mount</code> 之后，挂载时路由组件还没注册。</p>
+        <div class="codebox"><span class="k">const</span> app = <span class="f">createApp</span>(App)
+<span class="bad">app.mount(<span class="s">'#app'</span>)</span>
+<span class="bad">app.use(router)</span>
+<span class="s">/* ✅ 顺序要对 */</span>
+app.<span class="f">use</span>(router)      <span class="c">// 先注册</span>
+app.<span class="f">mount</span>(<span class="s">'#app'</span>)   <span class="c">// 后挂载</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>vue3 + vite + pnpm 标准起手 <small>checklist</small></h3>
+      <div class="codebox"><span class="c"># 1. 建项目（pnpm）</span>
+pnpm <span class="f">create</span> vite@latest my-app   <span class="c"># 选 vue-ts</span>
+<span class="k">cd</span> my-app &amp;&amp; pnpm <span class="f">install</span>
+<span class="c"># 2. 路由（显式装，避免幽灵依赖）</span>
+pnpm <span class="f">add</span> vue-router@4
+<span class="c"># 3. main.ts：先 use 后 mount</span>
+<span class="k">import</span> { createApp } <span class="k">from</span> <span class="s">'vue'</span>
+<span class="k">import</span> router <span class="k">from</span> <span class="s">'./router'</span>
+createApp(App).<span class="f">use</span>(router).<span class="f">mount</span>(<span class="s">'#app'</span>)
+<span class="c"># 4. vite.config 用 ESM 导入 path</span>
+<span class="k">import</span> { resolve } <span class="k">from</span> <span class="s">'path'</span></div>
+      <div class="good" style="margin-top:12px"><b>pnpm 核心差异：</b>严格隔离、无幽灵依赖（未声明的包访问不到）、符号链接 + 硬链接 store。装 vue/vite 插件要按需 <code>pnpm add -D</code>，留意 peer 依赖警告。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function fmt(n, d) { return Number(n).toFixed(d == null ? 0 : d); }
+
+  // ---- tab ----
+  var tabs = [].slice.call(document.querySelectorAll('#tabs .tab'));
+  tabs.forEach(function (t) {
+    t.onclick = function () {
+      var name = t.getAttribute('data-p');
+      tabs.forEach(function (x) { x.classList.toggle('on', x === t); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('on', p.id === 'panel-' + name); });
+      if (name === 'lag') startHeart(); else stopHeart();
+    };
+  });
+
+  // ================= 01 卡顿模拟 =================
+  var cvL = $('cvLag'), ctxL = cvL.getContext('2d');
+  var points = [], drawn = 0, heart = 0, heartTimer = null, running = false;
+  var COLORS = ['#5fd8c4','#6f9dff','#ffd166','#ff8f8f','#c792ea'];
+  var acc = 0; // 防止循环被引擎优化掉
+  var WORK = 6000; // 每个点位模拟「调用地图 API / 处理属性」的计算成本（真实场景创建覆盖物更重）
+
+  function genPoints(n) {
+    var arr = new Array(n);
+    for (var i = 0; i < n; i++) {
+      arr[i] = { x: Math.random(), y: Math.random(), c: (Math.random()*COLORS.length)|0, r: 1 + Math.random()*2 };
+    }
+    return arr;
+  }
+  function clearStage() {
+    ctxL.fillStyle = '#050b16'; ctxL.fillRect(0,0,cvL.width,cvL.height);
+    ctxL.strokeStyle = 'rgba(120,190,200,.07)'; ctxL.lineWidth = 1;
+    for (var gx=0; gx<cvL.width; gx+=60){ctxL.beginPath();ctxL.moveTo(gx,0);ctxL.lineTo(gx,cvL.height);ctxL.stroke();}
+    for (var gy=0; gy<cvL.height; gy+=60){ctxL.beginPath();ctxL.moveTo(0,gy);ctxL.lineTo(cvL.width,gy);ctxL.stroke();}
+    drawn = 0;
+  }
+  function paintSome(from, to) {
+    var W=cvL.width, H=cvL.height;
+    for (var i=from;i<to;i++){
+      var p=points[i];
+      // 模拟逐点处理开销（真实场景里是 setMapPoint/创建覆盖物/读属性等），纯空循环会被优化掉
+      for (var k=0;k<WORK;k++){ acc += Math.sqrt((i+1)*(k+1)) * 0.00001; }
+      ctxL.fillStyle=COLORS[p.c];
+      ctxL.globalAlpha=.75;
+      ctxL.fillRect(p.x*W, p.y*H, p.r, p.r);
+    }
+    ctxL.globalAlpha=1;
+    drawn = to;
+  }
+  function setHud(time, cls) {
+    $('lagTime').textContent = time;
+    $('lagDrawn').textContent = drawn.toLocaleString();
+    $('lagBar').style.width = (drawn/points.length*100)+'%';
+    var chip=$('lagHeartChip'); chip.className='chip '+(cls||'');
+  }
+  function resetLag() {
+    running=false;
+    var n=+$('lagCount').value;
+    points=genPoints(n); clearStage(); heart=0;
+    $('lagHeart').textContent='0'; $('lagTime').textContent='—';
+    $('lagBar').style.width='0'; $('lagDiag').innerHTML='点「同步遍历」或「分片渲染」开始。';
+    $('lagDrawn').textContent='0';
+  }
+
+  function runSync() {
+    resetLag();
+    running=true;
+    $('lagDiag').innerHTML='<span class="hi">同步遍历中…</span> 主线程被占满，注意右侧「页面心跳」是否停住。';
+    setTimeout(function(){
+      var t0=performance.now();
+      paintSome(0, points.length);            // 一次性全画 = 阻塞主线程
+      var cost=performance.now()-t0;
+      setHud(fmt(cost,1)+' ms','bad');
+      $('lagDiag').innerHTML='同步耗时 <span class="hi">'+fmt(cost,1)+'ms</span>，一次性画完 '+points.length.toLocaleString()+' 点 —— 期间页面无法响应点击/滚动，心跳被打断。这就是「前端处理太久」型卡死。';
+      running=false;
+    },60);
+  }
+  function runAsync() {
+    resetLag();
+    running=true;
+    var batch=100; // 每帧只处理 100 点 → 单帧耗时可控，页面始终响应
+    var t0=performance.now(), idx=0;
+    $('lagDiag').innerHTML='<span class="hi">分片渲染中…</span> 每帧画一批，页面心跳持续跳动、可正常交互。';
+    function step(){
+      if(idx>=points.length){
+        var cost=performance.now()-t0;
+        setHud(fmt(cost,1)+' ms','');
+        $('lagDiag').innerHTML='分片总耗时 <span class="hi">'+fmt(cost,1)+'ms</span>（含帧间隔），但拆到每一帧只处理 '+batch+' 点，<b>页面始终流畅</b>。数据量越大，差距越明显。';
+        running=false; return;
+      }
+      paintSome(idx, Math.min(idx+batch, points.length));
+      idx+=batch;
+      setHud(fmt(performance.now()-t0,1)+' ms','');
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function startHeart(){
+    if(heartTimer) return;
+    heartTimer=setInterval(function(){ heart++; $('lagHeart').textContent=heart.toLocaleString(); },100);
+  }
+  function stopHeart(){ if(heartTimer){clearInterval(heartTimer);heartTimer=null;} }
+
+  $('lagCount').oninput=function(){ $('lagCountV').textContent=this.value; resetLag(); };
+  $('lagSync').onclick=runSync;
+  $('lagAsync').onclick=runAsync;
+  $('lagReset').onclick=resetLag;
+
+  // ================= 网卡限速 =================
+  function calcNet(){
+    var mb=+$('netSize').value, mode=$('netMode').value;
+    // MB -> Mb = *8；速率 M/s(兆字节) 近似按 MB/s
+    function sec(mbps){ return mb/mbps; }
+    var t10=sec(10), t100=sec(100), tAuto=sec(1000);
+    function label(s){ return s<1? fmt(s*1000,0)+' ms': fmt(s,2)+' s'; }
+    $('netBar10').style.width=Math.max(4,Math.min(100,t10/(t10*1)*100))+'%';
+    $('netBar10').textContent=label(t10);
+    $('netBar100').style.width=Math.max(4,t10? t100/t10*100:0)+'%';
+    $('netBar100').textContent=label(t100);
+    $('netBarAuto').style.width=Math.max(4,t10? tAuto/t10*100:0)+'%';
+    $('netBarAuto').textContent=label(tAuto);
+    $('netFormula').innerHTML=mb+' MB 数据：10 M/s → <span class="hi">'+label(t10)+'</span>，100 M/s → <span class="hi">'+label(t100)+'</span>，自适应(≈1000 M/s) → <span class="hi">'+label(tAuto)+'</span>。手动限速会人为拖慢传输，改回自适应往往就正常了。';
+  }
+  $('netSize').onchange=calcNet; $('netMode').onchange=calcNet;
+
+  // ================= 02 HTTP 注入 =================
+  var cvI=$('cvInject'), ctxI=cvI.getContext('2d');
+  function drawInject(mode){
+    var W=cvI.width,H=cvI.height;
+    ctxI.fillStyle='#050b16';ctxI.fillRect(0,0,W,H);
+    ctxI.font='12px sans-serif';ctxI.textAlign='left';
+    var x0=60,y=80,boxW=200,boxH=64,gap=(W-2*x0-2*boxW)/2;
+    var boxes=[['浏览器',x0],['链路节点',x0+boxW+gap],['服务器',x0+2*(boxW+gap)]];
+    boxes.forEach(function(b){
+      ctxI.strokeStyle='rgba(120,190,200,.5)';ctxI.lineWidth=1.5;
+      ctxI.strokeRect(b[1],y,boxW,boxH);
+      ctxI.fillStyle='rgba(120,190,200,.06)';ctxI.fillRect(b[1],y,boxW,boxH);
+      ctxI.fillStyle='#cfe0f5';ctxI.textAlign='center';ctxI.fillText(b[0],b[1]+boxW/2,y+boxH/2+4);
+    });
+    function arrow(x1,x2,color,txt){
+      ctxI.strokeStyle=color;ctxI.fillStyle=color;ctxI.lineWidth=2;
+      ctxI.beginPath();ctxI.moveTo(x1,y+boxH/2);ctxI.lineTo(x2-8,y+boxH/2);ctxI.stroke();
+      ctxI.beginPath();ctxI.moveTo(x2-8,y+boxH/2-5);ctxI.lineTo(x2,y+boxH/2);ctxI.lineTo(x2-8,y+boxH/2+5);ctxI.fill();
+      ctxI.textAlign='center';ctxI.font='11px monospace';ctxI.fillText(txt,(x1+x2)/2,y+boxH/2-14);
+    }
+    var green='#6fe3c4', red='#ff8f8f';
+    if(mode==='http'){
+      arrow(x0+boxW,x0+boxW+gap,green,'明文 请求');
+      arrow(x0+2*(boxW+gap),x0+boxW+gap,green,'响应');
+      // 注入标记
+      ctxI.fillStyle='rgba(255,143,143,.14)';ctxI.fillRect(x0+boxW+gap,y-34,boxW,26);
+      ctxI.fillStyle=red;ctxI.textAlign='center';ctxI.font='bold 12px monospace';
+      ctxI.fillText('+ <script>flash.js<\/script>',x0+boxW+gap+boxW/2,y-16);
+      arrow(x0+boxW+gap,x0,red,'被篡改响应');
+      ctxI.fillStyle=red;ctxI.font='12px sans-serif';ctxI.textAlign='center';
+      ctxI.fillText('两次请求 · 白页 · 广告跳转',W/2,y+boxH+56);
+      $('injDiag').innerHTML='<span style="color:#ff8f8f">HTTP 明文：链路节点篡改响应体注入 <b>flash.js/build.js</b></span> —— 页面被塞脚本，重复发起请求，下载两次后白页。';
+    } else if(mode==='https'){
+      arrow(x0+boxW,x0+boxW+gap,green,'TLS 加密');
+      arrow(x0+2*(boxW+gap),x0+boxW+gap,green,'密文');
+      ctxI.fillStyle='rgba(111,227,196,.12)';ctxI.fillRect(x0+boxW+gap+10,y+8,boxW-20,boxH-16);
+      ctxI.fillStyle=green;ctxI.textAlign='center';ctxI.font='bold 12px monospace';ctxI.fillText('🔒 无法篡改',x0+boxW+gap+boxW/2,y+boxH/2+4);
+      arrow(x0+boxW+gap,x0,green,'原始响应');
+      ctxI.fillStyle=green;ctxI.font='12px sans-serif';ctxI.textAlign='center';
+      ctxI.fillText('响应未被改动 · 一次请求正常下载',W/2,y+boxH+56);
+      $('injDiag').innerHTML='<span style="color:#6fe3c4">HTTPS + HSTS：链路加密，中间节点无法注入脚本</span>。再配 CSP 白名单与 SRI 完整性哈希做纵深防御。';
+    } else {
+      ctxI.fillStyle='#5f7c8f';ctxI.textAlign='center';ctxI.font='13px sans-serif';ctxI.fillText('点击上方按钮查看注入/防护过程',W/2,H/2);
+      $('injDiag').innerHTML='待访问…';
+    }
+  }
+  $('injHttp').onclick=function(){drawInject('http');};
+  $('injHttps').onclick=function(){drawInject('https');};
+  $('injReset').onclick=function(){drawInject('idle');};
+
+  // init
+  resetLag(); startHeart();
+  calcNet();
+  drawInject('idle');
+})();
+</script>
+</body>
+</html>

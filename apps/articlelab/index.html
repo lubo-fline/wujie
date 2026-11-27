@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>文章配套 Demo 合集 · 子应用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(900px 520px at 82% -8%, #10303a 0%, transparent 60%),
+      radial-gradient(1000px 620px at 12% -4%, #141c3c 0%, transparent 62%),
+      #060a12;
+    color: #e7ecff;
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 22px 90px; }
+  .kicker { font-size: 11px; letter-spacing: 5px; color: #5f7c8f; margin-bottom: 10px; }
+  header h1 { font-size: 27px; margin: 0 0 10px; letter-spacing: 1px; }
+  header h1 em { font-style: normal; color: #6fe3c4; }
+  header p { color: #8b9cbd; font-size: 13.5px; line-height: 1.85; margin: 0 0 8px; max-width: 880px; }
+  header .src { font-size: 12px; color: #5f7c8f; }
+  header .src b { color: #7fa8c4; font-weight: 600; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 26px; }
+  .tab {
+    padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(120,190,200,0.18);
+    color: #9fb2cd; transition: all .2s; user-select: none;
+  }
+  .tab:hover { color: #e7ecff; border-color: rgba(120,200,210,0.45); }
+  .tab.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+  .tab .n { opacity: .55; font-size: 11px; margin-right: 5px; }
+
+  .panel { display: none; }
+  .panel.on { display: block; animation: fade .32s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: rgba(255,255,255,0.032); border: 1px solid rgba(120,190,200,0.14);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: .4px; }
+  .card h3 small { font-weight: 400; color: #6f80a0; font-size: 11.5px; margin-left: 8px; letter-spacing: 1px; }
+  .card .note { color: #8b9cbd; font-size: 12.5px; line-height: 1.85; margin: 0 0 14px; }
+  .card .note b { color: #c6d4ec; font-weight: 600; }
+  .card .note code { color: #7fe0c8; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  .stage-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #050b16; border: 1px solid rgba(120,190,200,0.16); }
+  canvas { display: block; width: 100%; height: auto; }
+  .hud-title { position: absolute; left: 14px; top: 12px; font-size: 11px; letter-spacing: 2px; color: #6fe3c4; text-shadow: 0 0 12px rgba(111,227,196,.6); pointer-events: none; }
+  .hud-sub { position: absolute; right: 14px; top: 12px; font-size: 10px; letter-spacing: 1px; color: #5f7c8f; pointer-events: none; }
+  .lock-badge { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:10px 22px; border-radius:12px; font-size:15px; font-weight:700; letter-spacing:2px; color:#ffd08a; background:rgba(40,20,10,.82); border:1px solid rgba(255,160,80,.5); display:none; pointer-events:none; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .btn {
+    padding: 7px 15px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+    background: rgba(95,216,196,0.1); color: #b6ecd9;
+    border: 1px solid rgba(95,216,196,0.32); transition: all .18s; font-family: inherit;
+  }
+  .btn:hover { background: rgba(95,216,196,0.22); }
+  .btn.ghost { background: rgba(255,255,255,0.03); color: #9fb2cd; border-color: rgba(140,170,210,0.2); }
+  .btn.on { background: linear-gradient(135deg, #5fd8c4, #6f9dff); color: #06131a; font-weight: 700; border-color: transparent; }
+  .btn.warn { background:rgba(255,160,80,.12); color:#ffc98a; border-color:rgba(255,160,80,.35); }
+  label.mini { font-size: 11.5px; color: #8b9cbd; display: inline-flex; align-items: center; gap: 7px; }
+  label.mini input[type=range] { width: 130px; accent-color: #5fd8c4; }
+  label.mini select { background:rgba(255,255,255,.05); color:#c6d4ec; border:1px solid rgba(140,170,210,.25); border-radius:7px; padding:4px 8px; font-family:inherit; font-size:12px; }
+  .val { color: #6fe3c4; font-variant-numeric: tabular-nums; min-width: 38px; display: inline-block; }
+
+  pre.code {
+    margin: 14px 0 0; padding: 14px 16px; border-radius: 10px; overflow: auto;
+    background: rgba(4,10,20,0.7); border: 1px solid rgba(120,190,200,0.12);
+    color: #93a7c4; font-family: ui-monospace, Consolas, 'Courier New', monospace;
+    font-size: 11.5px; line-height: 1.7; white-space: pre;
+  }
+  pre.code em { color: #5f7c8f; font-style: normal; }
+  pre.code b { color: #7fe0c8; font-weight: 600; }
+  pre.code i { color: #f0b86a; font-style: normal; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 880px) { .grid2 { grid-template-columns: 1fr; } }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:10.5px; letter-spacing:.5px; background: rgba(111,227,196,.1); color:#6fe3c4; border:1px solid rgba(111,227,196,.25); margin-left:8px; }
+  .pill.lock { background:rgba(255,160,80,.12); color:#ffc98a; border-color:rgba(255,160,80,.3); }
+  footer { margin-top: 30px; color: #53627d; font-size: 11.5px; line-height: 1.9; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:#8b9cbd; margin-top:10px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">ARTICLE COMPANION DEMOS</div>
+    <h1>文章配套 Demo 合集 <em>原理可视化</em></h1>
+    <p>周四、周五那批文章里"有具体视觉效果、值得亲手跑一遍"的，做在这里：万向节锁、GLSL Shader 三件套、流体光影 HeroSection、多屏幕同步。全部零依赖、离线可跑、可交互调参，把文章里讲的机制拆开看。工具/清单类文章（第三方开源项目、AI 工具教程、网站收藏）本就没有可演示的效果，仍以文档卡片沉淀。</p>
+    <p class="src">配套笔记：<b>万向节锁（两篇合并）· Trae GLSL Shader 入门 · fluid-light 流体光影 · Three.js 多屏幕同步</b> —— 均已在飞书技术分类 + 个人网站学习笔记。</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-p="gimbal"><span class="n">01</span>万向节锁</div>
+    <div class="tab" data-p="shader"><span class="n">02</span>GLSL Shader 入门</div>
+    <div class="tab" data-p="fluid"><span class="n">03</span>流体光影 Hero</div>
+    <div class="tab" data-p="multiscreen"><span class="n">04</span>多屏幕同步</div>
+  </div>
+
+  <!-- ============ 1 万向节锁 ============ -->
+  <section class="panel on" id="p-gimbal">
+    <div class="card">
+      <h3>万向节锁（Gimbal Lock）<small>GIMBAL LOCK · 自由度丢失演示</small></h3>
+      <p class="note">文章里那句"绕 Y 转 90° 后，绕 X 和绕 Z 等效，丢掉一个自由度"——这里直接让你转出来看。拖动下面三个滑杆改欧拉角（内旋顺序 <code>X→Y→Z</code>，即 Pitch→Yaw→Roll）。当 <b>Yaw = ±90°</b> 时，Pitch 和 Roll 会变成绕同一根轴转，画面给出死锁高亮。切换"分解视图"看三个环（gimbal）如何退化成两个重合。</p>
+      <div class="stage-wrap">
+        <div class="hud-title">GIMBAL · EULER X→Y→Z</div>
+        <div class="hud-sub" id="gimbalStat">—</div>
+        <canvas id="cv-gimbal" width="1000" height="560"></canvas>
+        <div class="lock-badge" id="lockBadge">⚠ GIMBAL LOCK · 丢失一个自由度</div>
+      </div>
+      <div class="row">
+        <label class="mini">X · Pitch 俯仰 <input id="gPitch" type="range" min="-180" max="180" step="1" value="0"><span class="val" id="gPitchV">0°</span></label>
+        <label class="mini">Y · Yaw 偏航 <input id="gYaw" type="range" min="-180" max="180" step="1" value="0"><span class="val" id="gYawV">0°</span></label>
+        <label class="mini">Z · Roll 横滚 <input id="gRoll" type="range" min="-180" max="180" step="1" value="0"><span class="val" id="gRollV">0°</span></label>
+      </div>
+      <div class="row">
+        <button class="btn warn" id="gToLock">一键转到死锁 (Y=90°)</button>
+        <button class="btn ghost" id="gReset">复位</button>
+        <button class="btn ghost" id="gPlay">自动进动演示</button>
+        <label class="mini"><input type="checkbox" id="gSplit"> 分解视图（三个环）</label>
+        <label class="mini"><input type="checkbox" id="gQuat" checked> 同时显示四元数解</label>
+      </div>
+      <div class="legend">
+        <span><i style="background:#ff7a7a"></i>X 轴 / Pitch</span>
+        <span><i style="background:#7ad1ff"></i>Y 轴 / Yaw</span>
+        <span><i style="background:#8affc1"></i>Z 轴 / Roll</span>
+        <span><i style="background:#f0b86a"></i>机头朝向</span>
+      </div>
+      <pre class="code"><em>// 三种欧拉角旋转矩阵按固定顺序连乘（程序里的做法）</em>
+R = <b>Rz(roll) · Ry(yaw) · Rx(pitch)</b>
+<em>// 当 yaw = 90°：Ry 把世界 X 轴转到世界 -Z 方向</em>
+<em>// 于是"绕 X 的俯仰"与"绕 Z 的横滚"落在同一根轴上 → 多对一 → 死锁</em>
+<i>fix:</i> 用四元数 q 表示姿态，<b>q = qz·qy·qx</b>，无顺序退化问题，4 个浮点数还更轻。</pre>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>两个视角对照 <small>WHY</small></h3>
+        <p class="note" style="margin:0">
+          · <b>博客园篇</b>：你以为按物体自身坐标系连续转（动态欧拉角），程序却按世界坐标系固定顺序连乘矩阵 → Y90 后 X/Z 轴重合。<br>
+          · <b>知乎篇</b>：欧拉角按固定轴旋转与预期三轴自由度是"多对一映射"，Pitch 90° 后 Roll 自由度丢失（陀螺仪船首仰起桶滚失效）。<br>
+          · <b>本质同一件事</b>：三个轴的依次应用，在某些角度退化成两个独立方向。
+        </p>
+      </div>
+      <div class="card">
+        <h3>怎么玩这个 demo <small>TIPS</small></h3>
+        <p class="note" style="margin:0">
+          1. 先只拖 Pitch / Roll，看机头灵活转动。<br>
+          2. 点"一键转到死锁"，再拖 Pitch 和 Roll——画面几乎一样，因为两根轴重合了。<br>
+          3. 勾"分解视图"看三个 gimbal 环退化成两个共面。<br>
+          4. 勾"同时显示四元数解"对比：同样的姿态，四元数路径始终有三个自由度。<br>
+          5. "自动进动演示"复刻文章里的 X90→Y0→180 序列。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 GLSL Shader ============ -->
+  <section class="panel" id="p-shader">
+    <div class="card">
+      <h3>GLSL Shader 三件套 <small>ATTRIBUTE / VARYING / UNIFORM</small></h3>
+      <p class="note">对应 Hero Section 入门篇。三种数据传递方式一次看清：<b>attribute</b>（逐顶点只读）、<b>varying</b>（顶点→片元、会插值）、<b>uniform</b>（全局共享、每帧可改）。下面三个模式用真实 WebGL 跑，切换看差异，滑杆改的就是 uniform。</p>
+      <div class="stage-wrap">
+        <div class="hud-title">GLSL · DATA FLOW</div>
+        <div class="hud-sub" id="shaderStat">—</div>
+        <canvas id="cv-shader" width="1000" height="520"></canvas>
+      </div>
+      <div class="row">
+        <button class="btn on" data-mode="attr">attribute · UV 渐变</button>
+        <button class="btn ghost" data-mode="vary">varying · 插值</button>
+        <button class="btn ghost" data-mode="uni">uniform · 时间/鼠标</button>
+      </div>
+      <div class="row">
+        <label class="mini">uniform 速度 <input id="shSpeed" type="range" min="0" max="3" step="0.1" value="1"><span class="val" id="shSpeedV">1.0</span></label>
+        <label class="mini">颜色 A <input id="shColA" type="color" value="#5fd8c4"></label>
+        <label class="mini">颜色 B <input id="shColB" type="color" value="#6f9dff"></label>
+        <span class="mini" id="shMouse">鼠标移入画布试试 →</span>
+      </div>
+      <pre class="code" id="shCode"></pre>
+    </div>
+  </section>
+
+  <!-- ============ 3 流体光影 ============ -->
+  <section class="panel" id="p-fluid">
+    <div class="card">
+      <h3>流体光影 Hero Section <small>FLUID LIGHT · BLOOM</small></h3>
+      <p class="note">对应 fluid-light 实战篇（一万块的私活成品）。精华不是 A 色切 B 色，而是<b>多个点光源同在、强度各异</b>，由最强的那盏定主色；点击时打乱颜色数组、每盏灯递增 easing 延迟，做出"传送带式依次切换"。这里用 WebGL 片元着色器还原多光源 + 辉光，点画布触发错峰换色。</p>
+      <div class="stage-wrap">
+        <div class="hud-title">FLUID · MULTI-LIGHT</div>
+        <div class="hud-sub" id="fluidStat">点击画布换色</div>
+        <canvas id="cv-fluid" width="1000" height="560"></canvas>
+      </div>
+      <div class="row">
+        <button class="btn" id="fluidSwitch">错峰换色</button>
+        <button class="btn ghost" id="fluidPause">暂停</button>
+        <label class="mini">光源强度 <input id="fluidInt" type="range" min="0.2" max="2.5" step="0.1" value="0.8"><span class="val" id="fluidIntV">0.8</span></label>
+        <label class="mini">辉光 <input id="fluidBloom" type="range" min="0" max="1" step="0.05" value="0.35"><span class="val" id="fluidBloomV">0.35</span></label>
+        <label class="mini">扭曲 <input id="fluidWarp" type="range" min="0" max="1" step="0.05" value="0.5"><span class="val" id="fluidWarpV">0.50</span></label>
+      </div>
+      <pre class="code"><em>// 满屏平面 + 多个点光源，用距离场叠出流体感</em>
+vec3 col = vec3(0.0);
+for (int i = 0; i &lt; LIGHTS; i++) {
+  float d = distance(uv, lightPos[i] + flow);
+  float falloff = <b>intensity[i] / (1.0 + d*d*8.0)</b>;
+  col += lightColor[i] * falloff;
+}
+<b>col += smoothstep(0.6, 1.0, luminance(col)) * bloom;</b> <em>// 辉光</em>
+<em>// 换色：每盏灯延迟递增 → 传送带式依次过渡（文章最值钱的机制）</em></pre>
+    </div>
+  </section>
+
+  <!-- ============ 4 多屏同步 ============ -->
+  <section class="panel" id="p-multiscreen">
+    <div class="card">
+      <h3>多屏幕同步展示 <small>setViewOffset · 视口切分</small></h3>
+      <p class="note">对应多屏联动两篇（三篇合并增量）。核心是 <code>setViewOffset</code>：一台渲染器把完整画面切给多块屏幕，每块只显示自己那一片；再用 <code>localStorage + storage 事件</code> 做跨窗口统一时钟，让所有屏幕帧同步。下面模拟 4 块屏幕拼一整幅 3D 场景，拖动改分屏数、看每块拿到的视口偏移。</p>
+      <div class="stage-wrap">
+        <div class="hud-title">MULTISCREEN · VIEWPORT TILES</div>
+        <div class="hud-sub" id="multiscreenStat">—</div>
+        <canvas id="cv-ms" width="1000" height="560"></canvas>
+      </div>
+      <div class="row">
+        <label class="mini">分屏 <select id="msGrid">
+          <option value="1">1×1（整幅）</option>
+          <option value="2">2×1（左右）</option>
+          <option value="4" selected>2×2（四屏）</option>
+          <option value="6">3×2（六屏）</option>
+          <option value="9">3×3（九屏）</option>
+        </select></label>
+        <button class="btn ghost" id="msPause">暂停</button>
+        <button class="btn ghost" id="msShowFull">显示完整画面</button>
+        <label class="mini">自转速度 <input id="msSpeed" type="range" min="0.2" max="3" step="0.1" value="1"><span class="val" id="msSpeedV">1.0</span></label>
+      </div>
+      <pre class="code"><em>// 每块屏幕：同一台相机，设置不同的视口偏移</em>
+camera.setViewOffset(<b>fullW, fullH</b>,      <em>// 完整画面尺寸</em>
+                     tileX, tileY,        <em>// 本屏在整幅里的左上角</em>
+                     tileW, tileH);       <em>// 本屏尺寸</em>
+<em>// 跨窗口时钟同步：主机写 localStorage，从机监听 storage 事件对齐时间</em>
+ls.setItem('clock', t);  <b>window.addEventListener('storage', e => t = e.newValue)</b></pre>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>文章里的两个方案 <small>MAPPING</small></h3>
+        <p class="note" style="margin:0">
+          · <b>方案一 setViewOffset</b>：一份场景多视口切分，适合"一块大画面拆给多屏"的环幕/拼接墙，相机不动、视口偏移。<br>
+          · <b>方案二 多窗口</b>：每屏一个浏览器窗口，用 <code>pageId + localStorage + storage 事件</code> 广播统一时钟和相机状态，各自渲染同一帧；<code>requestAnimationFrame</code> 按统一时间取样，避免各屏漂移。
+        </p>
+      </div>
+      <div class="card">
+        <h3>这个 demo 演示了什么 <small>WHY</small></h3>
+        <p class="note" style="margin:0">
+          同一颗旋转的地球/立方体，被切成 N 块视口，每块只画属于自己的 <code>tileX/tileY/tileW/tileH</code>。点"显示完整画面"看未被切分的整幅——对比就明白 setViewOffset 只是"取景框不同"，场景只有一份。真实项目里把这些 tile 换成不同窗口的相机偏移，就是多屏联动。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    所有画面本地程序生成、无外部请求、无第三方库。对应文章已同步至飞书技术分类与个人网站「学习笔记 · 技术」。<br>
+    工具/开源项目/网站清单类文章（LibTV、即创、Tripo、Astral3DEditor、kokomi.js、副业网站、学习资源、AI 工具箱、MetaGPT）本无可演示效果，以文档卡片沉淀。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function rad(d) { return d * Math.PI / 180; }
+  function ctxOf(id) { var c = document.getElementById(id); return { c: c, ctx: c.getContext('2d'), w: c.width, h: c.height }; }
+  function hexRgb(hex) { var h = hex.replace('#', ''); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
+
+  var active = 'gimbal';
+  var demos = {};
+  function loop(now) {
+    var d = demos[active];
+    if (d) {
+      d.draw(now / 1000);
+      var st = document.getElementById(active + 'Stat');
+      if (st && st.__tick !== undefined) st.textContent = st.__tick;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 3D 数学（伪 3D，够演示欧拉角） ----------
+  function matMul(a, b) {
+    var o = new Array(16);
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) {
+      var s = 0; for (var k = 0; k < 4; k++) s += a[i*4+k] * b[k*4+j];
+      o[i*4+j] = s;
+    }
+    return o;
+  }
+  function rx(a){var c=Math.cos(a),s=Math.sin(a);return [1,0,0,0, 0,c,-s,0, 0,s,c,0, 0,0,0,1];}
+  function ry(a){var c=Math.cos(a),s=Math.sin(a);return [c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1];}
+  function rz(a){var c=Math.cos(a),s=Math.sin(a);return [c,-s,0,0, s,c,0,0, 0,0,1,0, 0,0,0,1];}
+  function xform(m, v) {
+    return [
+      m[0]*v[0]+m[1]*v[1]+m[2]*v[2],
+      m[4]*v[0]+m[5]*v[1]+m[6]*v[2],
+      m[8]*v[0]+m[9]*v[1]+m[10]*v[2]
+    ];
+  }
+  // 欧拉 -> 四元数 (X→Y→Z 内旋)
+  function eulerToQuat(x, y, z) {
+    var c1=Math.cos(x/2),s1=Math.sin(x/2),c2=Math.cos(y/2),s2=Math.sin(y/2),c3=Math.cos(z/2),s3=Math.sin(z/2);
+    return {
+      w: c1*c2*c3 + s1*s2*s3,
+      x: s1*c2*c3 - c1*s2*s3,
+      y: c1*s2*c3 + s1*c2*s3,
+      z: c1*c2*s3 - s1*s2*c3
+    };
+  }
+
+  // ============ 1 万向节锁 ============
+  (function () {
+    var o = ctxOf('cv-gimbal'), ctx = o.ctx, w = o.w, h = o.h;
+    var pitch = 0, yaw = 0, roll = 0;
+    var split = false, showQuat = true, playing = false, playT = 0;
+    var cx = w * 0.5, cy = h * 0.52, S = 130;
+
+    function axesMatrix() { return matMul(matMul(rz(rad(roll)), ry(rad(yaw))), rx(rad(pitch))); }
+    function project(v) {
+      // 简单斜投影 + 固定视角
+      var iso = 0.6;
+      return { x: cx + v[0] * S, y: cy - v[2] * S + v[1] * S * iso };
+    }
+    function drawAxis(m, idx, color, label) {
+      var v = [0,0,0]; v[idx] = 1;
+      var r = xform(m, v);
+      var p = project(r);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, TAU); ctx.fillStyle = color; ctx.fill();
+      ctx.fillStyle = color; ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(label, p.x + 8, p.y - 6);
+      return { r: r, p: p };
+    }
+    function isLocked() {
+      var y = ((yaw % 360) + 360) % 360;
+      return Math.abs(y - 90) < 6 || Math.abs(y - 270) < 6;
+    }
+    function draw(t) {
+      ctx.fillStyle = '#050b16'; ctx.fillRect(0, 0, w, h);
+      if (playing) {
+        playT += 0.012;
+        // 复刻进动序列：X 固定 90，Y 从 0 走到 180，Z 随动
+        pitch = 90;
+        yaw = clamp(playT * 60 % 360, 0, 360);
+        roll = 0;
+        syncSliders();
+      }
+      var m = axesMatrix();
+      // 机体立方体
+      var verts = [], edges = [];
+      var vs = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+      vs.forEach(function (v) { verts.push(project(xform(m, [v[0]*0.55, v[1]*0.55, v[2]*0.55]))); });
+      [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(function (e) { edges.push(e); });
+      // 填面（半透明）
+      ctx.fillStyle = 'rgba(111,157,255,0.10)';
+      [[0,1,2,3],[4,5,6,7]].forEach(function (f) {
+        ctx.beginPath();
+        f.forEach(function (i, k) { k ? ctx.lineTo(verts[i].x, verts[i].y) : ctx.moveTo(verts[i].x, verts[i].y); });
+        ctx.closePath(); ctx.fill();
+      });
+      // 机头（+Z 方向一根指示针）
+      var nose = project(xform(m, [0,0,1.15]));
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nose.x, nose.y);
+      ctx.strokeStyle = '#f0b86a'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(nose.x, nose.y, 6, 0, TAU); ctx.fillStyle = '#f0b86a'; ctx.fill();
+      // 立方体边
+      edges.forEach(function (e) {
+        ctx.beginPath(); ctx.moveTo(verts[e[0]].x, verts[e[0]].y); ctx.lineTo(verts[e[1]].x, verts[e[1]].y);
+        ctx.strokeStyle = 'rgba(160,190,255,0.55)'; ctx.lineWidth = 1.4; ctx.stroke();
+      });
+      // 分解视图：三个 gimbal 环
+      if (split) {
+        drawGimbalRings(m);
+      }
+      // 机体三轴
+      var ax = drawAxis(m, 0, '#ff7a7a', 'X / Pitch');
+      var ay = drawAxis(m, 1, '#7ad1ff', 'Y / Yaw');
+      var az = drawAxis(m, 2, '#8affc1', 'Z / Roll');
+      var locked = isLocked();
+      // 死锁判定：机体 X 轴(Pitch 转) vs 世界 Z 轴(Roll 转)
+      // yaw=±90° 时，Ry 把世界 X 转到 ±Z，Pitch 与 Roll 变成绕同一根轴 → 自由度丢失
+      var worldZ = [0,0,1];
+      var bodyX = [m[0], m[4], m[8]]; // 机体 X 轴在世界坐标下的方向（矩阵第一列）
+      var corr = bodyX[0]*worldZ[0] + bodyX[1]*worldZ[1] + bodyX[2]*worldZ[2];
+      // 高亮两根重合的轴：机体 X（红）与世界 Z（绿）
+      if (locked) {
+        var wzp = project([0,0,1.15]);
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(wzp.x,wzp.y);
+        ctx.strokeStyle='rgba(138,255,193,.85)';ctx.lineWidth=5;ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ax.p.x,ax.p.y);
+        ctx.strokeStyle='rgba(255,122,122,.9)';ctx.lineWidth=6;ctx.stroke();
+        document.getElementById('lockBadge').style.display = 'block';
+      } else {
+        document.getElementById('lockBadge').style.display = 'none';
+      }
+      var st = document.getElementById('gimbalStat');
+      st.__tick = '机体X · 世界Z  cos=' + corr.toFixed(2) + (locked ? '  → 共线，Pitch/Roll 等效，自由度丢失' : '');
+      if (showQuat) {
+        var q = eulerToQuat(rad(pitch), rad(yaw), rad(roll));
+        ctx.fillStyle = 'rgba(160,190,255,.75)'; ctx.font = '11px ui-monospace, monospace';
+        ctx.fillText('quat = [' + q.w.toFixed(2) + ', ' + q.x.toFixed(2) + ', ' + q.y.toFixed(2) + ', ' + q.z.toFixed(2) + ']', 16, h - 34);
+        ctx.fillText('(四元数无退化：仍是可自由插值的 4 维姿态)', 16, h - 18);
+      }
+    }
+    function drawGimbalRings(m) {
+      // 外环(绕Y) 中环(绕X) 内环(绕Z)，故意用不同半径
+      var ring = function (R, color, baseMat) {
+        ctx.beginPath();
+        for (var i = 0; i <= 60; i++) {
+          var a = i / 60 * TAU;
+          var v = xform(baseMat, [Math.cos(a)*R*0.5, 0, Math.sin(a)*R*0.5]);
+          var p = project(v);
+          i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+        }
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+      };
+      var R1 = 1.9;
+      ring(R1, 'rgba(122,209,255,.5)', [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); // 世界 Y 环
+      ring(1.62, 'rgba(255,122,122,.6)', matMul(rz(rad(roll)), [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]));
+      ring(1.34, 'rgba(138,255,193,.6)', m);
+    }
+    function syncSliders() {
+      document.getElementById('gPitch').value = Math.round(pitch); document.getElementById('gPitchV').textContent = Math.round(pitch) + '°';
+      document.getElementById('gYaw').value = Math.round(yaw); document.getElementById('gYawV').textContent = Math.round(yaw) + '°';
+      document.getElementById('gRoll').value = Math.round(roll); document.getElementById('gRollV').textContent = Math.round(roll) + '°';
+    }
+    document.getElementById('gPitch').oninput = function(){playing=false;pitch=+this.value;document.getElementById('gPitchV').textContent=this.value+'°';};
+    document.getElementById('gYaw').oninput = function(){playing=false;yaw=+this.value;document.getElementById('gYawV').textContent=this.value+'°';};
+    document.getElementById('gRoll').oninput = function(){playing=false;roll=+this.value;document.getElementById('gRollV').textContent=this.value+'°';};
+    document.getElementById('gToLock').onclick = function(){playing=false;pitch=30;yaw=90;roll=-20;syncSliders();};
+    document.getElementById('gReset').onclick = function(){playing=false;pitch=yaw=roll=0;playT=0;syncSliders();};
+    document.getElementById('gPlay').onclick = function(){playing=!playing;playT=0;this.textContent=playing?'停止演示':'自动进动演示';};
+    document.getElementById('gSplit').onchange = function(){split=this.checked;};
+    document.getElementById('gQuat').onchange = function(){showQuat=this.checked;};
+    demos.gimbal = { draw: draw };
+  })();
+
+  // ============ 2 GLSL Shader ============
+  (function () {
+    var cv = document.getElementById('cv-shader');
+    var gl = cv.getContext('webgl', { preserveDrawingBuffer: true, antialias: true });
+    var mode = 'attr', speed = 1, colA = hexRgb('#5fd8c4'), colB = hexRgb('#6f9dff'), mx = 0.5, my = 0.5;
+    var start = performance.now();
+    var codes = {
+      attr: '<em>// attribute：逐顶点传入，只读，顶点着色器里用</em>\nattribute vec2 a_uv;   <em>// 每个顶点的 UV</em>\nvarying vec2 v_uv;\nvoid main(){\n  v_uv = a_uv;\n  gl_Position = vec4(a_position, 1.0);\n}\n<em>// UV 直接决定颜色 → 画布上出现固定渐变</em>',
+      vary: '<em>// varying：顶点 → 片元传递，值在顶点之间【插值】</em>\nattribute vec2 a_uv;\nvarying vec2 v_uv;\nvoid main(){\n  v_uv = a_uv;              <em>// 顶点里赋值</em>\n  gl_Position = vec4(a_position,1.0);\n}\n<em>// 片元里拿到的 v_uv 是插过值的 → 平滑渐变</em>',
+      uni: '<em>// uniform：全局共享，JS 每帧可改（这里改的是时间/鼠标）</em>\nuniform float u_time;\nuniform vec2 u_mouse;\nvoid main(){\n  float w = sin(uv.x*8.0 + u_time) * 0.5 + 0.5;\n  gl_FragColor = vec4(vec3(w), 1.0);\n}\n<em>// 时间和鼠标由外部传入 → 画面动起来、跟鼠标走</em>'
+    };
+    if (!gl) {
+      document.getElementById('shaderStat').__tick = 'WebGL 不可用';
+      demos.shader = { draw: function(){} };
+      return;
+    }
+    var vs = 'attribute vec2 a_position; attribute vec2 a_uv; varying vec2 v_uv; void main(){ v_uv=a_uv; gl_Position=vec4(a_position,0.0,1.0); }';
+    var fs = [
+      'precision mediump float;',
+      'varying vec2 v_uv;',
+      'uniform float u_time; uniform vec2 u_mouse; uniform vec3 u_a; uniform vec3 u_b; uniform int u_mode;',
+      'void main(){',
+      '  vec2 uv = v_uv; vec3 c;',
+      '  if (u_mode == 0) {',
+      '    c = mix(u_a, u_b, uv.x);',                     // attribute/UV 渐变
+      '  } else if (u_mode == 1) {',
+      '    float d = distance(uv, vec2(0.5));',           // varying 插值出的径向
+      '    c = mix(u_a, u_b, clamp(d*1.8,0.0,1.0));',
+      '  } else {',
+      '    float w = sin(uv.x*10.0 + u_time*2.0) * 0.5 + 0.5;',
+      '    float mg = smoothstep(0.35,0.0,distance(uv,u_mouse));',
+      '    c = mix(u_a, u_b, w) + mg*0.5;',
+      '  }',
+      '  gl_FragColor = vec4(c, 1.0);',
+      '}'
+    ].join('\n');
+    function shader(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1,-1, 0,0,  1,-1, 1,0,  -1,1, 0,1,
+      -1,1, 0,1,  1,-1, 1,0,  1,1, 1,1
+    ]), gl.STATIC_DRAW);
+    var ap = gl.getAttribLocation(prog,'a_position'), au = gl.getAttribLocation(prog,'a_uv');
+    gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap,2,gl.FLOAT,false,16,0);
+    gl.enableVertexAttribArray(au); gl.vertexAttribPointer(au,2,gl.FLOAT,false,16,8);
+    var U = {};
+    ['u_time','u_mouse','u_a','u_b','u_mode'].forEach(function(k){U[k]=gl.getUniformLocation(prog,k);});
+    var modeIdx = { attr:0, vary:1, uni:2 };
+    function draw(t) {
+      gl.viewport(0,0,cv.width,cv.height);
+      gl.uniform1f(U.u_time, (t - start/1000) * speed);
+      gl.uniform2f(U.u_mouse, mx, 1-my);
+      gl.uniform3f(U.u_a, colA[0]/255, colA[1]/255, colA[2]/255);
+      gl.uniform3f(U.u_b, colB[0]/255, colB[1]/255, colB[2]/255);
+      gl.uniform1i(U.u_mode, modeIdx[mode]);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      document.getElementById('shaderStat').__tick = 'mode = ' + mode + ' · WebGL 实时';
+    }
+    cv.addEventListener('mousemove', function(e){ var r=cv.getBoundingClientRect(); mx=(e.clientX-r.left)/r.width; my=(e.clientY-r.top)/r.height; });
+    document.querySelectorAll('[data-mode]').forEach(function(b){
+      b.onclick=function(){
+        document.querySelectorAll('[data-mode]').forEach(function(x){x.classList.remove('on');x.classList.add('ghost');});
+        this.classList.remove('ghost');this.classList.add('on');
+        mode=this.getAttribute('data-mode');
+        document.getElementById('shCode').innerHTML=codes[mode];
+      };
+    });
+    document.getElementById('shSpeed').oninput=function(){speed=+this.value;document.getElementById('shSpeedV').textContent=speed.toFixed(1);};
+    document.getElementById('shColA').oninput=function(){colA=hexRgb(this.value);};
+    document.getElementById('shColB').oninput=function(){colB=hexRgb(this.value);};
+    document.getElementById('shCode').innerHTML=codes.attr;
+    demos.shader = { draw: draw };
+  })();
+
+  // ============ 3 流体光影 ============
+  (function () {
+    var cv = document.getElementById('cv-fluid'), ctx = cv.getContext('2d'), w = cv.width, h = cv.height;
+    var intensity = 0.8, bloom = 0.35, warp = 0.5, paused = false;
+    var palette = [
+      [[95,216,196],[111,157,255],[180,140,245]],
+      [[255,120,90],[255,190,80],[255,90,140]],
+      [[80,200,255],[120,255,200],[140,160,255]],
+      [[200,110,255],[110,140,255],[255,120,200]]
+    ];
+    var pi = 0, targets = [], cur = [];
+    // 5 盏灯，位置固定、颜色从当前调色板取
+    var lights = [
+      {x:0.18,y:0.32,r:0.9}, {x:0.42,y:0.62,r:1.2}, {x:0.62,y:0.28,r:1.0},
+      {x:0.80,y:0.58,r:1.1}, {x:0.52,y:0.80,r:0.8}
+    ];
+    function paletteColors(p){ return [p[0],p[1],p[2]]; }
+    cur = paletteColors(palette[0]); targets = cur.slice();
+    var switchStart = -1;
+    function switchPalette(){ pi=(pi+1)%palette.length; targets=paletteColors(palette[pi]); switchStart=performance.now(); }
+    function lerpColor(a,b,f){ return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
+    function draw(t) {
+      if (paused) return;
+      // 错峰换色：每盏灯延迟递增
+      lights.forEach(function(L,i){
+        var delay = i * 0.12;
+        var f = switchStart < 0 ? 1 : clamp((performance.now()-switchStart)/700 - delay, 0, 1);
+        f = f*f*(3-2*f);
+        L.col = lerpColor(cur[i%3], targets[i%3], f);
+      });
+      if (switchStart >= 0 && performance.now()-switchStart > 700 + lights.length*120) { cur = targets.slice(); switchStart = -1; }
+      var img = ctx.createImageData(w, h), d = img.data;
+      // 降采样绘制（性能），每 2 像素算一次
+      var step = 2;
+      for (var y = 0; y < h; y += step) {
+        for (var x = 0; x < w; x += step) {
+          var uvx = x/w, uvy = y/h;
+          var r=0,g=0,b=0;
+          for (var i=0;i<lights.length;i++){
+            var L=lights[i];
+            // 流场扭曲
+            var fx = Math.sin(uvy*6 + t*0.7 + i)*0.06*warp;
+            var fy = Math.cos(uvx*6 - t*0.5 + i)*0.06*warp;
+            var dx = uvx - L.x - fx, dy = uvy - L.y - fy;
+            var dd = dx*dx + dy*dy;
+            var fall = (L.r*intensity) / (1 + dd*14);
+            r += L.col[0]*fall; g += L.col[1]*fall; b += L.col[2]*fall;
+          }
+          // 辉光：只提亮最亮的芯部，避免大面积过曝
+          var lum = (r+g+b)/3;
+          var gl = Math.max(0, lum-165) * bloom;
+          // 轻微压暗整体，保住颜色层次
+          r = clamp(r*0.86+gl,0,255); g=clamp(g*0.86+gl,0,255); b=clamp(b*0.86+gl,0,255);
+          var c=(y*w+x)*4;
+          for(var yy=0;yy<step && y+yy<h;yy++) for(var xx=0;xx<step && x+xx<w;xx++){
+            var ci=((y+yy)*w + x+xx)*4;
+            d[ci]=r; d[ci+1]=g; d[ci+2]=b; d[ci+3]=255;
+          }
+        }
+      }
+      ctx.putImageData(img,0,0);
+      document.getElementById('fluidStat').__tick = '5 光源 · 点击换色 · ' + (paused?'暂停':'运行');
+    }
+    cv.addEventListener('click', switchPalette);
+    document.getElementById('fluidSwitch').onclick = switchPalette;
+    document.getElementById('fluidPause').onclick = function(){paused=!paused;this.textContent=paused?'继续':'暂停';};
+    document.getElementById('fluidInt').oninput=function(){intensity=+this.value;document.getElementById('fluidIntV').textContent=intensity.toFixed(1);};
+    document.getElementById('fluidBloom').oninput=function(){bloom=+this.value;document.getElementById('fluidBloomV').textContent=bloom.toFixed(2);};
+    document.getElementById('fluidWarp').oninput=function(){warp=+this.value;document.getElementById('fluidWarpV').textContent=warp.toFixed(2);};
+    demos.fluid = { draw: draw };
+  })();
+
+  // ============ 4 多屏幕同步 ============
+  (function () {
+    var o = ctxOf('cv-ms'), ctx = o.ctx, w = o.w, h = o.h;
+    var cols = 2, rows = 2, paused = false, spd = 1, showFull = false;
+    function draw(t) {
+      ctx.fillStyle = '#050b16'; ctx.fillRect(0,0,w,h);
+      var pad = 26, gap = 8;
+      var fullW = w - pad*2 - gap*(cols-1), fullH = h - pad*2 - gap*(rows-1);
+      var tileW = fullW/cols, tileH = fullH/rows;
+      if (showFull) {
+        // 完整画面：一颗旋转的地球（经纬网格球）
+        drawScene(ctx, pad, pad, fullW, fullH, 0, 0, 1, 1, t);
+        ctx.fillStyle='rgba(111,227,196,.9)';ctx.font='12px sans-serif';
+        ctx.fillText('完整画面（未切分）', pad+8, pad+20);
+        document.getElementById('multiscreenStat').__tick='完整场景 · 1 份';
+        return;
+      }
+      // 每块屏幕：同一场景，不同视口偏移
+      for (var r=0;r<rows;r++) for (var c=0;c<cols;c++) {
+        var x = pad + c*(tileW+gap), y = pad + r*(tileH+gap);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x,y,tileW,tileH); ctx.clip();
+        // tileX/tileY/tileW/tileH → 映射到完整场景取景
+        drawScene(ctx, x - c*tileW, y - r*tileH, fullW, fullH, c/cols, r/rows, 1/cols, 1/rows, t);
+        ctx.restore();
+        ctx.strokeStyle='rgba(120,190,200,.35)';ctx.lineWidth=1;
+        ctx.strokeRect(x,y,tileW,tileH);
+        ctx.fillStyle='rgba(159,178,205,.8)';ctx.font='10px ui-monospace, monospace';
+        ctx.fillText('tile '+c+','+r, x+6, y+14);
+      }
+      document.getElementById('multiscreenStat').__tick = cols*rows + ' 屏 · ' + cols+'×'+rows + ' 视口切分';
+    }
+    function drawScene(ctx, ox, oy, fw, fh, nx, ny, nw, nh, t) {
+      // 在 ox,oy,fw,fh 的"完整坐标系"里画一颗旋转经纬球 + 飞线
+      var cx = ox + fw*0.5, cy = oy + fh*0.5, R = Math.min(fw,fh)*0.34;
+      var rot = t*0.5*spd;
+      // 球轮廓
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.clip();
+      ctx.fillStyle='rgba(20,50,70,.9)'; ctx.fillRect(cx-R,cy-R,R*2,R*2);
+      // 经线（随 rot 旋转）
+      for (var i=0;i<12;i++){
+        var lon = (i/12)*TAU + rot;
+        ctx.beginPath();
+        for (var a=0;a<=Math.PI;a+=0.1){
+          var px = cx + Math.sin(lon)*Math.sin(a)*R;
+          var py = cy - Math.cos(a)*R;
+          a?ctx.lineTo(px,py):ctx.moveTo(px,py);
+        }
+        ctx.strokeStyle='rgba(95,216,196,.35)';ctx.lineWidth=1;ctx.stroke();
+      }
+      // 纬线
+      for (var j=1;j<8;j++){
+        var lat = (j/8)*Math.PI;
+        ctx.beginPath();
+        for (var b=0;b<=TAU;b+=0.1){
+          var px = cx + Math.sin(lat)*Math.cos(b)*R;
+          var py = cy + Math.cos(lat)*R;
+          b?ctx.lineTo(px,py):ctx.moveTo(px,py);
+        }
+        ctx.strokeStyle='rgba(95,216,196,.22)';ctx.lineWidth=1;ctx.stroke();
+      }
+      // 一个绕转的亮点（统一时钟下的同一帧）
+      var ax = cx + Math.cos(rot*1.3)*R*0.7, ay = cy + Math.sin(rot*0.9)*R*0.5;
+      ctx.beginPath();ctx.arc(ax,ay,5,0,TAU);ctx.fillStyle='#ffd166';ctx.fill();
+      ctx.restore();
+      ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.strokeStyle='rgba(111,227,196,.6)';ctx.lineWidth=1.5;ctx.stroke();
+    }
+    var GRIDS={ '1':[1,1], '2':[2,1], '4':[2,2], '6':[3,2], '9':[3,3] };
+    document.getElementById('msGrid').onchange=function(){var g=GRIDS[this.value]||[2,2];cols=g[0];rows=g[1];showFull=false;};
+    document.getElementById('msPause').onclick=function(){paused=!paused;this.textContent=paused?'继续':'暂停';};
+    document.getElementById('msShowFull').onclick=function(){showFull=!showFull;this.textContent=showFull?'返回分屏':'显示完整画面';};
+    document.getElementById('msSpeed').oninput=function(){spd=+this.value;document.getElementById('msSpeedV').textContent=spd.toFixed(1);};
+    // 暂停实现：冻结时间
+    var frozen=0, pauseAt=0;
+    var origDraw = function(t){ if(!paused) frozen=t; draw(frozen); };
+    demos.multiscreen = { draw: origDraw };
+  })();
+
+  // ---------- tab 切换 ----------
+  document.querySelectorAll('#tabs .tab').forEach(function (tab) {
+    tab.onclick = function () {
+      document.querySelectorAll('#tabs .tab').forEach(function (t) { t.classList.remove('on'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('on'); });
+      this.classList.add('on');
+      active = this.getAttribute('data-p');
+      document.getElementById('p-' + active).classList.add('on');
+    };
+  });
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

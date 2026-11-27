@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='9' width='26' height='16' rx='6' fill='none' stroke='%2334d399' stroke-width='2.5'/%3E%3Cpath d='M9 13v6M6 16h6M21 14h.1M25 17h.1' stroke='%2334d399' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Web 游戏实验室 · 掘金收藏夹实战</title>
+<style>
+  * { box-sizing:border-box; }
+  html,body { margin:0;padding:0;min-height:100%;
+    background:radial-gradient(1100px 600px at 80% -10%,#10302a 0%,#081019 55%,#05080e 100%);
+    color:#e6f5ef;font-family:'Inter','PingFang SC','Microsoft YaHei',sans-serif; }
+  .wrap { max-width:1080px;margin:0 auto;padding:34px 20px 80px; }
+  header h1 { font-size:25px;margin:0 0 8px; }
+  header p { color:#8fb3a8;font-size:13px;line-height:1.8;margin:0 0 24px;max-width:780px; }
+  .kicker { font-size:11px;letter-spacing:5px;color:#4e8c78;margin-bottom:9px; }
+  .badge { display:inline-block;font-size:11px;color:#6ee7b7;border:1px solid rgba(110,231,183,.35);
+    padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle; }
+  .floating-back { position:fixed;left:16px;bottom:16px;z-index:99;padding:9px 16px;border-radius:999px;
+    cursor:pointer;font-size:12.5px;color:#cfeee2;background:rgba(8,20,18,.86);
+    border:1px solid rgba(110,231,183,.3);backdrop-filter:blur(8px); }
+  .floating-back:hover { color:#fff;border-color:rgba(110,231,183,.6); }
+  .grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px; }
+  .card { position:relative;border-radius:15px;overflow:hidden;cursor:pointer;
+    background:linear-gradient(160deg,#0f201c,#0a1218);border:1px solid rgba(110,231,183,.14);transition:.22s; }
+  .card:hover { transform:translateY(-3px);border-color:rgba(110,231,183,.5);box-shadow:0 10px 30px rgba(0,0,0,.4); }
+  .plate { height:130px;display:flex;align-items:center;justify-content:center;font-size:54px;
+    background:radial-gradient(circle at 50% 40%,rgba(52,211,153,.16),transparent 70%); }
+  .tag { position:absolute;top:10px;left:10px;font-size:10px;padding:2px 9px;border-radius:999px;
+    background:rgba(6,18,15,.8);color:#6ee7b7;border:1px solid rgba(110,231,183,.3); }
+  .card-body { padding:13px 14px 15px; }
+  .card-title { font-size:14px;font-weight:600;line-height:1.45;margin:0 0 6px; }
+  .card-desc { font-size:11px;color:#83a89b;line-height:1.55;min-height:34px; }
+  .card-src { display:inline-block;margin-top:10px;font-size:10.5px;color:#34d399;text-decoration:none; }
+  .card-src:hover { text-decoration:underline; }
+  .modal { display:none;position:fixed;inset:0;z-index:100;background:rgba(3,8,8,.97);backdrop-filter:blur(6px);
+    flex-direction:column;padding:22px; }
+  .modal.open { display:flex; }
+  .mhead { display:flex;align-items:center;gap:16px;margin-bottom:14px; }
+  .mhead h2 { font-size:17px;margin:0;flex:1; }
+  .close { cursor:pointer;font-size:13px;padding:8px 16px;border-radius:999px;color:#d7f5e9;
+    background:rgba(255,255,255,.06);border:1px solid rgba(110,231,183,.3); }
+  .close:hover { background:rgba(255,255,255,.12); }
+  .gamecanvas { flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative; }
+  .gamecanvas canvas { background:#0c1512;border:1px solid rgba(110,231,183,.2);
+    border-radius:10px;max-width:100%;max-height:100%;box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  .tip { position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#6f9c8c; }
+  .bar { display:flex;gap:14px;align-items:center;justify-content:center;margin-top:12px;font-size:12px;color:#a7cfc0;flex-wrap:wrap; }
+  .btn { cursor:pointer;padding:7px 16px;border-radius:999px;font-size:12px;color:#062018;font-weight:600;
+    background:linear-gradient(135deg,#6ee7b7,#34d399);border:none; }
+  .btn:hover { filter:brightness(1.1); }
+  .score { font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<div class="floating-back" onclick="history.back()">← 返回应用</div>
+<div class="wrap">
+  <header>
+    <div class="kicker">JUEJIN COLLECTION · GAMES</div>
+    <h1>Web 游戏实验室 <span class="badge">7 篇 · 5 个可玩 + 2 卡片</span></h1>
+    <p>掘金「Web 游戏开发」收藏夹 7 篇：五子棋、2048、Canvas 三个小游戏、2D 游戏化互动、心灵魔术都做成能玩的版本；Dice Crush（48h 赛事作品）和 3D 火车（Three.js 完整项目）做成带原文的卡片。全部原生实现，点开即玩。</p>
+  </header>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="modal" id="modal">
+  <div class="mhead"><h2 id="mTitle">Game</h2><a id="mSrc" href="#" target="_blank" style="font-size:12px;color:#34d399;text-decoration:none">原文 ↗</a><div class="close" onclick="closeGame()">关闭 ✕</div></div>
+  <div class="gamecanvas" id="garea"><div class="tip" id="gTip"></div></div>
+  <div class="bar" id="gbar"></div>
+</div>
+<script src="games.js"></script>
+<script>
+const grid=document.getElementById('grid'),modal=document.getElementById('modal'),garea=document.getElementById('garea'),gbar=document.getElementById('gbar');
+let cur=null;
+window.GAMES.forEach((g,i)=>{
+  const c=document.createElement('div');c.className='card';
+  c.innerHTML=`<div class="plate"><span class="tag">${g.tag||'游戏'}</span>${g.emoji||'🎮'}</div>
+    <div class="card-body"><div class="card-title">${g.name}</div><div class="card-desc">${g.desc}</div>
+    <a class="card-src" href="${g.url}" target="_blank" onclick="event.stopPropagation()">原文 ↗</a></div>`;
+  c.onclick=()=>g.play?openGame(g):window.open(g.url,'_blank');
+  grid.appendChild(c);
+});
+function openGame(g){
+  cur&&cur.destroy&&cur.destroy();
+  modal.classList.add('open');
+  document.getElementById('mTitle').textContent=g.name;
+  document.getElementById('mSrc').href=g.url;
+  garea.querySelectorAll('canvas').forEach(x=>x.remove());
+  document.getElementById('gTip').textContent=g.tip||'';
+  gbar.innerHTML='';
+  cur=g.start({mount:garea,bar:gbar,tip:document.getElementById('gTip')});
+}
+function closeGame(){ modal.classList.remove('open');cur&&cur.destroy&&cur.destroy();cur=null; }
+</script>
+</body>
+</html>

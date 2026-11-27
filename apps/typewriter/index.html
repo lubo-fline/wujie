@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='.55' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5' fill='url(%23g)'/%3E%3C/svg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>打字机效果实验室 · 子应用</title>
+<style>
+  :root {
+    --bg: #04060f;
+    --panel: #0b1024;
+    --panel2: #0e1430;
+    --line: rgba(140,165,255,.16);
+    --text: #e6ecff;
+    --muted: #8792c4;
+    --cyan: #22d3ee;
+    --violet: #8b5cf6;
+    --pink: #e879f9;
+    --green: #34d399;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background-image:
+      radial-gradient(900px 500px at 12% -10%, rgba(34,211,238,.12), transparent 60%),
+      radial-gradient(800px 500px at 88% 0%, rgba(139,92,246,.14), transparent 60%);
+    background-attachment: fixed;
+    padding-bottom: 60px;
+  }
+  .floating-back {
+    position: fixed; left: 16px; bottom: 16px; z-index: 99; cursor: pointer;
+    padding: 9px 16px; border-radius: 999px; font-size: 12.5px; letter-spacing: 1px;
+    color: #cfd8ff; background: rgba(8,13,28,.86); border: 1px solid rgba(140,165,255,.35);
+    font-family: inherit; backdrop-filter: blur(8px);
+  }
+  .floating-back:hover { color: #fff; border-color: rgba(160,190,255,.7); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  .topbar {
+    height: 64px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .brand b {
+    background: linear-gradient(100deg, var(--cyan), var(--violet), var(--pink));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .brand span { color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: 2px; }
+  .badge {
+    display: inline-block; font-size: 12px; color: var(--cyan);
+    background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.3);
+    border-radius: 20px; padding: 3px 12px; margin: 36px 0 14px;
+  }
+  h1 { font-size: 32px; margin: 0 0 12px; letter-spacing: 1px; }
+  .subtitle { color: var(--muted); line-height: 1.9; margin: 0 0 28px; max-width: 720px; font-size: 14px; }
+  .panel {
+    background: linear-gradient(160deg, var(--panel), var(--panel2));
+    border: 1px solid var(--line); border-radius: 16px; padding: 24px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  }
+  .controls { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-bottom: 22px; }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mode {
+    cursor: pointer; padding: 8px 14px; border-radius: 9px; font-size: 13px;
+    color: var(--muted); background: rgba(255,255,255,.03); border: 1px solid var(--line);
+    transition: .2s;
+  }
+  .mode:hover { color: #fff; border-color: rgba(160,190,255,.5); }
+  .mode.on {
+    color: #fff; border-color: var(--violet);
+    background: linear-gradient(100deg, rgba(139,92,246,.3), rgba(34,211,238,.16));
+  }
+  .speed { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; flex: 1; min-width: 220px; }
+  .speed input { flex: 1; accent-color: var(--violet); }
+  .actions { display: flex; gap: 10px; }
+  button.act {
+    cursor: pointer; font-family: inherit; font-size: 13px; padding: 9px 18px; border-radius: 9px;
+    border: 1px solid var(--line); color: #cfd8ff; background: rgba(255,255,255,.03); transition: .2s;
+  }
+  button.act:hover:not(:disabled) { color: #fff; border-color: rgba(160,190,255,.6); }
+  button.act:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary {
+    color: #fff; border: none;
+    background: linear-gradient(100deg, var(--cyan), var(--violet));
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+  .metrics { display: flex; gap: 16px; margin-bottom: 18px; }
+  .metric { flex: 1; background: rgba(4,6,15,.5); border: 1px solid var(--line); border-radius: 11px; padding: 14px 18px; }
+  .metric.accent { border-color: var(--violet); background: rgba(139,92,246,.08); }
+  .num { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .metric.accent .num { color: var(--cyan); }
+  .label { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .screen {
+    background: #04060f; border: 1px solid var(--line); border-radius: 11px;
+    min-height: 190px; max-height: 310px; overflow-y: auto; padding: 20px 22px;
+    font-size: 15px; line-height: 2; color: var(--text);
+  }
+  .screen::-webkit-scrollbar { width: 6px; }
+  .screen::-webkit-scrollbar-thumb { background: #2a3160; border-radius: 3px; }
+  .prompt { color: var(--green); font-weight: 600; margin-right: 8px; }
+  .text { white-space: pre-wrap; word-break: break-all; }
+  .placeholder { color: #4a5384; }
+  .cursor {
+    display: inline-block; width: 8px; height: 1em; background: var(--green);
+    margin-left: 2px; vertical-align: -2px; animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 12px 2px 0; line-height: 1.7; }
+  .compare { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 26px; }
+  .card {
+    background: rgba(11,16,36,.7); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; transition: .2s;
+  }
+  .card.on { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(139,92,246,.5) inset; }
+  .card .tag { color: #5b6496; font-size: 12px; margin-bottom: 8px; }
+  .card.on .tag { color: var(--cyan); }
+  .card h3 { color: #fff; font-size: 15px; margin: 0 0 12px; }
+  .card p { color: var(--muted); font-size: 13px; line-height: 2; margin: 0; }
+  .foot { color: #4a5384; font-size: 12px; text-align: center; margin-top: 34px; }
+  @media (max-width: 860px) {
+    .compare { grid-template-columns: 1fr; }
+    .metrics { flex-direction: column; }
+    h1 { font-size: 25px; }
+  }
+</style>
+</head>
+<body>
+<button class="floating-back" id="backHome">← 回主站</button>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><b>吾界</b><span>DEMO LAB</span></div>
+  </div>
+  <span class="badge">AI 交互 · SSE 流式实战</span>
+  <h1>打字机效果实验室</h1>
+  <p class="subtitle">同一段 AI 回复，三种渲染方式。点「开始生成」，盯着下面三个数字看差别——这才是「能跑起来」和「跑得丝滑」的距离。</p>
+
+  <section class="panel">
+    <div class="controls">
+      <div class="modes" id="modes">
+        <div class="mode" data-mode="once">① 一次性返回</div>
+        <div class="mode" data-mode="stream">② 逐字流式</div>
+        <div class="mode on" data-mode="smooth">③ 匀速队列（推荐）</div>
+      </div>
+      <label class="speed">速度 <span id="speedVal">45</span>ms/字
+        <input type="range" id="speed" min="15" max="150" step="5" value="45" />
+      </label>
+      <div class="actions">
+        <button class="act primary" id="run">开始生成</button>
+        <button class="act" id="stop" disabled>停止</button>
+        <button class="act" id="reset">清空</button>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="num" id="mProduced">0</div><div class="label">服务端已生成（字）</div></div>
+      <div class="metric accent"><div class="num" id="mShown">0</div><div class="label">屏幕已显示（字）</div></div>
+      <div class="metric"><div class="num" id="mQueue">0</div><div class="label">队列待打印（字）</div></div>
+    </div>
+
+    <div class="screen" id="screen">
+      <span class="prompt">AI&nbsp; ›</span><span class="text" id="text"></span><span class="cursor" id="cursor" style="display:none"></span><span class="placeholder" id="placeholder">点击「开始生成」看效果…</span>
+    </div>
+    <p class="hint" id="hint">匀速队列：已生成领先、队列缓冲、屏幕匀速追上——实时又丝滑，生产消费解耦。</p>
+  </section>
+
+  <section class="compare" id="compare">
+    <div class="card" data-mode="once">
+      <div class="tag">方案一</div><h3>普通请求 + 前端模拟</h3>
+      <p>fetch 等整段返回完，再用定时器逐字吐。<br>优点：最简单。<br>缺点：假流式，首字要等全部到齐。</p>
+    </div>
+    <div class="card" data-mode="stream">
+      <div class="tag">方案二</div><h3>SSE 流 + EventSource</h3>
+      <p>原生 EventSource 或 alova 直接收流，收到即显示。<br>优点：真流式。<br>缺点：模型速度不稳，渲染一顿一顿。</p>
+    </div>
+    <div class="card on" data-mode="smooth">
+      <div class="tag">方案三 · 推荐</div><h3>fetch 流 + 匀速队列</h3>
+      <p>数据进队列，固定频率消费；停止时等队列吐完。<br>优点：实时又匀速，生产/消费解耦。<br>适用：生产级 AI 应用。</p>
+    </div>
+  </section>
+
+  <div class="foot">实现要点：MessageManager 队列控制器 · 模拟 SSE 不稳定返回 · 停止不截半句</div>
+</div>
+
+<script>
+  document.getElementById('backHome').addEventListener('click', () => {
+    const w = window.$wujie;
+    if (w && w.props && typeof w.props.onBack === 'function') { w.props.onBack(); return; }
+    window.location.href = `${location.origin}/#/portfolio`;
+  });
+
+  const SAMPLE =
+    '你好，欢迎来到吾界的 Demo 实验室。这个页面演示的是 AI 对话里最常见的打字机效果。' +
+    '同样是让文字一个字一个字出现，背后的实现方式却差别很大。第一种最简单：等后端把整段话全部返回，' +
+    '前端再用定时器一个字一个字往外吐。第二种更贴近真实场景：服务端通过 SSE 把内容流式推过来，前端收到多少显示多少，' +
+    '但大模型的返回速度忽快忽慢，看起来会一顿一顿。第三种是我最推荐的：不管数据以什么节奏到达，先全部放进一个队列，' +
+    '再用固定的频率匀速消费。这样既保留了流式返回的实时性，又让阅读体验始终丝滑。';
+
+  const HINTS = {
+    once: '一次性：已生成数字先涨，屏幕一直空着，最后突然全部出现——首字延迟最高。',
+    stream: '逐字流式：两个数字几乎同步，但跟着服务端节奏忽快忽慢，成块蹦出。',
+    smooth: '匀速队列：已生成领先、队列缓冲、屏幕匀速追上——实时又丝滑，生产消费解耦。'
+  };
+
+  const $ = (id) => document.getElementById(id);
+  let mode = 'smooth', speed = 45, running = false;
+  let timers = [], mmTimer = null, queue = [], producedDone = false, stopFlag = false;
+  let produced = '', shown = '';
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('.mode').forEach((el) => el.classList.toggle('on', el.dataset.mode === m));
+    document.querySelectorAll('.card').forEach((el) => el.classList.toggle('on', el.dataset.mode === m));
+    $('hint').textContent = HINTS[m];
+    $('speed').disabled = m !== 'smooth';
+    reset();
+  }
+  document.querySelectorAll('.mode').forEach((el) => el.addEventListener('click', () => setMode(el.dataset.mode)));
+  document.querySelectorAll('.card').forEach((el) => el.addEventListener('click', () => setMode(el.dataset.mode)));
+  $('speed').addEventListener('input', (e) => {
+    speed = +e.target.value; $('speedVal').textContent = speed;
+    if (running) reset();
+  });
+
+  function render() {
+    $('mProduced').textContent = produced.length;
+    $('mShown').textContent = shown.length;
+    $('mQueue').textContent = queue.length;
+    $('text').textContent = shown;
+    $('placeholder').style.display = shown ? 'none' : (running ? 'none' : 'inline');
+    $('cursor').style.display = running ? 'inline-block' : 'none';
+    $('screen').scrollTop = $('screen').scrollHeight;
+  }
+  function cleanup() {
+    timers.forEach(clearTimeout); timers = [];
+    if (mmTimer) { clearInterval(mmTimer); mmTimer = null; }
+    queue = []; producedDone = false; stopFlag = false;
+  }
+  function reset() {
+    cleanup(); running = false; produced = ''; shown = '';
+    $('run').disabled = false; $('stop').disabled = true; render();
+  }
+
+  function run() {
+    cleanup();
+    running = true; produced = ''; shown = '';
+    $('run').disabled = true; $('stop').disabled = false; render();
+
+    if (mode === 'smooth') {
+      mmTimer = setInterval(() => {
+        if (queue.length > 0) {
+          shown += queue.shift(); render();
+        } else if (stopFlag || producedDone) {
+          clearInterval(mmTimer); mmTimer = null;
+          running = false; $('run').disabled = false; $('stop').disabled = true; render();
+        }
+      }, speed);
+    }
+
+    const chars = SAMPLE.split('');
+    let idx = 0;
+    const emit = () => {
+      if (stopFlag) return;
+      if (idx >= chars.length) {
+        if (mode === 'once') {
+          shown = produced; running = false;
+          $('run').disabled = false; $('stop').disabled = true; render();
+        } else if (mode === 'smooth') {
+          producedDone = true;
+        }
+        return;
+      }
+      const size = 1 + Math.floor(Math.random() * 4);
+      const chunk = chars.slice(idx, idx + size).join('');
+      idx += size; produced += chunk;
+      if (mode === 'stream') { shown += chunk; render(); }
+      else if (mode === 'smooth') { queue.push(...chunk.split('')); render(); }
+      else render();
+      timers.push(setTimeout(emit, 90 + Math.random() * 360));
+    };
+    emit();
+  }
+
+  function stop() {
+    if (!running) return;
+    stopFlag = true;
+    if (mode !== 'smooth') {
+      cleanup(); running = false;
+      $('run').disabled = false; $('stop').disabled = true; render();
+    }
+  }
+
+  $('run').addEventListener('click', run);
+  $('stop').addEventListener('click', stop);
+  $('reset').addEventListener('click', reset);
+  render();
+</script>
+</body>
+</html>
